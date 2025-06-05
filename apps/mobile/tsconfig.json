@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "jsx": "react-jsx"
+  },
+  "include": [
+    "app/**/*",
+    "components/**/*",
+    "constants/**/*",
+    "hooks/**/*",
+    "types/**/*",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
