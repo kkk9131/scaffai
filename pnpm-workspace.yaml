@@ -1,0 +1,13 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+importers:
+  .:
+    devDependencies:
+      turbo: ^1.12.0
+  apps/mobile:
+    dependencies:
+      '@scaffai/core': workspace:*
+  packages/core: {}
+  packages/ui: {}
