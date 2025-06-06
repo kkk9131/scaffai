@@ -17,7 +17,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function ResultScreen() {
-  const { isLoading, error, calculationResult } = useScaffold();
+  const { isLoading, error, calculationResult, saveCalculationToHistory } = useScaffold();
   const router = useRouter();
 
   if (isLoading) {
@@ -139,10 +139,7 @@ export default function ResultScreen() {
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           style={styles.saveButton}
-          onPress={() => {
-            // TODO: 保存機能の実装
-            console.log('Save result');
-          }}
+          onPress={() => saveCalculationToHistory()}
         >
           <Ionicons name="save" color={colors.text.primary} size={20} />
           <Text style={styles.saveButtonText}>{ja.result.saveButton}</Text>

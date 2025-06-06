@@ -15,6 +15,8 @@ export type {
   AuthState,
   DatabaseError,
   Json,
+  Database,
+  Tables,
 } from './types';
 
 export { MaterialType, SafetyRating } from './types';

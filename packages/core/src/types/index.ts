@@ -74,3 +74,10 @@ export type Json =
   | null
   | { [key: string]: Json | undefined }
   | Json[];
+
+// Re-export from other modules
+export type { Database } from './database';
+import type { Database } from './database';
+
+// Helper type for getting table types
+export type Tables<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row'];

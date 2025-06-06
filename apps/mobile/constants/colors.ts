@@ -11,6 +11,8 @@ export const colors = {
     dark: '#2DBF9A',
   },
   background: {
+    primary: '#0F172A',
+    secondary: '#1E293B',
     dark: '#0F172A',
     paper: '#1E293B',
     card: '#334155',
@@ -24,6 +26,9 @@ export const colors = {
   warning: '#F57C00', // 警告
   error: '#D32F2F', // エラー
   divider: '#2D3748', // 区切り線
+  border: {
+    main: '#334155',
+  },
   input: {
     background: '#1E293B',
     border: '#334155',
