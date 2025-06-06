@@ -15,11 +15,21 @@ export type {
   AuthState,
   DatabaseError,
   Json,
-  Database,
-  SupabaseClient,
 } from './types';
 
 export { MaterialType, SafetyRating } from './types';
+
+// 計算エンジン
+export {
+  calculateAll,
+  calcAll,
+} from './calculator/engine';
+
+// 計算関連の型
+export type {
+  ScaffoldInputData,
+  ScaffoldCalculationResult,
+} from './calculator/types';
 
 // Utilities
 export {

@@ -282,7 +282,7 @@ export function calculateFaceDimensions(
         }
       }
       if (corrValForLeftNoteStr === null && candidates.length > 0) {
-        corrValForLeftNoteStr = candidates[candidates.length - 1];
+        corrValForLeftNoteStr = candidates[candidates.length - 1] || null;
       }
     }
     
@@ -294,7 +294,7 @@ export function calculateFaceDimensions(
         }
       }
       if (corrValForRightNoteStr === null && candidates.length > 0) {
-        corrValForRightNoteStr = candidates[candidates.length - 1];
+        corrValForRightNoteStr = candidates[candidates.length - 1] || null;
       }
     }
     
@@ -341,8 +341,9 @@ export function calculateFaceDimensions(
     } else if (prefixStr) {
       spanPartsText = `${prefixStr}, ${spanPartsText}`;
     } else if (suffixStr) {
-      if (currentSpanElements.length > 0 && /^\d+$/.test(currentSpanElements[currentSpanElements.length - 1].replace('span', ''))) {
-        currentSpanElements[currentSpanElements.length - 1] = `${currentSpanElements[currentSpanElements.length - 1]}${suffixStr}`;
+      const lastElement = currentSpanElements[currentSpanElements.length - 1];
+      if (currentSpanElements.length > 0 && lastElement && /^\d+$/.test(lastElement.replace('span', ''))) {
+        currentSpanElements[currentSpanElements.length - 1] = `${lastElement}${suffixStr}`;
         spanPartsText = currentSpanElements.join(', ');
       } else {
         spanPartsText = `${spanPartsText}, ${correctionPartVal}${suffixStr}`;

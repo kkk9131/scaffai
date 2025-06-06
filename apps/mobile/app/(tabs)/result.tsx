@@ -14,8 +14,7 @@ import { colors } from '../../constants/colors';
 import { ja } from '../../constants/translations';
 import { useScaffold } from '../../context/ScaffoldContext';
 import { useRouter } from 'expo-router';
-import { Save, RefreshCw, AlertCircle } from 'lucide-react-native';
-import Animated, { FadeIn, SlideInUp } from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function ResultScreen() {
   const { isLoading, error, calculationResult } = useScaffold();
@@ -33,7 +32,7 @@ export default function ResultScreen() {
   if (error) {
     return (
       <SafeAreaView style={styles.errorContainer}>
-        <AlertCircle size={60} color={colors.error} />
+        <Ionicons name="alert-circle" size={60} color={colors.error} />
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity
           style={styles.errorButton}
@@ -62,12 +61,12 @@ export default function ResultScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
-      <Animated.View entering={FadeIn.duration(600)} style={styles.header}>
+      <View style={styles.header}>
         <Text style={styles.title}>{ja.result.title}</Text>
-      </Animated.View>
+      </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        <Animated.View entering={SlideInUp.duration(600).delay(200)}>
+        <View>
           <ResultCard
             title={ja.result.totalSpan + " (南北)"}
             value={calculationResult.ns_total_span}
@@ -134,7 +133,7 @@ export default function ResultScreen() {
             suffix={ja.common.mm}
             delay={1100}
           />
-        </Animated.View>
+        </View>
       </ScrollView>
 
       <View style={styles.buttonContainer}>
@@ -145,7 +144,7 @@ export default function ResultScreen() {
             console.log('Save result');
           }}
         >
-          <Save color={colors.text.primary} size={20} />
+          <Ionicons name="save" color={colors.text.primary} size={20} />
           <Text style={styles.saveButtonText}>{ja.result.saveButton}</Text>
         </TouchableOpacity>
         
@@ -153,7 +152,7 @@ export default function ResultScreen() {
           style={styles.recalculateButton}
           onPress={() => router.push('/(tabs)/input')}
         >
-          <RefreshCw color={colors.text.primary} size={20} />
+          <Ionicons name="refresh" color={colors.text.primary} size={20} />
           <Text style={styles.recalculateButtonText}>{ja.result.recalculateButton}</Text>
         </TouchableOpacity>
       </View>

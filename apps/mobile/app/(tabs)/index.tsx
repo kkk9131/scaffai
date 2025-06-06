@@ -10,9 +10,10 @@ import {
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../constants/colors';
 import { ja } from '../../constants/translations';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
+// import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -21,10 +22,7 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
       <ScrollView style={styles.scrollView}>
-        <Animated.View
-          entering={FadeIn.duration(600)}
-          style={styles.container}
-        >
+        <View style={styles.animatedContainer}>
           <View style={styles.content}>
             <Text style={styles.title}>{ja.appName}</Text>
             <Text style={styles.version}>Ver.1.0</Text>
@@ -37,7 +35,7 @@ export default function HomeScreen() {
               <Text style={styles.buttonText}>{ja.home.startButton}</Text>
             </TouchableOpacity>
           </View>
-        </Animated.View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -47,9 +45,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background.dark,
-    padding: 20,
   },
   scrollView: {
+    flex: 1,
+    padding: 20,
+  },
+  animatedContainer: {
     flex: 1,
   },
   content: {

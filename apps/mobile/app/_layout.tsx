@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Platform } from 'react-native';
 import { ScaffoldProvider } from '../context/ScaffoldContext';
+import 'react-native-gesture-handler';
 
 // Web用CSS読み込み (一時的に無効化)
 // if (Platform.OS === 'web') {

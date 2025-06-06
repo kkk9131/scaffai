@@ -71,7 +71,12 @@ function generateCombinations(arr: number[], size: number): number[][] {
     }
     
     for (let i = 0; i < remaining.length; i++) {
-      current.push(remaining[i]);
+      const element = remaining[i];
+      if (element !== undefined) {
+        current.push(element);
+      } else {
+        continue;
+      }
       combine(current, remaining, depth + 1);
       current.pop();
     }

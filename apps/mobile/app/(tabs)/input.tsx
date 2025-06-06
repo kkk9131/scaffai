@@ -18,8 +18,7 @@ import { RadioField } from '../../components/RadioField';
 import { colors } from '../../constants/colors';
 import { ja } from '../../constants/translations';
 import { useScaffold } from '../../context/ScaffoldContext';
-import { ArrowRight, RotateCcw, Info } from 'lucide-react-native';
-import Animated, { FadeIn } from 'react-native-reanimated';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function InputScreen() {
   const {
@@ -74,12 +73,9 @@ export default function InputScreen() {
         style={styles.container}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
       >
-        <Animated.View 
-          entering={FadeIn.duration(600)}
-          style={styles.header}
-        >
+        <View style={styles.header}>
           <Text style={styles.title}>{ja.input.title}</Text>
-        </Animated.View>
+        </View>
 
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
           {/* 躯体幅 */}
@@ -344,7 +340,7 @@ export default function InputScreen() {
             style={styles.resetButton}
             onPress={resetInputData}
           >
-            <RotateCcw color={colors.text.secondary} size={20} />
+            <Ionicons name="refresh" color={colors.text.secondary} size={20} />
             <Text style={styles.resetButtonText}>{ja.input.resetButton}</Text>
           </TouchableOpacity>
           
@@ -358,7 +354,7 @@ export default function InputScreen() {
             ) : (
               <>
                 <Text style={styles.calculateButtonText}>{ja.input.calculateButton}</Text>
-                <ArrowRight color={colors.text.primary} size={20} />
+                <Ionicons name="arrow-forward" color={colors.text.primary} size={20} />
               </>
             )}
           </TouchableOpacity>
