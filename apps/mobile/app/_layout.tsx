@@ -5,6 +5,8 @@ import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Platform } from 'react-native';
 import { ScaffoldProvider } from '../context/ScaffoldContext';
+import { AuthProvider } from '../context/AuthContext';
+import { AuthGuard } from '../components/AuthGuard';
 import 'react-native-gesture-handler';
 
 // Web用CSS読み込み (一時的に無効化)
@@ -26,12 +28,16 @@ export default function RootLayout() {
   }
 
   return (
-    <ScaffoldProvider>
-      <Stack>
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ScaffoldProvider>
+    <AuthProvider>
+      <AuthGuard>
+        <ScaffoldProvider>
+          <Stack>
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          </Stack>
+          <StatusBar style="auto" />
+        </ScaffoldProvider>
+      </AuthGuard>
+    </AuthProvider>
   );
 }

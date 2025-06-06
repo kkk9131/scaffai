@@ -5,15 +5,40 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../constants/colors';
 import { ja } from '../../constants/translations';
+import { useRouter } from 'expo-router';
+import { useAuthContext } from '../../context/AuthContext';
 // import Animated, { FadeIn } from 'react-native-reanimated';
 
 export default function ProfileScreen() {
+  const router = useRouter();
+  const { user, profile, signOut } = useAuthContext();
+
+  const handleLogout = () => {
+    Alert.alert(
+      'ログアウト',
+      'ログアウトしますか？',
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: 'ログアウト',
+          style: 'destructive',
+          onPress: async () => {
+            const { error } = await signOut();
+            if (error) {
+              Alert.alert('エラー', 'ログアウトに失敗しました');
+            }
+          },
+        },
+      ]
+    );
+  };
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <StatusBar style="light" />
@@ -33,10 +58,10 @@ export default function ProfileScreen() {
 
           {/* ユーザー情報 */}
           <View style={styles.userInfo}>
-            <Text style={styles.userName}>足場 太郎</Text>
-            <Text style={styles.userEmail}>scaffai@example.com</Text>
+            <Text style={styles.userName}>{profile?.name || 'ユーザー'}</Text>
+            <Text style={styles.userEmail}>{user?.email}</Text>
             <View style={styles.planBadge}>
-              <Text style={styles.planText}>Basic プラン</Text>
+              <Text style={styles.planText}>{profile?.scaffai_role || 'USER'}</Text>
             </View>
           </View>
         </View>
@@ -65,6 +90,17 @@ export default function ProfileScreen() {
             <View style={styles.menuItemLeft}>
               <Ionicons name="shield-checkmark" size={24} color={colors.primary.main} />
               <Text style={styles.menuItemText}>セキュリティ</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.menuItem}
+            onPress={() => router.push('/(tabs)/history')}
+          >
+            <View style={styles.menuItemLeft}>
+              <Ionicons name="time" size={24} color={colors.primary.main} />
+              <Text style={styles.menuItemText}>計算履歴</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
           </TouchableOpacity>
@@ -101,7 +137,7 @@ export default function ProfileScreen() {
 
         {/* ログアウト */}
         <View style={styles.section}>
-          <TouchableOpacity style={styles.logoutButton}>
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
             <Ionicons name="log-out" size={24} color={colors.error} />
             <Text style={styles.logoutText}>ログアウト</Text>
           </TouchableOpacity>

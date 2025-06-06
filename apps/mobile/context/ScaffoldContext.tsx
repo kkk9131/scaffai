@@ -2,6 +2,10 @@ import React, { createContext, useState, useContext, useCallback } from 'react';
 import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
 import { calculateAll, type ScaffoldInputData, type ScaffoldCalculationResult } from '@scaffai/core';
+import { HistoryStorage } from '../utils/storage';
+import { CalculationHistory } from '../types/history';
+import { supabase } from '../lib/supabase';
+import { useAuthContext } from './AuthContext';
 
 // roofShapeのマッピング
 const roofShapeMapping = {
@@ -218,6 +222,7 @@ type ScaffoldContextType = {
   error: string | null;
   calculateScaffold: () => Promise<void>;
   testAPICall: () => Promise<void>; // テスト用のシンプルなAPI呼び出し
+  saveCalculationToHistory: (title?: string) => Promise<void>;
 };
 
 // コンテキスト作成
@@ -235,6 +240,7 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const { user } = useAuthContext();
 
   // 入力値の更新 (ネスト階層対応済)
   const setInputValue = useCallback((
@@ -311,6 +317,83 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
       console.log('Setting calculation result:', result);
       console.log('Navigating to result screen...');
       
+      // 自動的に履歴に保存（ローカル + Supabase）
+      try {
+        const historyItem: CalculationHistory = {
+          id: HistoryStorage.generateId(),
+          createdAt: new Date().toISOString(),
+          inputData: inputData,
+          result: result,
+        };
+        
+        // ローカルストレージに保存
+        await HistoryStorage.saveCalculation(historyItem);
+        console.log('Calculation automatically saved to local history');
+        
+        // Supabaseにも保存（認証済みの場合）
+        if (user) {
+          try {
+            const { error: supabaseError } = await supabase
+              .from('scaffold_calculations')
+              .insert({
+                user_id: user.id,
+                title: `計算結果 ${new Date().toLocaleDateString('ja-JP')}`,
+                // 入力データの個別フィールド
+                frame_width_ns: inputData.frameWidth.northSouth,
+                frame_width_ew: inputData.frameWidth.eastWest,
+                eaves_north: inputData.eaveOverhang.north,
+                eaves_east: inputData.eaveOverhang.east,
+                eaves_south: inputData.eaveOverhang.south,
+                eaves_west: inputData.eaveOverhang.west,
+                property_line_north: inputData.propertyLine.north,
+                property_line_east: inputData.propertyLine.east,
+                property_line_south: inputData.propertyLine.south,
+                property_line_west: inputData.propertyLine.west,
+                property_line_distance_north: inputData.propertyLineDistance?.north,
+                property_line_distance_east: inputData.propertyLineDistance?.east,
+                property_line_distance_south: inputData.propertyLineDistance?.south,
+                property_line_distance_west: inputData.propertyLineDistance?.west,
+                reference_height: inputData.referenceHeight,
+                roof_shape: inputData.roofShape,
+                has_tie_columns: inputData.hasTieColumns,
+                eaves_handrails: inputData.eavesHandrails,
+                special_material_ns_355: inputData.specialMaterial.northSouth.material355,
+                special_material_ns_300: inputData.specialMaterial.northSouth.material300,
+                special_material_ns_150: inputData.specialMaterial.northSouth.material150,
+                special_material_ew_355: inputData.specialMaterial.eastWest.material355,
+                special_material_ew_300: inputData.specialMaterial.eastWest.material300,
+                special_material_ew_150: inputData.specialMaterial.eastWest.material150,
+                target_offset: inputData.targetOffset,
+                // 計算結果の個別フィールド
+                ns_total_span: result.ns_total_span,
+                ew_total_span: result.ew_total_span,
+                ns_span_structure: result.ns_span_structure,
+                ew_span_structure: result.ew_span_structure,
+                north_gap: result.north_gap,
+                south_gap: result.south_gap,
+                east_gap: result.east_gap,
+                west_gap: result.west_gap,
+                num_stages: result.num_stages,
+                modules_count: result.modules_count,
+                jack_up_height: result.jack_up_height,
+                first_layer_height: result.first_layer_height,
+                tie_ok: result.tie_ok,
+                tie_column_used: result.tie_column_used,
+              });
+              
+            if (supabaseError) {
+              console.error('Failed to save to Supabase:', supabaseError);
+            } else {
+              console.log('Calculation saved to Supabase database');
+            }
+          } catch (supabaseError) {
+            console.error('Supabase save error:', supabaseError);
+          }
+        }
+      } catch (historyError) {
+        console.error('Failed to auto-save to history:', historyError);
+      }
+      
       // 結果画面へ遷移
       setTimeout(() => {
         try {
@@ -332,6 +415,90 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [inputData, router]);
 
+  // 計算結果を履歴に保存
+  const saveCalculationToHistory = useCallback(async (title?: string) => {
+    if (!calculationResult) {
+      Alert.alert('エラー', '保存する計算結果がありません');
+      return;
+    }
+
+    try {
+      const historyItem: CalculationHistory = {
+        id: HistoryStorage.generateId(),
+        createdAt: new Date().toISOString(),
+        inputData: inputData,
+        result: calculationResult,
+        title: title,
+      };
+
+      // ローカルストレージに保存
+      await HistoryStorage.saveCalculation(historyItem);
+      
+      // Supabaseにも保存（認証済みの場合）
+      if (user) {
+        const { error: supabaseError } = await supabase
+          .from('scaffold_calculations')
+          .insert({
+            user_id: user.id,
+            title: title || `計算結果 ${new Date().toLocaleDateString('ja-JP')}`,
+            // 入力データの個別フィールド
+            frame_width_ns: inputData.frameWidth.northSouth,
+            frame_width_ew: inputData.frameWidth.eastWest,
+            eaves_north: inputData.eaveOverhang.north,
+            eaves_east: inputData.eaveOverhang.east,
+            eaves_south: inputData.eaveOverhang.south,
+            eaves_west: inputData.eaveOverhang.west,
+            property_line_north: inputData.propertyLine.north,
+            property_line_east: inputData.propertyLine.east,
+            property_line_south: inputData.propertyLine.south,
+            property_line_west: inputData.propertyLine.west,
+            property_line_distance_north: inputData.propertyLineDistance?.north,
+            property_line_distance_east: inputData.propertyLineDistance?.east,
+            property_line_distance_south: inputData.propertyLineDistance?.south,
+            property_line_distance_west: inputData.propertyLineDistance?.west,
+            reference_height: inputData.referenceHeight,
+            roof_shape: inputData.roofShape,
+            has_tie_columns: inputData.hasTieColumns,
+            eaves_handrails: inputData.eavesHandrails,
+            special_material_ns_355: inputData.specialMaterial.northSouth.material355,
+            special_material_ns_300: inputData.specialMaterial.northSouth.material300,
+            special_material_ns_150: inputData.specialMaterial.northSouth.material150,
+            special_material_ew_355: inputData.specialMaterial.eastWest.material355,
+            special_material_ew_300: inputData.specialMaterial.eastWest.material300,
+            special_material_ew_150: inputData.specialMaterial.eastWest.material150,
+            target_offset: inputData.targetOffset,
+            // 計算結果の個別フィールド
+            ns_total_span: calculationResult.ns_total_span,
+            ew_total_span: calculationResult.ew_total_span,
+            ns_span_structure: calculationResult.ns_span_structure,
+            ew_span_structure: calculationResult.ew_span_structure,
+            north_gap: calculationResult.north_gap,
+            south_gap: calculationResult.south_gap,
+            east_gap: calculationResult.east_gap,
+            west_gap: calculationResult.west_gap,
+            num_stages: calculationResult.num_stages,
+            modules_count: calculationResult.modules_count,
+            jack_up_height: calculationResult.jack_up_height,
+            first_layer_height: calculationResult.first_layer_height,
+            tie_ok: calculationResult.tie_ok,
+            tie_column_used: calculationResult.tie_column_used,
+          });
+          
+        if (supabaseError) {
+          console.error('Failed to save to Supabase:', supabaseError);
+          Alert.alert('保存完了', 'ローカル履歴に保存しました（クラウド同期は失敗）');
+        } else {
+          Alert.alert('保存完了', '計算結果をローカル・クラウド両方に保存しました');
+        }
+      } else {
+        Alert.alert('保存完了', 'ローカル履歴に保存しました');
+      }
+    } catch (error) {
+      console.error('Failed to save calculation to history:', error);
+      Alert.alert('保存エラー', '履歴の保存に失敗しました');
+    }
+  }, [calculationResult, inputData, user]);
+
   return (
     <ScaffoldContext.Provider
       value={{
@@ -343,6 +510,7 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
         error,
         calculateScaffold,
         testAPICall,
+        saveCalculationToHistory,
       }}
     >
       {children}
