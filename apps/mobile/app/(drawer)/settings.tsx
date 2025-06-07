@@ -6,6 +6,7 @@ import {
   ScrollView,
   Alert,
   Linking,
+  Platform,
 } from 'react-native';
 import { AppHeader } from '../../components/AppHeader';
 import { StatusBar } from 'expo-status-bar';
@@ -17,14 +18,15 @@ import { SettingsItem } from '../../components/SettingsItem';
 import { SettingsSwitch } from '../../components/SettingsSwitch';
 import { HistoryStorage } from '../../utils/storage';
 import Constants from 'expo-constants';
-import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
+import { useAlert } from '../../hooks/useAlert';
 
 export default function SettingsScreen() {
   const { theme, toggleTheme, colors, isDark } = useTheme();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const router = useRouter();
+  const { showSimpleAlert, showConfirmAlert } = useAlert();
 
   // オンボーディング再表示処理
   const handleShowOnboarding = async () => {
@@ -33,34 +35,24 @@ export default function SettingsScreen() {
       router.push('/onboarding');
     } catch (error) {
       console.error('Failed to reset onboarding:', error);
-      Alert.alert('エラー', 'オンボーディングの再表示に失敗しました');
+      showSimpleAlert('エラー', 'オンボーディングの再表示に失敗しました');
     }
   };
 
   // 履歴クリア処理
   const handleClearHistory = () => {
-    Alert.alert(
+    showConfirmAlert(
       ja.settings.clearHistoryConfirm,
       ja.settings.clearHistoryMessage,
-      [
-        {
-          text: ja.common.cancel,
-          style: 'cancel',
-        },
-        {
-          text: ja.common.delete,
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await HistoryStorage.clearAllHistory();
-              Alert.alert('完了', ja.settings.clearHistorySuccess);
-            } catch (error) {
-              console.error('Failed to clear history:', error);
-              Alert.alert('エラー', ja.settings.clearHistoryError);
-            }
-          },
-        },
-      ]
+      async () => {
+        try {
+          await HistoryStorage.clearAllHistory();
+          showSimpleAlert('完了', ja.settings.clearHistorySuccess);
+        } catch (error) {
+          console.error('Failed to clear history:', error);
+          showSimpleAlert('エラー', ja.settings.clearHistoryError);
+        }
+      }
     );
   };
 
@@ -71,11 +63,11 @@ export default function SettingsScreen() {
       if (supported) {
         await Linking.openURL(url);
       } else {
-        Alert.alert('エラー', 'このリンクを開けませんでした');
+        showSimpleAlert('エラー', 'このリンクを開けませんでした');
       }
     } catch (error) {
       console.error('Failed to open URL:', error);
-      Alert.alert('エラー', 'このリンクを開けませんでした');
+      showSimpleAlert('エラー', 'このリンクを開けませんでした');
     }
   };
 
@@ -175,8 +167,8 @@ export default function SettingsScreen() {
             title={ja.settings.privacyPolicy}
             description="プライバシーポリシーを確認します"
             onPress={() => {
-              console.log('Privacy Policy pressed');
-              Alert.alert('準備中', 'プライバシーポリシーは現在準備中です。\n後日公開予定です。');
+              console.log('Privacy Policy pressed, Platform.OS:', Platform.OS);
+              showSimpleAlert('準備中', 'プライバシーポリシーは現在準備中です。後日公開予定です。');
             }}
           />
           
@@ -185,8 +177,8 @@ export default function SettingsScreen() {
             title={ja.settings.termsOfService}
             description="利用規約を確認します"
             onPress={() => {
-              console.log('Terms of Service pressed');
-              Alert.alert('準備中', '利用規約は現在準備中です。\n後日公開予定です。');
+              console.log('Terms of Service pressed, Platform.OS:', Platform.OS);
+              showSimpleAlert('準備中', '利用規約は現在準備中です。後日公開予定です。');
             }}
           />
           
@@ -195,8 +187,8 @@ export default function SettingsScreen() {
             title={ja.settings.licenses}
             description="オープンソースライセンスを確認します"
             onPress={() => {
-              console.log('Licenses pressed');
-              Alert.alert('準備中', 'ライセンス情報は現在準備中です。\n後日公開予定です。');
+              console.log('Licenses pressed, Platform.OS:', Platform.OS);
+              showSimpleAlert('準備中', 'ライセンス情報は現在準備中です。後日公開予定です。');
             }}
           />
         </SettingsSection>

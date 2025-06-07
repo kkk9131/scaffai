@@ -27,6 +27,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 export const useAuthContext = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
+    console.error('❌ [AuthContext] useAuthContext must be used within an AuthProvider');
     // デフォルト値を返してエラーを防ぐ
     return {
       user: null,
@@ -36,7 +37,10 @@ export const useAuthContext = () => {
       initialized: false,
       signUp: async () => ({ data: null, error: null }),
       signIn: async () => ({ data: null, error: null }),
-      signOut: async () => ({ error: null }),
+      signOut: async () => {
+        console.log('🚪 [AuthContext] Default signOut called - context not available');
+        return { error: null };
+      },
       updateProfile: async () => ({ data: null, error: null }),
       refreshProfile: () => {},
     };

@@ -113,36 +113,22 @@ export default function ProfileScreen() {
     );
   };
 
-  const handleLogout = () => {
-    Alert.alert(
-      'ログアウト',
-      'ログアウトしますか？',
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        {
-          text: 'ログアウト',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              if (!signOut) {
-                Alert.alert('エラー', 'ログアウト機能が利用できません');
-                return;
-              }
-              
-              const result = await signOut();
-              
-              if (result && result.error) {
-                Alert.alert('エラー', `ログアウトに失敗しました: ${result.error.message || 'Unknown error'}`);
-              } else {
-                Alert.alert('ログアウト完了', 'ログアウトしました');
-              }
-            } catch (error) {
-              Alert.alert('エラー', `ログアウト処理中にエラーが発生しました: ${error instanceof Error ? error.message : String(error)}`);
-            }
-          },
-        },
-      ]
-    );
+  const handleLogout = async () => {
+    console.log('🚪 [Profile] Logout button pressed');
+    console.log('🚪 [Profile] User state:', !!user);
+    console.log('🚪 [Profile] SignOut function available:', !!signOut);
+    
+    if (signOut) {
+      console.log('🚪 [Profile] Calling signOut directly...');
+      try {
+        const result = await signOut();
+        console.log('🚪 [Profile] SignOut result:', result);
+      } catch (error) {
+        console.error('🚪 [Profile] SignOut error:', error);
+      }
+    } else {
+      console.error('❌ [Profile] signOut function not available');
+    }
   };
 
   const dynamicStyles = StyleSheet.create({

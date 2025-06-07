@@ -13,36 +13,22 @@ function CustomDrawerContent(props: any) {
   const { colors, isDark } = useTheme();
   const { user, signOut } = useAuthContext();
 
-  const handleSignOut = () => {
-    Alert.alert(
-      'ログアウト',
-      'ログアウトしますか？',
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        {
-          text: 'ログアウト',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              if (!signOut) {
-                Alert.alert('エラー', 'ログアウト機能が利用できません');
-                return;
-              }
-              
-              const result = await signOut();
-              
-              if (result && result.error) {
-                Alert.alert('エラー', `ログアウトに失敗しました: ${result.error.message}`);
-              } else {
-                Alert.alert('ログアウト完了', 'ログアウトしました');
-              }
-            } catch (error) {
-              Alert.alert('エラー', `ログアウト処理中にエラーが発生しました: ${error instanceof Error ? error.message : String(error)}`);
-            }
-          },
-        },
-      ]
-    );
+  const handleSignOut = async () => {
+    console.log('🚪 [Drawer] Logout button pressed');
+    console.log('🚪 [Drawer] User state:', !!user);
+    console.log('🚪 [Drawer] SignOut function available:', !!signOut);
+    
+    if (signOut) {
+      console.log('🚪 [Drawer] Calling signOut directly...');
+      try {
+        const result = await signOut();
+        console.log('🚪 [Drawer] SignOut result:', result);
+      } catch (error) {
+        console.error('🚪 [Drawer] SignOut error:', error);
+      }
+    } else {
+      console.error('❌ [Drawer] signOut function not available');
+    }
   };
 
   const menuItems = [

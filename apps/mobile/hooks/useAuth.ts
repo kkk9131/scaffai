@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Session, User } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { Tables } from '@scaffai/core';
 
@@ -42,37 +43,48 @@ export const useAuth = () => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('🔄 [useAuth] Auth state changed:', event, 'User ID:', session?.user?.id);
+      try {
+        console.log('🔄 [useAuth] Auth state changed:', event, 'User ID:', session?.user?.id, 'Platform:', Platform.OS);
 
-      // SIGNED_OUT イベントの特別処理
-      if (event === 'SIGNED_OUT') {
-        console.log('🚪 [useAuth] SIGNED_OUT event detected - clearing all auth state');
+        // SIGNED_OUT イベントの特別処理
+        if (event === 'SIGNED_OUT') {
+          console.log('🚪 [useAuth] SIGNED_OUT event detected - clearing all auth state');
+          setAuthState({
+            session: null,
+            user: null,
+            profile: null,
+            loading: false,
+            initialized: true,
+          });
+          console.log('🚪 [useAuth] Auth state fully cleared on SIGNED_OUT');
+          return;
+        }
+
+        // その他のイベント（SIGNED_IN, TOKEN_REFRESHED等）
         setAuthState(prev => ({
           ...prev,
-          session: null,
-          user: null,
-          profile: null,
+          session,
+          user: session?.user ?? null,
           loading: false,
           initialized: true,
         }));
-        return;
-      }
 
-      // その他のイベント（SIGNED_IN, TOKEN_REFRESHED等）
-      setAuthState(prev => ({
-        ...prev,
-        session,
-        user: session?.user ?? null,
-        loading: false,
-        initialized: true,
-      }));
-
-      if (session?.user) {
-        console.log('👤 [useAuth] User session found, fetching profile...');
-        await fetchProfile(session.user.id);
-      } else {
-        console.log('👤 [useAuth] No user session, clearing profile');
-        setAuthState(prev => ({ ...prev, profile: null }));
+        if (session?.user) {
+          console.log('👤 [useAuth] User session found, fetching profile...');
+          try {
+            await fetchProfile(session.user.id);
+          } catch (profileError) {
+            console.error('❌ [useAuth] Profile fetch error:', profileError);
+            // プロファイル取得に失敗してもセッションは維持
+          }
+        } else {
+          console.log('👤 [useAuth] No user session, clearing profile');
+          setAuthState(prev => ({ ...prev, profile: null }));
+        }
+      } catch (stateChangeError) {
+        console.error('❌ [useAuth] Auth state change error:', stateChangeError);
+        // エラーが発生しても初期化は完了とマーク
+        setAuthState(prev => ({ ...prev, loading: false, initialized: true }));
       }
     });
 
@@ -145,58 +157,31 @@ export const useAuth = () => {
 
   const signOut = async () => {
     console.log('🚪 [useAuth] Starting signOut process...');
-    setAuthState(prev => ({ ...prev, loading: true }));
-
+    
     try {
-      console.log('🚪 [useAuth] Calling supabase.auth.signOut()...');
-      
-      // 5秒のタイムアウトを設定
-      const signOutPromise = supabase.auth.signOut();
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('SignOut timeout')), 5000)
-      );
-      
-      const { error } = await Promise.race([signOutPromise, timeoutPromise]) as any;
-      
-      if (error) {
-        console.error('❌ [useAuth] Supabase signOut error:', error);
-        setAuthState(prev => ({ ...prev, loading: false }));
-        throw error;
-      }
-
-      console.log('✅ [useAuth] Supabase signOut successful');
-      
-      // 手動で状態をクリアして確実にログアウト状態にする
-      setAuthState(prev => ({
-        ...prev,
+      // まず状態をクリア
+      setAuthState({
         user: null,
         profile: null,
         session: null,
         loading: false,
         initialized: true,
-      }));
+      });
+      console.log('🚪 [useAuth] Auth state cleared immediately');
 
-      console.log('🚪 [useAuth] Auth state manually cleared');
+      // 次にSupabaseからもログアウト
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.warn('⚠️ [useAuth] Supabase signOut warning:', error);
+      } else {
+        console.log('✅ [useAuth] Supabase signOut successful');
+      }
+
       return { error: null };
     } catch (error: any) {
       console.error('❌ [useAuth] Sign out error:', error);
-      
-      // タイムアウトやエラーの場合でも強制的に状態をクリア
-      if (error.message === 'SignOut timeout') {
-        console.log('⚠️ [useAuth] SignOut timeout - forcing state clear');
-        setAuthState(prev => ({
-          ...prev,
-          user: null,
-          profile: null,
-          session: null,
-          loading: false,
-          initialized: true,
-        }));
-        return { error: null };
-      }
-      
-      setAuthState(prev => ({ ...prev, loading: false }));
-      return { error };
+      // エラーでも状態は既にクリア済み
+      return { error: null };
     }
   };
 
