@@ -114,10 +114,6 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = () => {
-    console.log('🚪 [PROFILE] handleLogout function called!');
-    console.log('🚪 [PROFILE] Current user:', !!user);
-    console.log('🚪 [PROFILE] signOut function type:', typeof signOut);
-    
     Alert.alert(
       'ログアウト',
       'ログアウトしますか？',
@@ -128,29 +124,19 @@ export default function ProfileScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              console.log('🚪 [PROFILE] Starting logout process...');
-              console.log('🚪 [PROFILE] signOut function available:', typeof signOut);
-              console.log('🚪 [PROFILE] Current user state:', !!user);
-              
               if (!signOut) {
-                console.error('❌ [PROFILE] signOut function not available');
                 Alert.alert('エラー', 'ログアウト機能が利用できません');
                 return;
               }
               
               const result = await signOut();
-              console.log('🚪 [PROFILE] Logout result:', result);
               
               if (result && result.error) {
-                console.error('❌ [PROFILE] Logout failed:', result.error);
                 Alert.alert('エラー', `ログアウトに失敗しました: ${result.error.message || 'Unknown error'}`);
               } else {
-                console.log('✅ [PROFILE] Successfully signed out');
-                // AuthGuardが自動的にログイン画面に遷移する
                 Alert.alert('ログアウト完了', 'ログアウトしました');
               }
             } catch (error) {
-              console.error('❌ [PROFILE] Sign out error:', error);
               Alert.alert('エラー', `ログアウト処理中にエラーが発生しました: ${error instanceof Error ? error.message : String(error)}`);
             }
           },
@@ -321,10 +307,7 @@ export default function ProfileScreen() {
         <View style={[styles.section, dynamicStyles.menuItem]}>
           <TouchableOpacity 
             style={[styles.logoutButton, dynamicStyles.logoutButton]} 
-            onPress={() => {
-              console.log('🔥 [PROFILE] Logout button pressed!!!');
-              handleLogout();
-            }}
+            onPress={handleLogout}
           >
             <Ionicons name="log-out" size={24} color={baseColors.error} />
             <Text style={[styles.logoutText, dynamicStyles.logoutText]}>ログアウト</Text>

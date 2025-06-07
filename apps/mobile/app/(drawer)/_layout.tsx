@@ -14,10 +14,6 @@ function CustomDrawerContent(props: any) {
   const { user, signOut } = useAuthContext();
 
   const handleSignOut = () => {
-    console.log('🚪 [DRAWER] handleSignOut function called!');
-    console.log('🚪 [DRAWER] Current user:', !!user);
-    console.log('🚪 [DRAWER] signOut function type:', typeof signOut);
-    
     Alert.alert(
       'ログアウト',
       'ログアウトしますか？',
@@ -28,32 +24,19 @@ function CustomDrawerContent(props: any) {
           style: 'destructive',
           onPress: async () => {
             try {
-              console.log('🚪 [DRAWER] Starting logout process...');
-              console.log('🚪 [DRAWER] signOut function available:', typeof signOut);
-              console.log('🚪 [DRAWER] Current user state:', !!user);
-              
               if (!signOut) {
-                console.error('❌ [DRAWER] signOut function not available');
                 Alert.alert('エラー', 'ログアウト機能が利用できません');
                 return;
               }
               
-              console.log('🚪 [DRAWER] About to call signOut()...');
               const result = await signOut();
-              console.log('🚪 [DRAWER] Logout result:', result);
-              console.log('🚪 [DRAWER] Logout completed, waiting for AuthGuard...');
               
               if (result && result.error) {
-                console.error('❌ [DRAWER] Logout failed:', result.error);
                 Alert.alert('エラー', `ログアウトに失敗しました: ${result.error.message}`);
               } else {
-                console.log('✅ [DRAWER] Successfully signed out');
-                // AuthGuardが自動的にログイン画面に遷移する
-                // ユーザーにフィードバックを表示
                 Alert.alert('ログアウト完了', 'ログアウトしました');
               }
             } catch (error) {
-              console.error('❌ [DRAWER] Sign out error:', error);
               Alert.alert('エラー', `ログアウト処理中にエラーが発生しました: ${error instanceof Error ? error.message : String(error)}`);
             }
           },
@@ -139,10 +122,7 @@ function CustomDrawerContent(props: any) {
       <View style={[styles.drawerFooter, { borderTopColor: colors.border.main }]}>
         <TouchableOpacity
           style={[styles.signOutButton, { backgroundColor: colors.background.card }]}
-          onPress={() => {
-            console.log('🔥 [DRAWER] Logout button pressed!!!');
-            handleSignOut();
-          }}
+          onPress={handleSignOut}
         >
           <Ionicons name="log-out" size={20} color={baseColors.error} />
           <Text style={[styles.signOutText, { color: baseColors.error }]}>ログアウト</Text>

@@ -174,21 +174,30 @@ export default function SettingsScreen() {
             icon="shield-checkmark"
             title={ja.settings.privacyPolicy}
             description="プライバシーポリシーを確認します"
-            onPress={() => Alert.alert('準備中', 'プライバシーポリシーは現在準備中です。\n後日公開予定です。')}
+            onPress={() => {
+              console.log('Privacy Policy pressed');
+              Alert.alert('準備中', 'プライバシーポリシーは現在準備中です。\n後日公開予定です。');
+            }}
           />
           
           <SettingsItem
             icon="document-text"
             title={ja.settings.termsOfService}
             description="利用規約を確認します"
-            onPress={() => Alert.alert('準備中', '利用規約は現在準備中です。\n後日公開予定です。')}
+            onPress={() => {
+              console.log('Terms of Service pressed');
+              Alert.alert('準備中', '利用規約は現在準備中です。\n後日公開予定です。');
+            }}
           />
           
           <SettingsItem
             icon="library"
             title={ja.settings.licenses}
             description="オープンソースライセンスを確認します"
-            onPress={() => Alert.alert('準備中', 'ライセンス情報は現在準備中です。\n後日公開予定です。')}
+            onPress={() => {
+              console.log('Licenses pressed');
+              Alert.alert('準備中', 'ライセンス情報は現在準備中です。\n後日公開予定です。');
+            }}
           />
         </SettingsSection>
       </ScrollView>

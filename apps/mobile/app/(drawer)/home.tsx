@@ -24,7 +24,6 @@ import { CalculationHistory } from '../../types/history';
 import { useAuthContext } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { Alert } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -339,89 +338,6 @@ export default function HomeScreen() {
         </View>
 
 
-        {/* 認証状態デバッグ表示 */}
-        <View style={styles.debugSection}>
-          <View style={[styles.debugInfo, { backgroundColor: colors.background.card }]}>
-            <Text style={[styles.debugInfoText, { color: colors.text.primary }]}>
-              🔍 認証状態デバッグ情報
-            </Text>
-            <Text style={[styles.debugInfoText, { color: colors.text.secondary }]}>
-              ユーザー: {!!user ? '✅ 認証済み' : '❌ 未認証'}
-            </Text>
-            <Text style={[styles.debugInfoText, { color: colors.text.secondary }]}>
-              signOut: {typeof signOut === 'function' ? '✅ 関数あり' : '❌ 関数なし'}
-            </Text>
-            <Text style={[styles.debugInfoText, { color: colors.text.secondary }]}>
-              ユーザーID: {user?.id || 'なし'}
-            </Text>
-          </View>
-        </View>
-
-        {/* デバッグ用テストボタン */}
-        <View style={styles.debugSection}>
-          <TouchableOpacity
-            style={[styles.debugButton, { backgroundColor: baseColors.secondary.main }]}
-            onPress={() => {
-              console.log('🧪 [DEBUG] Test button pressed!');
-              Alert.alert('テスト', 'ボタンが正常に動作しています');
-            }}
-          >
-            <Text style={styles.debugButtonText}>🧪 テスト: ボタン動作確認</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[styles.debugButton, { backgroundColor: baseColors.warning }]}
-            onPress={() => {
-              console.log('🧪 [DEBUG] Auth context check...');
-              console.log('🧪 [DEBUG] User exists:', !!user);
-              console.log('🧪 [DEBUG] signOut function:', typeof signOut);
-              Alert.alert('認証状態', `ユーザー: ${!!user ? '認証済み' : '未認証'}\nsignOut関数: ${typeof signOut}`);
-            }}
-          >
-            <Text style={styles.debugButtonText}>🧪 テスト: 認証状態確認</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.debugButton, { backgroundColor: baseColors.error }]}
-            onPress={async () => {
-              console.log('🧪 [DEBUG] Direct logout test...');
-              try {
-                if (signOut) {
-                  const result = await signOut();
-                  console.log('🧪 [DEBUG] Logout result:', result);
-                  Alert.alert('ログアウトテスト', `結果: ${result?.error ? 'エラー' : '成功'}`);
-                } else {
-                  Alert.alert('エラー', 'signOut関数が利用できません');
-                }
-              } catch (error) {
-                console.error('🧪 [DEBUG] Logout error:', error);
-                Alert.alert('エラー', `ログアウトエラー: ${error}`);
-              }
-            }}
-          >
-            <Text style={styles.debugButtonText}>🧪 テスト: 直接ログアウト</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.debugButton, { backgroundColor: '#FF6B6B' }]}
-            onPress={async () => {
-              console.log('💥 [DEBUG] Force logout test...');
-              try {
-                // AsyncStorage を直接クリア
-                await AsyncStorage.removeItem('supabase.auth.token');
-                console.log('💥 [DEBUG] AsyncStorage auth token cleared');
-                
-                // 強制的に認証状態をリセット
-                window.location.reload();
-              } catch (error) {
-                console.error('💥 [DEBUG] Force logout error:', error);
-                Alert.alert('エラー', `強制ログアウトエラー: ${error}`);
-              }
-            }}
-          >
-            <Text style={styles.debugButtonText}>💥 強制ログアウト</Text>
-          </TouchableOpacity>
-        </View>
 
         <View style={styles.bottomPadding} />
       </ScrollView>
@@ -650,33 +566,5 @@ const styles = StyleSheet.create({
   // その他
   bottomPadding: {
     height: 32,
-  },
-
-  // デバッグ用スタイル
-  debugSection: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    gap: 8,
-  },
-  debugInfo: {
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  debugInfoText: {
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  debugButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  debugButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 'bold',
   },
 });
