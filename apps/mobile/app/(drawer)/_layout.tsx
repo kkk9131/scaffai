@@ -26,21 +26,29 @@ function CustomDrawerContent(props: any) {
             try {
               console.log('🚪 [DRAWER] Starting logout process...');
               console.log('🚪 [DRAWER] signOut function available:', typeof signOut);
+              console.log('🚪 [DRAWER] Current user state:', !!user);
+              
+              if (!signOut) {
+                console.error('❌ [DRAWER] signOut function not available');
+                Alert.alert('エラー', 'ログアウト機能が利用できません');
+                return;
+              }
               
               const result = await signOut();
               console.log('🚪 [DRAWER] Logout result:', result);
               
               if (result && result.error) {
                 console.error('❌ [DRAWER] Logout failed:', result.error);
-                Alert.alert('エラー', 'ログアウトに失敗しました');
+                Alert.alert('エラー', `ログアウトに失敗しました: ${result.error.message}`);
               } else {
                 console.log('✅ [DRAWER] Successfully signed out');
-                // AuthGuardによって自動的にログイン画面に遷移される
+                // AuthGuardが自動的にログイン画面に遷移する
+                // ユーザーにフィードバックを表示
                 Alert.alert('ログアウト完了', 'ログアウトしました');
               }
             } catch (error) {
               console.error('❌ [DRAWER] Sign out error:', error);
-              Alert.alert('エラー', 'ログアウト処理中にエラーが発生しました');
+              Alert.alert('エラー', `ログアウト処理中にエラーが発生しました: ${error instanceof Error ? error.message : String(error)}`);
             }
           },
         },

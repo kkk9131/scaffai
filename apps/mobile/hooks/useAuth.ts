@@ -42,8 +42,23 @@ export const useAuth = () => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event, session?.user?.id);
+      console.log('🔄 [useAuth] Auth state changed:', event, 'User ID:', session?.user?.id);
 
+      // SIGNED_OUT イベントの特別処理
+      if (event === 'SIGNED_OUT') {
+        console.log('🚪 [useAuth] SIGNED_OUT event detected - clearing all auth state');
+        setAuthState(prev => ({
+          ...prev,
+          session: null,
+          user: null,
+          profile: null,
+          loading: false,
+          initialized: true,
+        }));
+        return;
+      }
+
+      // その他のイベント（SIGNED_IN, TOKEN_REFRESHED等）
       setAuthState(prev => ({
         ...prev,
         session,
@@ -53,8 +68,10 @@ export const useAuth = () => {
       }));
 
       if (session?.user) {
+        console.log('👤 [useAuth] User session found, fetching profile...');
         await fetchProfile(session.user.id);
       } else {
+        console.log('👤 [useAuth] No user session, clearing profile');
         setAuthState(prev => ({ ...prev, profile: null }));
       }
     });
@@ -127,23 +144,27 @@ export const useAuth = () => {
   };
 
   const signOut = async () => {
+    console.log('🚪 [useAuth] Starting signOut process...');
     setAuthState(prev => ({ ...prev, loading: true }));
 
     try {
+      console.log('🚪 [useAuth] Calling supabase.auth.signOut()...');
       const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      
+      if (error) {
+        console.error('❌ [useAuth] Supabase signOut error:', error);
+        throw error;
+      }
 
-      setAuthState(prev => ({
-        ...prev,
-        user: null,
-        profile: null,
-        session: null,
-        loading: false,
-      }));
+      console.log('✅ [useAuth] Supabase signOut successful');
+      
+      // 重要: onAuthStateChangeリスナーが自動的に状態を更新するので
+      // ここでは手動で状態をクリアしない
+      setAuthState(prev => ({ ...prev, loading: false }));
 
       return { error: null };
     } catch (error: any) {
-      console.error('Sign out error:', error);
+      console.error('❌ [useAuth] Sign out error:', error);
       setAuthState(prev => ({ ...prev, loading: false }));
       return { error };
     }

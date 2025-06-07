@@ -126,20 +126,28 @@ export default function ProfileScreen() {
             try {
               console.log('🚪 [PROFILE] Starting logout process...');
               console.log('🚪 [PROFILE] signOut function available:', typeof signOut);
+              console.log('🚪 [PROFILE] Current user state:', !!user);
+              
+              if (!signOut) {
+                console.error('❌ [PROFILE] signOut function not available');
+                Alert.alert('エラー', 'ログアウト機能が利用できません');
+                return;
+              }
               
               const result = await signOut();
               console.log('🚪 [PROFILE] Logout result:', result);
               
               if (result && result.error) {
                 console.error('❌ [PROFILE] Logout failed:', result.error);
-                Alert.alert('エラー', 'ログアウトに失敗しました');
+                Alert.alert('エラー', `ログアウトに失敗しました: ${result.error.message || 'Unknown error'}`);
               } else {
                 console.log('✅ [PROFILE] Successfully signed out');
+                // AuthGuardが自動的にログイン画面に遷移する
                 Alert.alert('ログアウト完了', 'ログアウトしました');
               }
             } catch (error) {
               console.error('❌ [PROFILE] Sign out error:', error);
-              Alert.alert('エラー', 'ログアウト処理中にエラーが発生しました');
+              Alert.alert('エラー', `ログアウト処理中にエラーが発生しました: ${error instanceof Error ? error.message : String(error)}`);
             }
           },
         },

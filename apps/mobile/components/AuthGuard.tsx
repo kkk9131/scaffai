@@ -11,7 +11,7 @@ interface AuthGuardProps {
 }
 
 export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
-  const { user, loading, initialized } = useAuthContext();
+  const { user, loading, initialized, session } = useAuthContext();
   const { colors } = useTheme();
 
   const dynamicStyles = StyleSheet.create({
@@ -23,8 +23,16 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
     },
   });
 
+  console.log('🛡️ [AuthGuard] State check:', {
+    initialized,
+    loading,
+    hasUser: !!user,
+    hasSession: !!session
+  });
+
   // 初期化中またはロード中
   if (!initialized || loading) {
+    console.log('⏳ [AuthGuard] Loading state - showing spinner');
     return (
       <View style={[styles.loadingContainer, dynamicStyles.loadingContainer]}>
         <ActivityIndicator size="large" color={baseColors.primary.main} />
@@ -33,12 +41,14 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
     );
   }
 
-  // 未認証
-  if (!user) {
+  // 未認証（userまたはsessionが存在しない）
+  if (!user || !session) {
+    console.log('🚫 [AuthGuard] Not authenticated - showing login screen');
     return <LoginScreen />;
   }
 
   // 認証済み
+  console.log('✅ [AuthGuard] Authenticated - rendering app');
   return <>{children}</>;
 };
 
