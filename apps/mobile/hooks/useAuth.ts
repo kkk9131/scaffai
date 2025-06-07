@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Session, User } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { Tables } from '@scaffai/core';
 
@@ -42,20 +43,48 @@ export const useAuth = () => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state changed:', event, session?.user?.id);
+      try {
+        console.log('🔄 [useAuth] Auth state changed:', event, 'User ID:', session?.user?.id, 'Platform:', Platform.OS);
 
-      setAuthState(prev => ({
-        ...prev,
-        session,
-        user: session?.user ?? null,
-        loading: false,
-        initialized: true,
-      }));
+        // SIGNED_OUT イベントの特別処理
+        if (event === 'SIGNED_OUT') {
+          console.log('🚪 [useAuth] SIGNED_OUT event detected - clearing all auth state');
+          setAuthState({
+            session: null,
+            user: null,
+            profile: null,
+            loading: false,
+            initialized: true,
+          });
+          console.log('🚪 [useAuth] Auth state fully cleared on SIGNED_OUT');
+          return;
+        }
 
-      if (session?.user) {
-        await fetchProfile(session.user.id);
-      } else {
-        setAuthState(prev => ({ ...prev, profile: null }));
+        // その他のイベント（SIGNED_IN, TOKEN_REFRESHED等）
+        setAuthState(prev => ({
+          ...prev,
+          session,
+          user: session?.user ?? null,
+          loading: false,
+          initialized: true,
+        }));
+
+        if (session?.user) {
+          console.log('👤 [useAuth] User session found, fetching profile...');
+          try {
+            await fetchProfile(session.user.id);
+          } catch (profileError) {
+            console.error('❌ [useAuth] Profile fetch error:', profileError);
+            // プロファイル取得に失敗してもセッションは維持
+          }
+        } else {
+          console.log('👤 [useAuth] No user session, clearing profile');
+          setAuthState(prev => ({ ...prev, profile: null }));
+        }
+      } catch (stateChangeError) {
+        console.error('❌ [useAuth] Auth state change error:', stateChangeError);
+        // エラーが発生しても初期化は完了とマーク
+        setAuthState(prev => ({ ...prev, loading: false, initialized: true }));
       }
     });
 
@@ -127,25 +156,32 @@ export const useAuth = () => {
   };
 
   const signOut = async () => {
-    setAuthState(prev => ({ ...prev, loading: true }));
-
+    console.log('🚪 [useAuth] Starting signOut process...');
+    
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-
-      setAuthState(prev => ({
-        ...prev,
+      // まず状態をクリア
+      setAuthState({
         user: null,
         profile: null,
         session: null,
         loading: false,
-      }));
+        initialized: true,
+      });
+      console.log('🚪 [useAuth] Auth state cleared immediately');
+
+      // 次にSupabaseからもログアウト
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.warn('⚠️ [useAuth] Supabase signOut warning:', error);
+      } else {
+        console.log('✅ [useAuth] Supabase signOut successful');
+      }
 
       return { error: null };
     } catch (error: any) {
-      console.error('Sign out error:', error);
-      setAuthState(prev => ({ ...prev, loading: false }));
-      return { error };
+      console.error('❌ [useAuth] Sign out error:', error);
+      // エラーでも状態は既にクリア済み
+      return { error: null };
     }
   };
 

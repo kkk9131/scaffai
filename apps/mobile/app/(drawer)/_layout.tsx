@@ -1,7 +1,7 @@
 import React from 'react';
 import { Drawer } from 'expo-router/drawer';
 import { Ionicons } from '@expo/vector-icons';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { DrawerContentScrollView, DrawerItem } from '@react-navigation/drawer';
 import { router } from 'expo-router';
 import { colors as baseColors } from '../../constants/colors';
@@ -12,6 +12,24 @@ import { ja } from '../../constants/translations';
 function CustomDrawerContent(props: any) {
   const { colors, isDark } = useTheme();
   const { user, signOut } = useAuthContext();
+
+  const handleSignOut = async () => {
+    console.log('🚪 [Drawer] Logout button pressed');
+    console.log('🚪 [Drawer] User state:', !!user);
+    console.log('🚪 [Drawer] SignOut function available:', !!signOut);
+    
+    if (signOut) {
+      console.log('🚪 [Drawer] Calling signOut directly...');
+      try {
+        const result = await signOut();
+        console.log('🚪 [Drawer] SignOut result:', result);
+      } catch (error) {
+        console.error('🚪 [Drawer] SignOut error:', error);
+      }
+    } else {
+      console.error('❌ [Drawer] signOut function not available');
+    }
+  };
 
   const menuItems = [
     {
@@ -90,7 +108,7 @@ function CustomDrawerContent(props: any) {
       <View style={[styles.drawerFooter, { borderTopColor: colors.border.main }]}>
         <TouchableOpacity
           style={[styles.signOutButton, { backgroundColor: colors.background.card }]}
-          onPress={signOut}
+          onPress={handleSignOut}
         >
           <Ionicons name="log-out" size={20} color={baseColors.error} />
           <Text style={[styles.signOutText, { color: baseColors.error }]}>ログアウト</Text>

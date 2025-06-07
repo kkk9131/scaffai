@@ -59,7 +59,66 @@ const getStorage = () => {
 const STORAGE_KEYS = {
   CALCULATION_HISTORY: '@scaffai_calculation_history',
   USER_PREFERENCES: '@scaffai_user_preferences',
+  CALCULATION_STATS: '@scaffai_calculation_stats',
 } as const;
+
+// 計算統計の型定義
+export type CalculationStats = {
+  totalCalculations: number;
+  calculationsByMonth: { [key: string]: number }; // 'YYYY-MM' format
+  lastCalculation?: string; // ISO date string
+};
+
+// 計算統計を管理するクラス
+export class CalculationStatsStorage {
+  static async getStats(): Promise<CalculationStats> {
+    try {
+      const statsJson = await getStorage().getItem(STORAGE_KEYS.CALCULATION_STATS);
+      if (!statsJson) {
+        return {
+          totalCalculations: 0,
+          calculationsByMonth: {},
+        };
+      }
+      return JSON.parse(statsJson);
+    } catch (error) {
+      console.error('Failed to get calculation stats:', error);
+      return {
+        totalCalculations: 0,
+        calculationsByMonth: {},
+      };
+    }
+  }
+
+  static async incrementCalculation(): Promise<void> {
+    try {
+      const stats = await this.getStats();
+      const now = new Date();
+      const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      
+      stats.totalCalculations += 1;
+      stats.calculationsByMonth[monthKey] = (stats.calculationsByMonth[monthKey] || 0) + 1;
+      stats.lastCalculation = now.toISOString();
+      
+      await getStorage().setItem(STORAGE_KEYS.CALCULATION_STATS, JSON.stringify(stats));
+      console.log('📊 Calculation stats updated:', stats);
+    } catch (error) {
+      console.error('Failed to increment calculation stats:', error);
+    }
+  }
+
+  static async getThisMonthCalculations(): Promise<number> {
+    try {
+      const stats = await this.getStats();
+      const now = new Date();
+      const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      return stats.calculationsByMonth[monthKey] || 0;
+    } catch (error) {
+      console.error('Failed to get this month calculations:', error);
+      return 0;
+    }
+  }
+}
 
 export class HistoryStorage {
   static async getHistory(): Promise<CalculationHistory[]> {

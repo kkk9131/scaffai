@@ -31,16 +31,18 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AuthGuard>
-          <ScaffoldProvider>
+        <ScaffoldProvider>
+          <AuthGuard>
             <Stack>
               <Stack.Screen name="index" options={{ headerShown: false }} />
               <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
               <Stack.Screen name="auth/login" options={{ headerShown: false }} />
+              <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+              <Stack.Screen name="faq" options={{ headerShown: false }} />
             </Stack>
-            <StatusBar style="auto" />
-          </ScaffoldProvider>
-        </AuthGuard>
+          </AuthGuard>
+          <StatusBar style="auto" />
+        </ScaffoldProvider>
       </AuthProvider>
     </ThemeProvider>
   );

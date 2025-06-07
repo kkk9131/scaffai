@@ -34,5 +34,14 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: Platform.OS === 'web',
+    // ログアウト時の確実なセッション削除を保証
+    storageKey: 'supabase.auth.token',
+    // デバッグモードを有効にしてauth状態を詳細にログ出力
+    debug: __DEV__,
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'scaffai-mobile-app',
+    },
   },
 });
