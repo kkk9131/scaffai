@@ -58,13 +58,21 @@ export const Button: React.FC<ButtonProps> = ({
         warning: { backgroundColor: 'transparent' },
         success: { backgroundColor: 'transparent' },
       },
+      link: {
+        primary: { backgroundColor: 'transparent' },
+        secondary: { backgroundColor: 'transparent' },
+        scaffold: { backgroundColor: 'transparent' },
+        danger: { backgroundColor: 'transparent' },
+        warning: { backgroundColor: 'transparent' },
+        success: { backgroundColor: 'transparent' },
+      },
     };
 
     return {
       ...baseStyle,
       ...sizeStyles[size],
       ...colorStyles[variant][color],
-      ...(fullWidth && { width: '100%' }),
+      ...(fullWidth && { width: '100%' as const }),
     };
   };
 
@@ -99,10 +107,18 @@ export const Button: React.FC<ButtonProps> = ({
         warning: '#d97706',
         success: '#16a34a',
       },
+      link: {
+        primary: '#2563eb',
+        secondary: '#475569',
+        scaffold: '#f97316',
+        danger: '#dc2626',
+        warning: '#d97706',
+        success: '#16a34a',
+      },
     };
 
     const textColor = variant === 'solid' 
-      ? colorTextStyles.solid 
+      ? colorTextStyles.solid.color
       : colorTextStyles[variant][color];
 
     return {

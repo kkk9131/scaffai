@@ -98,13 +98,24 @@ export function validateScaffoldInput(input: ScaffoldInputData): ValidationResul
     }
   }
 
-  // 目標離れの検証
-  if (input.target_margin < 0) {
-    errors.push({ field: 'target_margin', message: '目標離れは0以上である必要があります' });
-  }
-  if (input.target_margin > 5000) {
-    errors.push({ field: 'target_margin', message: '目標離れが大きすぎます（最大5m）' });
-  }
+  // 目標離れの検証（4面個別）
+  const targetMargins = [
+    { value: input.target_margin_N, name: '北面目標離れ' },
+    { value: input.target_margin_E, name: '東面目標離れ' },
+    { value: input.target_margin_S, name: '南面目標離れ' },
+    { value: input.target_margin_W, name: '西面目標離れ' }
+  ];
+  
+  targetMargins.forEach(({ value, name }) => {
+    if (value !== null) {
+      if (value < 0) {
+        errors.push({ field: 'target_margin', message: `${name}は0以上である必要があります` });
+      }
+      if (value > 5000) {
+        errors.push({ field: 'target_margin', message: `${name}が大きすぎます（最大5m）` });
+      }
+    }
+  });
 
   // 論理的整合性の検証
   const totalSpecialNS = (input.use_355_NS || 0) + (input.use_300_NS || 0) + (input.use_150_NS || 0);
@@ -155,6 +166,9 @@ export function normalizeScaffoldInput(input: Partial<ScaffoldInputData>): Scaff
     use_355_EW: Math.max(0, Number(input.use_355_EW) || 0),
     use_300_EW: Math.max(0, Number(input.use_300_EW) || 0),
     use_150_EW: Math.max(0, Number(input.use_150_EW) || 0),
-    target_margin: Math.max(0, Number(input.target_margin) || 900)
+    target_margin_N: input.target_margin_N !== null ? Math.max(0, Number(input.target_margin_N)) : null,
+    target_margin_E: input.target_margin_E !== null ? Math.max(0, Number(input.target_margin_E)) : null,
+    target_margin_S: input.target_margin_S !== null ? Math.max(0, Number(input.target_margin_S)) : null,
+    target_margin_W: input.target_margin_W !== null ? Math.max(0, Number(input.target_margin_W)) : null
   };
 }
