@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors } from '../constants/colors';
+import { colors as baseColors } from '../constants/colors';
+import { useTheme } from '../context/ThemeContext';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 type ResultCardProps = {
@@ -16,15 +17,33 @@ export const ResultCard: React.FC<ResultCardProps> = ({
   suffix,
   delay = 0,
 }) => {
+  const { colors } = useTheme();
+  
+  const dynamicStyles = StyleSheet.create({
+    container: {
+      backgroundColor: colors.background.paper,
+      borderLeftColor: baseColors.primary.main,
+    },
+    title: {
+      color: colors.text.primary,
+    },
+    value: {
+      color: colors.text.primary,
+    },
+    suffix: {
+      color: colors.text.secondary,
+    },
+  });
+
   return (
     <Animated.View
       entering={FadeInDown.duration(500).delay(delay)}
-      style={styles.container}
+      style={[styles.container, dynamicStyles.container]}
     >
-      <Text style={styles.title}>{title}</Text>
+      <Text style={[styles.title, dynamicStyles.title]}>{title}</Text>
       <View style={styles.valueContainer}>
-        <Text style={styles.value}>{value}</Text>
-        {suffix && <Text style={styles.suffix}>{suffix}</Text>}
+        <Text style={[styles.value, dynamicStyles.value]}>{value}</Text>
+        {suffix && <Text style={[styles.suffix, dynamicStyles.suffix]}>{suffix}</Text>}
       </View>
     </Animated.View>
   );
@@ -32,16 +51,13 @@ export const ResultCard: React.FC<ResultCardProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.background.paper,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
     borderLeftWidth: 4,
-    borderLeftColor: colors.primary.main,
   },
   title: {
     fontSize: 16,
-    color: colors.text.secondary,
     marginBottom: 8,
   },
   valueContainer: {
@@ -51,11 +67,9 @@ const styles = StyleSheet.create({
   value: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: colors.text.primary,
   },
   suffix: {
     fontSize: 14,
-    color: colors.text.secondary,
     marginLeft: 4,
   },
 });

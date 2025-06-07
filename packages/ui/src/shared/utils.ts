@@ -40,7 +40,7 @@ export function getSizeClasses(size: SizeVariant = 'md', type: 'padding' | 'text
 /**
  * カラーバリアントをTailwindクラスに変換
  */
-export function getColorClasses(color: ColorVariant = 'primary', variant: 'solid' | 'outline' | 'ghost' = 'solid'): string {
+export function getColorClasses(color: ColorVariant = 'primary', variant: 'solid' | 'outline' | 'ghost' | 'link' = 'solid'): string {
   const colorMap = {
     solid: {
       primary: 'bg-primary-600 text-white hover:bg-primary-700',
@@ -65,6 +65,14 @@ export function getColorClasses(color: ColorVariant = 'primary', variant: 'solid
       danger: 'text-red-600 hover:bg-red-50',
       warning: 'text-yellow-600 hover:bg-yellow-50',
       success: 'text-green-600 hover:bg-green-50',
+    },
+    link: {
+      primary: 'text-primary-600 hover:text-primary-700 underline',
+      secondary: 'text-secondary-600 hover:text-secondary-700 underline',
+      scaffold: 'text-scaffold-orange hover:text-orange-700 underline',
+      danger: 'text-red-600 hover:text-red-700 underline',
+      warning: 'text-yellow-600 hover:text-yellow-700 underline',
+      success: 'text-green-600 hover:text-green-700 underline',
     },
   };
   

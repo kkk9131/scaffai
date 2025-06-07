@@ -10,11 +10,13 @@ import {
   RefreshControl,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
+import { AppHeader } from '../../components/AppHeader';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../constants/colors';
+import { colors as baseColors } from '../../constants/colors';
+import { useTheme } from '../../context/ThemeContext';
 import { ja } from '../../constants/translations';
 import { CalculationHistory, HistoryFilter } from '../../types/history';
 import { HistoryStorage } from '../../utils/storage';
@@ -24,6 +26,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuthContext } from '../../context/AuthContext';
 
 export default function HistoryScreen() {
+  const { colors, isDark } = useTheme();
   const [localHistory, setLocalHistory] = useState<CalculationHistory[]>([]);
   const [cloudHistory, setCloudHistory] = useState<any[]>([]);
   const [filteredHistory, setFilteredHistory] = useState<any[]>([]);
@@ -40,11 +43,73 @@ export default function HistoryScreen() {
   const { setInputValue, resetInputData } = useScaffold();
   const { user } = useAuthContext();
 
+  // 動的スタイル
+  const dynamicStyles = StyleSheet.create({
+    container: {
+      backgroundColor: colors.background.primary,
+    },
+    loadingContainer: {
+      backgroundColor: colors.background.primary,
+    },
+    loadingText: {
+      color: colors.text.primary,
+    },
+    title: {
+      color: colors.text.primary,
+    },
+    subtitle: {
+      color: colors.text.secondary,
+    },
+    searchContainer: {
+      backgroundColor: colors.input.background,
+      borderColor: colors.input.border,
+    },
+    searchInput: {
+      color: colors.text.primary,
+    },
+    controlsContainer: {
+      backgroundColor: colors.background.secondary,
+    },
+    switchButton: {
+      backgroundColor: colors.background.card,
+    },
+    switchButtonText: {
+      color: colors.text.primary,
+    },
+    filterButton: {
+      backgroundColor: colors.background.card,
+      borderColor: colors.border.main,
+    },
+    filterButtonText: {
+      color: colors.text.primary,
+    },
+    emptyContainer: {
+      backgroundColor: colors.background.primary,
+    },
+    emptyText: {
+      color: colors.text.primary,
+    },
+    emptySubtext: {
+      color: colors.text.secondary,
+    },
+    emptyButton: {
+      backgroundColor: baseColors.primary.main,
+    },
+    emptyButtonText: {
+      color: '#FFFFFF',
+    },
+  });
+
   // ローカル履歴を読み込む
   const loadLocalHistory = useCallback(async () => {
     try {
+      console.log('🔄 loadLocalHistory called');
       const historyData = await HistoryStorage.getHistory();
+      console.log('📋 loadLocalHistory result:', historyData.length, 'items');
+      console.log('📋 First item ID:', historyData[0]?.id);
+      console.log('📋 Latest 3 items:', historyData.slice(0, 3).map(item => ({ id: item.id, createdAt: item.createdAt })));
       setLocalHistory(historyData);
+      console.log('✅ setLocalHistory completed');
     } catch (error) {
       console.error('Failed to load local history:', error);
     }
@@ -52,6 +117,22 @@ export default function HistoryScreen() {
 
   // Supabaseデータをローカル形式に変換
   const convertCloudToLocal = (cloudItem: any) => {
+    // 新しいJSON形式の場合
+    if (cloudItem.input_data && cloudItem.result_data) {
+      try {
+        return {
+          id: cloudItem.id,
+          title: cloudItem.title,
+          createdAt: cloudItem.created_at,
+          input_data: JSON.parse(cloudItem.input_data),
+          calculation_result: JSON.parse(cloudItem.result_data),
+        };
+      } catch (e) {
+        console.error('Failed to parse JSON data from cloud:', e);
+      }
+    }
+    
+    // 古い個別フィールド形式の場合（後方互換性）
     return {
       id: cloudItem.id,
       title: cloudItem.title,
@@ -142,7 +223,26 @@ export default function HistoryScreen() {
   // 履歴を読み込む
   const loadHistory = useCallback(async () => {
     try {
-      await Promise.all([loadLocalHistory(), loadCloudHistory()]);
+      console.log('📥 Starting loadHistory...');
+      // ローカル履歴は常に読み込む
+      await loadLocalHistory();
+      console.log('✅ Local history loaded');
+      
+      // クラウド履歴は5秒でタイムアウト
+      if (user) {
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Cloud history timeout')), 5000)
+        );
+        
+        try {
+          await Promise.race([loadCloudHistory(), timeoutPromise]);
+          console.log('✅ Cloud history loaded');
+        } catch (cloudError) {
+          console.warn('Cloud history failed or timed out:', cloudError);
+          // クラウド履歴が失敗してもローカル履歴は表示する
+        }
+      }
+      console.log('✅ loadHistory completed');
     } catch (error) {
       console.error('Failed to load history:', error);
       Alert.alert(ja.common.error, '履歴の読み込みに失敗しました');
@@ -150,10 +250,11 @@ export default function HistoryScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [loadLocalHistory, loadCloudHistory]);
+  }, [loadLocalHistory, loadCloudHistory, user]);
 
   // フィルターを適用
   const applyFilters = useCallback((data: CalculationHistory[], currentFilter: HistoryFilter) => {
+    console.log('🔍 applyFilters called with:', data.length, 'items');
     let filtered = [...data];
 
     // 検索フィルター
@@ -195,17 +296,61 @@ export default function HistoryScreen() {
       });
     }
 
+    console.log('📋 Filtered result:', filtered.length, 'items');
     setFilteredHistory(filtered);
+  }, []);
+
+  // デバッグ用：ローカルストレージを直接確認
+  const debugStorage = useCallback(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        console.log('🔍 Web localStorage debug:');
+        console.log('All localStorage keys:', Object.keys(localStorage));
+        console.log('Target key:', '@scaffai_calculation_history');
+        const data = localStorage.getItem('@scaffai_calculation_history');
+        console.log('Raw data:', data);
+        if (data) {
+          try {
+            const parsed = JSON.parse(data);
+            console.log('Parsed data:', parsed.length, 'items');
+            console.log('All IDs:', parsed.map((item: any) => item.id));
+          } catch (e) {
+            console.log('Parse error:', e);
+          }
+        }
+      } else {
+        console.log('🔍 React Native storage debug - using AsyncStorage');
+      }
+    } catch (error) {
+      console.warn('Debug storage failed:', error);
+    }
   }, []);
 
   // 初期読み込み
   useEffect(() => {
+    console.log('🚀 History screen initial load');
+    debugStorage(); // ストレージ状態をデバッグ
     loadHistory();
-  }, [loadHistory]);
+  }, [loadHistory, debugStorage]);
+
+  // 画面フォーカス時に履歴を再読み込み
+  useFocusEffect(
+    useCallback(() => {
+      console.log('👀 History screen focused - reloading history');
+      loadHistory();
+    }, [loadHistory])
+  );
 
   // フィルター変更時の処理
   useEffect(() => {
+    console.log('🔧 Filter effect triggered');
     const currentHistory = showCloudHistory ? cloudHistory : localHistory;
+    console.log('📊 Current history for filtering:', {
+      showCloudHistory,
+      cloudHistoryCount: cloudHistory.length,
+      localHistoryCount: localHistory.length,
+      usingHistoryCount: currentHistory.length
+    });
     applyFilters(currentHistory, filter);
   }, [localHistory, cloudHistory, showCloudHistory, filter, applyFilters]);
 
@@ -224,16 +369,68 @@ export default function HistoryScreen() {
       // クラウドの場合は input_data、ローカルの場合は inputData
       const inputData = item.input_data || item.inputData;
       
-      // 各フィールドを設定
-      Object.entries(inputData).forEach(([category, value]) => {
-        if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-          Object.entries(value).forEach(([field, fieldValue]) => {
-            setInputValue(category as any, field, fieldValue);
-          });
-        } else {
-          setInputValue(category as any, '', value);
-        }
-      });
+      if (!inputData) {
+        throw new Error('入力データが見つかりません');
+      }
+
+      // 各フィールドを正確に設定
+      // frameWidth
+      if (inputData.frameWidth) {
+        setInputValue('frameWidth', 'northSouth', inputData.frameWidth.northSouth);
+        setInputValue('frameWidth', 'eastWest', inputData.frameWidth.eastWest);
+      }
+
+      // eaveOverhang
+      if (inputData.eaveOverhang) {
+        setInputValue('eaveOverhang', 'north', inputData.eaveOverhang.north);
+        setInputValue('eaveOverhang', 'east', inputData.eaveOverhang.east);
+        setInputValue('eaveOverhang', 'south', inputData.eaveOverhang.south);
+        setInputValue('eaveOverhang', 'west', inputData.eaveOverhang.west);
+      }
+
+      // propertyLine
+      if (inputData.propertyLine) {
+        setInputValue('propertyLine', 'north', inputData.propertyLine.north);
+        setInputValue('propertyLine', 'east', inputData.propertyLine.east);
+        setInputValue('propertyLine', 'south', inputData.propertyLine.south);
+        setInputValue('propertyLine', 'west', inputData.propertyLine.west);
+      }
+
+      // propertyLineDistance
+      if (inputData.propertyLineDistance) {
+        setInputValue('propertyLineDistance', 'north', inputData.propertyLineDistance.north);
+        setInputValue('propertyLineDistance', 'east', inputData.propertyLineDistance.east);
+        setInputValue('propertyLineDistance', 'south', inputData.propertyLineDistance.south);
+        setInputValue('propertyLineDistance', 'west', inputData.propertyLineDistance.west);
+      }
+
+      // targetOffset - 特別な処理が必要
+      if (inputData.targetOffset) {
+        setInputValue('targetOffset', 'north.enabled', inputData.targetOffset.north?.enabled || false);
+        setInputValue('targetOffset', 'north.value', inputData.targetOffset.north?.value || null);
+        setInputValue('targetOffset', 'east.enabled', inputData.targetOffset.east?.enabled || false);
+        setInputValue('targetOffset', 'east.value', inputData.targetOffset.east?.value || null);
+        setInputValue('targetOffset', 'south.enabled', inputData.targetOffset.south?.enabled || false);
+        setInputValue('targetOffset', 'south.value', inputData.targetOffset.south?.value || null);
+        setInputValue('targetOffset', 'west.enabled', inputData.targetOffset.west?.enabled || false);
+        setInputValue('targetOffset', 'west.value', inputData.targetOffset.west?.value || null);
+      }
+
+      // specialMaterial
+      if (inputData.specialMaterial) {
+        setInputValue('specialMaterial', 'northSouth.material355', inputData.specialMaterial.northSouth?.material355);
+        setInputValue('specialMaterial', 'northSouth.material300', inputData.specialMaterial.northSouth?.material300);
+        setInputValue('specialMaterial', 'northSouth.material150', inputData.specialMaterial.northSouth?.material150);
+        setInputValue('specialMaterial', 'eastWest.material355', inputData.specialMaterial.eastWest?.material355);
+        setInputValue('specialMaterial', 'eastWest.material300', inputData.specialMaterial.eastWest?.material300);
+        setInputValue('specialMaterial', 'eastWest.material150', inputData.specialMaterial.eastWest?.material150);
+      }
+
+      // 単一の値
+      setInputValue('referenceHeight', '', inputData.referenceHeight);
+      setInputValue('roofShape', '', inputData.roofShape);
+      setInputValue('hasTieColumns', '', inputData.hasTieColumns);
+      setInputValue('eavesHandrails', '', inputData.eavesHandrails);
 
       Alert.alert(
         '履歴読み込み完了',
@@ -241,7 +438,7 @@ export default function HistoryScreen() {
         [
           {
             text: '入力画面へ',
-            onPress: () => router.push('/(tabs)/input'),
+            onPress: () => router.push('/(drawer)/input'),
           },
           {
             text: 'OK',
@@ -257,42 +454,61 @@ export default function HistoryScreen() {
 
   // 履歴アイテムを削除
   const handleDeleteHistory = useCallback(async (id: string, item?: any) => {
-    Alert.alert(
-      '削除確認',
-      'この計算履歴を削除しますか？',
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        {
-          text: '削除',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              if (showCloudHistory && user) {
-                // クラウド履歴の削除
-                const { error } = await supabase
-                  .from('scaffold_calculations')
-                  .delete()
-                  .eq('id', id);
+    console.log('🔥 handleDeleteHistory called with ID:', id);
+    
+    if (!id) {
+      console.log('❌ ID is invalid:', id);
+      Alert.alert('エラー', '削除対象のIDが無効です');
+      return;
+    }
 
-                if (error) {
-                  Alert.alert('エラー', '削除に失敗しました');
-                  return;
-                }
-              } else {
-                // ローカル履歴の削除
-                await HistoryStorage.deleteCalculation(id);
-              }
-              
-              await loadHistory();
-              Alert.alert('削除完了', '計算履歴を削除しました');
-            } catch (error) {
-              console.error('Failed to delete history item:', error);
-              Alert.alert(ja.common.error, '削除に失敗しました');
-            }
-          },
-        },
-      ]
-    );
+    console.log('✅ ID is valid, starting deletion immediately');
+    
+    // 削除確認を省略して直接削除を実行（テスト用）
+    try {
+      console.log('🚀 Starting deletion process...');
+      console.log('Deleting history item:', { id, showCloudHistory, user: !!user });
+      
+      if (showCloudHistory && user) {
+        // クラウド履歴の削除
+        console.log('Deleting from Supabase, ID:', id);
+        const { error } = await supabase
+          .from('scaffold_calculations')
+          .delete()
+          .eq('id', id);
+
+        if (error) {
+          console.error('Supabase delete error:', error);
+          Alert.alert('エラー', `クラウド履歴の削除に失敗しました: ${error.message}`);
+          return;
+        }
+        console.log('Successfully deleted from Supabase');
+      } else {
+        // ローカル履歴の削除
+        console.log('🗂️ Deleting from local storage, ID:', id);
+        await HistoryStorage.deleteCalculation(id);
+        console.log('✅ Successfully deleted from local storage');
+      }
+      
+      // 履歴を再読み込み
+      console.log('🔄 Reloading history after deletion');
+      await loadHistory();
+      console.log('✅ History reloaded successfully');
+      
+      // 少し待ってからフィルタリングを強制的に再実行
+      setTimeout(() => {
+        console.log('🔄 Forcing filter reapplication after timeout');
+        const currentHistory = showCloudHistory ? cloudHistory : localHistory;
+        console.log('📊 Current history for filtering:', currentHistory.length, 'items');
+        applyFilters(currentHistory, filter);
+        console.log('✅ Filters reapplied successfully');
+      }, 100);
+      
+      Alert.alert('削除完了', '計算履歴を削除しました');
+    } catch (error) {
+      console.error('❌ Failed to delete history item:', error);
+      Alert.alert(ja.common.error, `削除に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }, [loadHistory, showCloudHistory, user]);
 
   // 検索文字列の更新
@@ -318,22 +534,25 @@ export default function HistoryScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <StatusBar style="light" />
-        <ActivityIndicator size="large" color={colors.primary.main} />
-        <Text style={styles.loadingText}>{ja.common.loading}</Text>
-      </SafeAreaView>
+      <View style={[styles.container, dynamicStyles.container]}>
+        <AppHeader title={ja.history.title} />
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+        <View style={[styles.loadingContainer, dynamicStyles.loadingContainer]}>
+          <ActivityIndicator size="large" color={baseColors.primary.main} />
+          <Text style={[styles.loadingText, dynamicStyles.loadingText]}>{ja.common.loading}</Text>
+        </View>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="light" />
+    <View style={[styles.container, dynamicStyles.container]}>
+      <AppHeader title={ja.history.title} />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       
       {/* ヘッダー */}
       <View style={styles.header}>
-        <Text style={styles.title}>{ja.history.title}</Text>
-        <Text style={styles.subtitle}>
+        <Text style={[styles.subtitle, dynamicStyles.subtitle]}>
           {filteredHistory.length}件の計算履歴
         </Text>
         
@@ -353,7 +572,9 @@ export default function HistoryScreen() {
               />
               <Text style={[
                 styles.toggleButtonText,
-                !showCloudHistory && styles.toggleButtonTextActive
+                dynamicStyles.switchButtonText,
+                !showCloudHistory && styles.toggleButtonTextActive,
+                { color: colors.text.primary }
               ]}>
                 ローカル ({localHistory.length})
               </Text>
@@ -373,7 +594,9 @@ export default function HistoryScreen() {
               />
               <Text style={[
                 styles.toggleButtonText,
-                showCloudHistory && styles.toggleButtonTextActive
+                dynamicStyles.switchButtonText,
+                showCloudHistory && styles.toggleButtonTextActive,
+                { color: colors.text.primary }
               ]}>
                 クラウド ({cloudHistory.length})
               </Text>
@@ -384,10 +607,10 @@ export default function HistoryScreen() {
 
       {/* 検索・フィルター */}
       <View style={styles.controls}>
-        <View style={styles.searchContainer}>
+        <View style={[styles.searchContainer, dynamicStyles.searchContainer]}>
           <Ionicons name="search" size={20} color={colors.text.secondary} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, dynamicStyles.searchInput]}
             placeholder={ja.history.searchPlaceholder}
             placeholderTextColor={colors.text.secondary}
             value={filter.searchTerm}
@@ -396,24 +619,24 @@ export default function HistoryScreen() {
         </View>
         
         <View style={styles.filterButtons}>
-          <TouchableOpacity style={styles.filterButton} onPress={toggleSort}>
+          <TouchableOpacity style={[styles.filterButton, dynamicStyles.filterButton]} onPress={toggleSort}>
             <Ionicons 
               name={filter.sortBy === 'date' ? 'time' : 'resize'} 
               size={16} 
               color={colors.text.primary} 
             />
-            <Text style={styles.filterButtonText}>
+            <Text style={[styles.filterButtonText, dynamicStyles.filterButtonText, { color: colors.text.primary }]}>
               {filter.sortBy === 'date' ? ja.history.sortByDate : ja.history.sortBySize}
             </Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.filterButton} onPress={toggleFilter}>
+          <TouchableOpacity style={[styles.filterButton, dynamicStyles.filterButton]} onPress={toggleFilter}>
             <Ionicons 
               name={filter.filterBy === 'all' ? 'list' : 'time'} 
               size={16} 
               color={colors.text.primary} 
             />
-            <Text style={styles.filterButtonText}>
+            <Text style={[styles.filterButtonText, dynamicStyles.filterButtonText, { color: colors.text.primary }]}>
               {filter.filterBy === 'all' ? ja.history.filterAll : ja.history.filterRecent}
             </Text>
           </TouchableOpacity>
@@ -422,23 +645,23 @@ export default function HistoryScreen() {
 
       {/* 履歴リスト */}
       {filteredHistory.length === 0 ? (
-        <View style={styles.emptyContainer}>
+        <View style={[styles.emptyContainer, dynamicStyles.emptyContainer]}>
           <Ionicons name="time-outline" size={64} color={colors.text.secondary} />
-          <Text style={styles.emptyTitle}>{ja.history.noHistory}</Text>
-          <Text style={styles.emptyDescription}>
+          <Text style={[styles.emptyTitle, dynamicStyles.emptyText]}>{ja.history.noHistory}</Text>
+          <Text style={[styles.emptyDescription, dynamicStyles.emptySubtext]}>
             {ja.history.noHistoryDescription}
           </Text>
           <TouchableOpacity
-            style={styles.startButton}
-            onPress={() => router.push('/(tabs)/input')}
+            style={[styles.startButton, dynamicStyles.emptyButton]}
+            onPress={() => router.push('/(drawer)/input')}
           >
-            <Text style={styles.startButtonText}>計算を始める</Text>
+            <Text style={[styles.startButtonText, dynamicStyles.emptyButtonText]}>計算を始める</Text>
           </TouchableOpacity>
         </View>
       ) : (
         <FlatList
           data={filteredHistory}
-          keyExtractor={(item) => showCloudHistory ? item.id.toString() : item.id}
+          keyExtractor={(item) => String(item.id)}
           renderItem={({ item }) => (
             <HistoryCard
               item={item}
@@ -452,51 +675,40 @@ export default function HistoryScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={[colors.primary.main]}
-              tintColor={colors.primary.main}
+              colors={[baseColors.primary.main]}
+              tintColor={baseColors.primary.main}
             />
           }
           showsVerticalScrollIndicator={false}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background.dark,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background.dark,
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: colors.text.secondary,
   },
   header: {
     padding: 20,
     paddingBottom: 16,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.text.primary,
-    marginBottom: 4,
-  },
   subtitle: {
     fontSize: 14,
-    color: colors.text.secondary,
     marginBottom: 16,
   },
   toggleContainer: {
     flexDirection: 'row',
-    backgroundColor: colors.background.card,
     borderRadius: 8,
     padding: 4,
   },
@@ -510,15 +722,12 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   toggleButtonActive: {
-    backgroundColor: colors.primary.main,
   },
   toggleButtonText: {
     fontSize: 12,
-    color: colors.text.secondary,
     marginLeft: 6,
   },
   toggleButtonTextActive: {
-    color: colors.text.primary,
     fontWeight: '600',
   },
   controls: {
@@ -528,19 +737,16 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background.card,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: colors.border.main,
   },
   searchInput: {
     flex: 1,
     marginLeft: 8,
     fontSize: 16,
-    color: colors.text.primary,
   },
   filterButtons: {
     flexDirection: 'row',
@@ -549,17 +755,14 @@ const styles = StyleSheet.create({
   filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background.card,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 6,
     gap: 6,
     borderWidth: 1,
-    borderColor: colors.border.main,
   },
   filterButtonText: {
     fontSize: 12,
-    color: colors.text.primary,
     fontWeight: '500',
   },
   listContainer: {
@@ -574,25 +777,21 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: colors.text.primary,
     marginTop: 16,
     marginBottom: 8,
   },
   emptyDescription: {
     fontSize: 14,
-    color: colors.text.secondary,
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 24,
   },
   startButton: {
-    backgroundColor: colors.primary.main,
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,
   },
   startButtonText: {
-    color: colors.text.primary,
     fontSize: 16,
     fontWeight: 'bold',
   },

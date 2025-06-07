@@ -35,8 +35,11 @@ export interface ScaffoldInputData {
   use_300_EW: number;
   use_150_EW: number;
   
-  // 目標離れ
-  target_margin: number;
+  // 目標離れ (4面個別設定、nullは軒の出+80の最小離れのみ)
+  target_margin_N: number | null;
+  target_margin_E: number | null;
+  target_margin_S: number | null;
+  target_margin_W: number | null;
 }
 
 export interface ScaffoldCalculationResult {

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, Switch, StyleSheet } from 'react-native';
-import { colors } from '../constants/colors';
+import { colors as baseColors } from '../constants/colors';
+import { useTheme } from '../context/ThemeContext';
 
 type SwitchFieldProps = {
   label: string;
@@ -15,9 +16,20 @@ export const SwitchField: React.FC<SwitchFieldProps> = ({
   onValueChange,
   disabled = false,
 }) => {
+  const { colors } = useTheme();
+
+  const dynamicStyles = StyleSheet.create({
+    label: {
+      color: colors.text.primary,
+    },
+    disabledText: {
+      color: colors.text.disabled,
+    },
+  });
+
   return (
     <View style={styles.container}>
-      <Text style={[styles.label, disabled && styles.disabledText]}>
+      <Text style={[styles.label, dynamicStyles.label, disabled && [styles.disabledText, dynamicStyles.disabledText]]}>
         {label}
       </Text>
       <Switch
@@ -25,9 +37,9 @@ export const SwitchField: React.FC<SwitchFieldProps> = ({
         onValueChange={onValueChange}
         trackColor={{
           false: colors.background.card,
-          true: colors.primary.main,
+          true: baseColors.primary.main,
         }}
-        thumbColor={value ? colors.text.primary : colors.text.secondary}
+        thumbColor={value ? '#FFFFFF' : colors.text.secondary}
         ios_backgroundColor={colors.background.card}
         disabled={disabled}
       />
@@ -45,11 +57,10 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
-    color: colors.text.primary,
     fontWeight: '500',
     flex: 1,
   },
   disabledText: {
-    color: colors.text.disabled,
+    // Dynamic styles will override this
   },
 });

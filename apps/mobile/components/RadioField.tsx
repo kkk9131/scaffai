@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { colors } from '../constants/colors';
+import { colors as baseColors } from '../constants/colors';
+import { useTheme } from '../context/ThemeContext';
 
 type Option = {
   label: string;
@@ -22,9 +23,44 @@ export const RadioField: React.FC<RadioFieldProps> = ({
   onValueChange,
   disabled = false,
 }) => {
+  const { colors } = useTheme();
+
+  const dynamicStyles = StyleSheet.create({
+    label: {
+      color: colors.text.primary,
+    },
+    selectedOption: {
+      backgroundColor: `${baseColors.primary.main}20`,
+    },
+    radioOuter: {
+      borderColor: baseColors.primary.light,
+    },
+    radioOuterSelected: {
+      borderColor: baseColors.primary.main,
+    },
+    radioInner: {
+      backgroundColor: baseColors.primary.main,
+    },
+    optionLabel: {
+      color: colors.text.primary,
+    },
+    selectedText: {
+      color: colors.text.primary,
+    },
+    disabledText: {
+      color: colors.text.disabled,
+    },
+    disabledRadio: {
+      borderColor: colors.text.disabled,
+    },
+    disabledRadioInner: {
+      backgroundColor: colors.text.disabled,
+    },
+  });
+
   return (
     <View style={styles.container}>
-      <Text style={[styles.label, disabled && styles.disabledText]}>
+      <Text style={[styles.label, dynamicStyles.label, disabled && [styles.disabledText, dynamicStyles.disabledText]]}>
         {label}
       </Text>
       <View style={styles.optionsContainer}>
@@ -33,7 +69,7 @@ export const RadioField: React.FC<RadioFieldProps> = ({
             key={option.value}
             style={[
               styles.option,
-              selectedValue === option.value && styles.selectedOption,
+              selectedValue === option.value && [styles.selectedOption, dynamicStyles.selectedOption],
               disabled && styles.disabledOption,
             ]}
             onPress={() => !disabled && onValueChange(option.value)}
@@ -42,15 +78,17 @@ export const RadioField: React.FC<RadioFieldProps> = ({
             <View
               style={[
                 styles.radioOuter,
-                selectedValue === option.value && styles.radioOuterSelected,
-                disabled && styles.disabledRadio,
+                dynamicStyles.radioOuter,
+                selectedValue === option.value && [styles.radioOuterSelected, dynamicStyles.radioOuterSelected],
+                disabled && [styles.disabledRadio, dynamicStyles.disabledRadio],
               ]}
             >
               {selectedValue === option.value && (
                 <View
                   style={[
                     styles.radioInner,
-                    disabled && styles.disabledRadioInner,
+                    dynamicStyles.radioInner,
+                    disabled && [styles.disabledRadioInner, dynamicStyles.disabledRadioInner],
                   ]}
                 />
               )}
@@ -58,8 +96,9 @@ export const RadioField: React.FC<RadioFieldProps> = ({
             <Text
               style={[
                 styles.optionLabel,
-                selectedValue === option.value && styles.selectedText,
-                disabled && styles.disabledText,
+                dynamicStyles.optionLabel,
+                selectedValue === option.value && [styles.selectedText, dynamicStyles.selectedText],
+                disabled && [styles.disabledText, dynamicStyles.disabledText],
               ]}
             >
               {option.label}
@@ -77,7 +116,6 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
-    color: colors.text.primary,
     marginBottom: 8,
     fontWeight: '500',
   },
@@ -95,7 +133,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   selectedOption: {
-    backgroundColor: `${colors.primary.main}20`,
     borderRadius: 8,
   },
   radioOuter: {
@@ -103,38 +140,34 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: colors.primary.light,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
   },
   radioOuterSelected: {
-    borderColor: colors.primary.main,
+    // Dynamic styles will override this
   },
   radioInner: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: colors.primary.main,
   },
   optionLabel: {
     fontSize: 16,
-    color: colors.text.primary,
   },
   selectedText: {
-    color: colors.text.primary,
     fontWeight: '500',
   },
   disabledOption: {
     opacity: 0.6,
   },
   disabledText: {
-    color: colors.text.disabled,
+    // Dynamic styles will override this
   },
   disabledRadio: {
-    borderColor: colors.text.disabled,
+    // Dynamic styles will override this
   },
   disabledRadioInner: {
-    backgroundColor: colors.text.disabled,
+    // Dynamic styles will override this
   },
 });

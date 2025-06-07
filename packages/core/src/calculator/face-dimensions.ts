@@ -23,7 +23,7 @@ export function calculateFaceDimensions(
   use300Val: number,
   use355Val: number,
   partsMasterList: readonly number[],
-  targetMarginVal: number = DEFAULT_TARGET_MARGIN,
+  targetMarginVal: number | null = DEFAULT_TARGET_MARGIN,
   faceName: string = "UnknownFace"
 ): FaceDimensionResult {
   
@@ -35,6 +35,15 @@ export function calculateFaceDimensions(
   }
   
   const eavesForSpanCalc = Math.max(eavesLeftVal, eavesRightVal);
+  
+  // 目標離れの決定（nullの場合は軒の出+80の最小離れのみ）
+  const effectiveTargetMargin = targetMarginVal !== null 
+    ? targetMarginVal 
+    : Math.max(eavesLeftVal, eavesRightVal) + EAVES_MARGIN_THRESHOLD_ADDITION;
+  
+  if (debugPrints) {
+    console.log(`[DEBUG ${faceName}] Target margin: ${targetMarginVal} -> effective: ${effectiveTargetMargin} (null means eaves+80 minimum)`);
+  }
   
   // 1. ユーザー指定の必須特殊部材リストを作成
   const mandatorySpecialParts: number[] = [];
@@ -58,7 +67,7 @@ export function calculateFaceDimensions(
     partsMasterList,
     boundaryLeftVal,
     boundaryRightVal,
-    targetMarginVal,
+    effectiveTargetMargin,
     debugPrints
   );
   
@@ -72,7 +81,7 @@ export function calculateFaceDimensions(
     widthVal,
     boundaryLeftVal,
     boundaryRightVal,
-    targetMarginVal,
+    effectiveTargetMargin,
     eavesLeftVal,
     eavesRightVal,
     debugPrints

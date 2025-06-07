@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
-import { colors } from '../constants/colors';
+import { colors as baseColors } from '../constants/colors';
+import { useTheme } from '../context/ThemeContext';
 import { ja } from '../constants/translations';
 
 type InputFieldProps = {
@@ -37,35 +38,67 @@ export const InputField: React.FC<InputFieldProps> = ({
   numberOfLines = 1,
   maxLength,
 }) => {
+  const { colors } = useTheme();
+
+  const dynamicStyles = StyleSheet.create({
+    label: {
+      color: colors.text.primary,
+    },
+    inputContainer: {
+      backgroundColor: colors.input.background,
+      borderColor: colors.input.border,
+    },
+    input: {
+      color: colors.input.text || colors.text.primary,
+    },
+    inputError: {
+      borderColor: baseColors.error,
+    },
+    inputDisabled: {
+      backgroundColor: `${colors.input.background}80`,
+      borderColor: colors.input.border,
+    },
+    disabledText: {
+      color: colors.text.disabled,
+    },
+    suffix: {
+      color: colors.text.secondary,
+    },
+    errorText: {
+      color: baseColors.error,
+    },
+  });
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, dynamicStyles.label]}>{label}</Text>
       <View
         style={[
           styles.inputContainer,
-          error ? styles.inputError : null,
-          !editable ? styles.inputDisabled : null,
+          dynamicStyles.inputContainer,
+          error ? [styles.inputError, dynamicStyles.inputError] : null,
+          !editable ? [styles.inputDisabled, dynamicStyles.inputDisabled] : null,
         ]}
       >
         <TextInput
           style={[
             styles.input,
+            dynamicStyles.input,
             multiline ? styles.multilineInput : null,
-            !editable ? styles.disabledText : null,
+            !editable ? [styles.disabledText, dynamicStyles.disabledText] : null,
           ]}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={colors.text.disabled}
+          placeholderTextColor={colors.input.placeholder || colors.text.disabled}
           keyboardType={keyboardType}
           editable={editable}
           multiline={multiline}
           numberOfLines={Platform.OS === 'ios' ? undefined : numberOfLines}
           maxLength={maxLength}
         />
-        {suffix && <Text style={styles.suffix}>{suffix}</Text>}
+        {suffix && <Text style={[styles.suffix, dynamicStyles.suffix]}>{suffix}</Text>}
       </View>
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {error && <Text style={[styles.errorText, dynamicStyles.errorText]}>{error}</Text>}
     </View>
   );
 };
@@ -76,22 +109,18 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 16,
-    color: colors.text.primary,
     marginBottom: 8,
     fontWeight: '500',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.input.background,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.input.border,
     paddingHorizontal: 12,
   },
   input: {
     flex: 1,
-    color: colors.text.primary,
     fontSize: 16,
     paddingVertical: 12,
   },
@@ -100,22 +129,16 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   inputError: {
-    borderColor: colors.error,
   },
   inputDisabled: {
-    backgroundColor: `${colors.input.background}80`,
-    borderColor: colors.input.border,
   },
   disabledText: {
-    color: colors.text.disabled,
   },
   suffix: {
-    color: colors.text.secondary,
     marginLeft: 8,
     fontSize: 14,
   },
   errorText: {
-    color: colors.error,
     fontSize: 12,
     marginTop: 4,
   },
