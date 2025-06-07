@@ -114,6 +114,10 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = () => {
+    console.log('🚪 [PROFILE] handleLogout function called!');
+    console.log('🚪 [PROFILE] Current user:', !!user);
+    console.log('🚪 [PROFILE] signOut function type:', typeof signOut);
+    
     Alert.alert(
       'ログアウト',
       'ログアウトしますか？',
@@ -315,7 +319,13 @@ export default function ProfileScreen() {
 
         {/* ログアウト */}
         <View style={[styles.section, dynamicStyles.menuItem]}>
-          <TouchableOpacity style={[styles.logoutButton, dynamicStyles.logoutButton]} onPress={handleLogout}>
+          <TouchableOpacity 
+            style={[styles.logoutButton, dynamicStyles.logoutButton]} 
+            onPress={() => {
+              console.log('🔥 [PROFILE] Logout button pressed!!!');
+              handleLogout();
+            }}
+          >
             <Ionicons name="log-out" size={24} color={baseColors.error} />
             <Text style={[styles.logoutText, dynamicStyles.logoutText]}>ログアウト</Text>
           </TouchableOpacity>

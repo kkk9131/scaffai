@@ -14,6 +14,10 @@ function CustomDrawerContent(props: any) {
   const { user, signOut } = useAuthContext();
 
   const handleSignOut = () => {
+    console.log('🚪 [DRAWER] handleSignOut function called!');
+    console.log('🚪 [DRAWER] Current user:', !!user);
+    console.log('🚪 [DRAWER] signOut function type:', typeof signOut);
+    
     Alert.alert(
       'ログアウト',
       'ログアウトしますか？',
@@ -133,7 +137,10 @@ function CustomDrawerContent(props: any) {
       <View style={[styles.drawerFooter, { borderTopColor: colors.border.main }]}>
         <TouchableOpacity
           style={[styles.signOutButton, { backgroundColor: colors.background.card }]}
-          onPress={handleSignOut}
+          onPress={() => {
+            console.log('🔥 [DRAWER] Logout button pressed!!!');
+            handleSignOut();
+          }}
         >
           <Ionicons name="log-out" size={20} color={baseColors.error} />
           <Text style={[styles.signOutText, { color: baseColors.error }]}>ログアウト</Text>
