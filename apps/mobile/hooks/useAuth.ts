@@ -149,7 +149,14 @@ export const useAuth = () => {
 
     try {
       console.log('🚪 [useAuth] Calling supabase.auth.signOut()...');
-      const { error } = await supabase.auth.signOut();
+      
+      // 5秒のタイムアウトを設定
+      const signOutPromise = supabase.auth.signOut();
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('SignOut timeout')), 5000)
+      );
+      
+      const { error } = await Promise.race([signOutPromise, timeoutPromise]) as any;
       
       if (error) {
         console.error('❌ [useAuth] Supabase signOut error:', error);
@@ -173,6 +180,21 @@ export const useAuth = () => {
       return { error: null };
     } catch (error: any) {
       console.error('❌ [useAuth] Sign out error:', error);
+      
+      // タイムアウトやエラーの場合でも強制的に状態をクリア
+      if (error.message === 'SignOut timeout') {
+        console.log('⚠️ [useAuth] SignOut timeout - forcing state clear');
+        setAuthState(prev => ({
+          ...prev,
+          user: null,
+          profile: null,
+          session: null,
+          loading: false,
+          initialized: true,
+        }));
+        return { error: null };
+      }
+      
       setAuthState(prev => ({ ...prev, loading: false }));
       return { error };
     }

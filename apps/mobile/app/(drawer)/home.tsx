@@ -24,6 +24,7 @@ import { CalculationHistory } from '../../types/history';
 import { useAuthContext } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -399,6 +400,26 @@ export default function HomeScreen() {
             }}
           >
             <Text style={styles.debugButtonText}>🧪 テスト: 直接ログアウト</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.debugButton, { backgroundColor: '#FF6B6B' }]}
+            onPress={async () => {
+              console.log('💥 [DEBUG] Force logout test...');
+              try {
+                // AsyncStorage を直接クリア
+                await AsyncStorage.removeItem('supabase.auth.token');
+                console.log('💥 [DEBUG] AsyncStorage auth token cleared');
+                
+                // 強制的に認証状態をリセット
+                window.location.reload();
+              } catch (error) {
+                console.error('💥 [DEBUG] Force logout error:', error);
+                Alert.alert('エラー', `強制ログアウトエラー: ${error}`);
+              }
+            }}
+          >
+            <Text style={styles.debugButtonText}>💥 強制ログアウト</Text>
           </TouchableOpacity>
         </View>
 
