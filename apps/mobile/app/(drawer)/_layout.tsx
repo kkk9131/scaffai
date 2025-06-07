@@ -38,8 +38,10 @@ function CustomDrawerContent(props: any) {
                 return;
               }
               
+              console.log('🚪 [DRAWER] About to call signOut()...');
               const result = await signOut();
               console.log('🚪 [DRAWER] Logout result:', result);
+              console.log('🚪 [DRAWER] Logout completed, waiting for AuthGuard...');
               
               if (result && result.error) {
                 console.error('❌ [DRAWER] Logout failed:', result.error);

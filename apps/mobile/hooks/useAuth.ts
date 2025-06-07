@@ -153,15 +153,23 @@ export const useAuth = () => {
       
       if (error) {
         console.error('❌ [useAuth] Supabase signOut error:', error);
+        setAuthState(prev => ({ ...prev, loading: false }));
         throw error;
       }
 
       console.log('✅ [useAuth] Supabase signOut successful');
       
-      // 重要: onAuthStateChangeリスナーが自動的に状態を更新するので
-      // ここでは手動で状態をクリアしない
-      setAuthState(prev => ({ ...prev, loading: false }));
+      // 手動で状態をクリアして確実にログアウト状態にする
+      setAuthState(prev => ({
+        ...prev,
+        user: null,
+        profile: null,
+        session: null,
+        loading: false,
+        initialized: true,
+      }));
 
+      console.log('🚪 [useAuth] Auth state manually cleared');
       return { error: null };
     } catch (error: any) {
       console.error('❌ [useAuth] Sign out error:', error);
