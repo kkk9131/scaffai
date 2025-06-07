@@ -7,7 +7,8 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../constants/colors';
+import { colors as baseColors } from '../constants/colors';
+import { useTheme } from '../context/ThemeContext';
 import { ja } from '../constants/translations';
 import { CalculationHistory } from '../types/history';
 import { HistoryStorage } from '../utils/storage';
@@ -25,8 +26,56 @@ export const HistoryCard: React.FC<HistoryCardProps> = ({
   onDelete,
   isCloudItem = false,
 }) => {
+  const { colors } = useTheme();
+  
+  // Dynamic styles using theme colors
+  const dynamicStyles = StyleSheet.create({
+    container: {
+      backgroundColor: colors.background.card,
+      borderColor: colors.border.main,
+    },
+    title: {
+      color: colors.text.primary,
+    },
+    cloudBadge: {
+      backgroundColor: baseColors.primary.light,
+    },
+    cloudBadgeText: {
+      color: colors.text.primary,
+    },
+    date: {
+      color: colors.text.secondary,
+    },
+    detailLabel: {
+      color: colors.text.secondary,
+    },
+    detailValue: {
+      color: colors.text.primary,
+    },
+    loadButton: {
+      backgroundColor: baseColors.primary.main,
+    },
+    loadButtonText: {
+      color: '#FFFFFF',
+    },
+  });
+  
   const handleDelete = () => {
-    onDelete(isCloudItem ? item.id : item.id, item);
+    console.log('🗑️ HistoryCard handleDelete CLICKED!');
+    console.log('HistoryCard handleDelete called with:', { 
+      itemId: item.id, 
+      isCloudItem, 
+      item: JSON.stringify(item, null, 2) 
+    });
+    
+    // アラートで確認
+    console.log('🚨 About to call onDelete function');
+    
+    // IDを確実に文字列として渡す
+    const itemId = String(item.id);
+    onDelete(itemId, item);
+    
+    console.log('✅ onDelete function called');
   };
 
   const formatDate = (dateString: string) => {
@@ -69,51 +118,52 @@ export const HistoryCard: React.FC<HistoryCardProps> = ({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, dynamicStyles.container]}>
       <View style={styles.header}>
         <View style={styles.titleContainer}>
           <View style={styles.titleRow}>
-            <Text style={styles.title}>{getTitle()}</Text>
+            <Text style={[styles.title, dynamicStyles.title]}>{getTitle()}</Text>
             {isCloudItem && (
-              <View style={styles.cloudBadge}>
+              <View style={[styles.cloudBadge, dynamicStyles.cloudBadge]}>
                 <Ionicons name="cloud" size={12} color={colors.text.primary} />
-                <Text style={styles.cloudBadgeText}>クラウド</Text>
+                <Text style={[styles.cloudBadgeText, dynamicStyles.cloudBadgeText]}>クラウド</Text>
               </View>
             )}
           </View>
-          <Text style={styles.date}>{formatDate(getCreatedAt())}</Text>
+          <Text style={[styles.date, dynamicStyles.date]}>{formatDate(getCreatedAt())}</Text>
         </View>
         <TouchableOpacity
           style={styles.deleteButton}
           onPress={handleDelete}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+          activeOpacity={0.7}
         >
-          <Ionicons name="trash-outline" size={20} color={colors.error} />
+          <Ionicons name="trash-outline" size={22} color={baseColors.error} />
         </TouchableOpacity>
       </View>
 
       <View style={styles.details}>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>{ja.history.frameSize}:</Text>
-          <Text style={styles.detailValue}>{getFrameSize()} mm</Text>
+          <Text style={[styles.detailLabel, dynamicStyles.detailLabel]}>{ja.history.frameSize}:</Text>
+          <Text style={[styles.detailValue, dynamicStyles.detailValue]}>{getFrameSize()} mm</Text>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>{ja.history.totalSpan}:</Text>
-          <Text style={styles.detailValue}>{getTotalSpan()} mm</Text>
+          <Text style={[styles.detailLabel, dynamicStyles.detailLabel]}>{ja.history.totalSpan}:</Text>
+          <Text style={[styles.detailValue, dynamicStyles.detailValue]}>{getTotalSpan()} mm</Text>
         </View>
         <View style={styles.detailRow}>
-          <Text style={styles.detailLabel}>屋根形状:</Text>
-          <Text style={styles.detailValue}>{getRoofShape()}</Text>
+          <Text style={[styles.detailLabel, dynamicStyles.detailLabel]}>屋根形状:</Text>
+          <Text style={[styles.detailValue, dynamicStyles.detailValue]}>{getRoofShape()}</Text>
         </View>
       </View>
 
       <View style={styles.actions}>
         <TouchableOpacity
-          style={styles.loadButton}
+          style={[styles.loadButton, dynamicStyles.loadButton]}
           onPress={() => onLoad(item)}
         >
-          <Ionicons name="download-outline" size={16} color={colors.text.primary} />
-          <Text style={styles.loadButtonText}>{ja.history.loadButton}</Text>
+          <Ionicons name="download-outline" size={16} color="#FFFFFF" />
+          <Text style={[styles.loadButtonText, dynamicStyles.loadButtonText]}>{ja.history.loadButton}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -122,13 +172,11 @@ export const HistoryCard: React.FC<HistoryCardProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.background.card,
     borderRadius: 12,
     padding: 16,
     marginHorizontal: 20,
     marginVertical: 8,
     borderWidth: 1,
-    borderColor: colors.border.main,
   },
   header: {
     flexDirection: 'row',
@@ -147,13 +195,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.text.primary,
     flex: 1,
   },
   cloudBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary.light,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 10,
@@ -161,15 +207,19 @@ const styles = StyleSheet.create({
   },
   cloudBadgeText: {
     fontSize: 10,
-    color: colors.text.primary,
     marginLeft: 2,
   },
   date: {
     fontSize: 12,
-    color: colors.text.secondary,
   },
   deleteButton: {
-    padding: 4,
+    padding: 8,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 40,
+    minHeight: 40,
+    backgroundColor: 'rgba(255, 0, 0, 0.1)', // テスト用の背景色
   },
   details: {
     marginBottom: 12,
@@ -181,12 +231,10 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 14,
-    color: colors.text.secondary,
     flex: 1,
   },
   detailValue: {
     fontSize: 14,
-    color: colors.text.primary,
     fontWeight: '500',
     textAlign: 'right',
     flex: 1,
@@ -198,14 +246,12 @@ const styles = StyleSheet.create({
   loadButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary.main,
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 6,
     gap: 6,
   },
   loadButtonText: {
-    color: colors.text.primary,
     fontSize: 14,
     fontWeight: '500',
   },

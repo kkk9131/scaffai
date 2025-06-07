@@ -10,17 +10,19 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppHeader } from '../../components/AppHeader';
 import { StatusBar } from 'expo-status-bar';
 import { InputField } from '../../components/InputField';
 import { SwitchField } from '../../components/SwitchField';
 import { RadioField } from '../../components/RadioField';
-import { colors } from '../../constants/colors';
+import { colors as baseColors } from '../../constants/colors';
+import { useTheme } from '../../context/ThemeContext';
 import { ja } from '../../constants/translations';
 import { useScaffold } from '../../context/ScaffoldContext';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function InputScreen() {
+  const { colors, isDark } = useTheme();
   const {
     inputData,
     setInputValue,
@@ -31,24 +33,69 @@ export default function InputScreen() {
   
   // 入力検証のエラー状態
   const [errors, setErrors] = useState<Record<string, string | null>>({});
+
+  // 動的スタイル
+  const dynamicStyles = StyleSheet.create({
+    title: {
+      color: colors.text.primary,
+    },
+    section: {
+      backgroundColor: colors.background.card,
+    },
+    sectionTitle: {
+      color: colors.text.primary,
+    },
+    directionColumn: {
+      backgroundColor: colors.background.paper,
+    },
+    directionTitle: {
+      color: colors.text.primary,
+    },
+    propertyLineItem: {
+      backgroundColor: colors.background.paper,
+    },
+    resetButton: {
+      backgroundColor: colors.background.card,
+    },
+    resetButtonText: {
+      color: colors.text.secondary,
+    },
+    calculateButton: {
+      backgroundColor: baseColors.primary.main,
+    },
+    calculateButtonText: {
+      color: colors.text.primary,
+    },
+  });
   
   // 計算実行
-  const handleCalculate = () => {
+  const handleCalculate = async () => {
     console.log('Calculate button pressed');
     
     try {
-      // 基本的な値の設定
-      if (!inputData.frameWidth.northSouth) {
+      // 基本的な値の設定（同期的に更新されたデータを作成）
+      const currentData = { ...inputData };
+      
+      if (!currentData.frameWidth.northSouth) {
+        currentData.frameWidth.northSouth = 1000;
         setInputValue('frameWidth', 'northSouth', 1000);
       }
-      if (!inputData.frameWidth.eastWest) {
+      if (!currentData.frameWidth.eastWest) {
+        currentData.frameWidth.eastWest = 1000;
         setInputValue('frameWidth', 'eastWest', 1000);
       }
-      if (!inputData.referenceHeight) {
+      if (!currentData.referenceHeight) {
+        currentData.referenceHeight = 2400;
         setInputValue('referenceHeight', '', 2400);
       }
       
-      calculateScaffold();
+      console.log('Current input data before calculation:', currentData);
+      
+      // 少し待ってから計算を実行（状態更新が確実に反映されるように）
+      setTimeout(() => {
+        calculateScaffold();
+      }, 100);
+      
     } catch (error) {
       console.error('Error in handleCalculate:', error);
       Alert.alert('エラー', 'ボタン処理中にエラーが発生しました');
@@ -66,21 +113,19 @@ export default function InputScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      <StatusBar style="light" />
+    <View style={[styles.safeArea, { backgroundColor: colors.background.primary }]}>
+      <AppHeader title={ja.input.title} />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>{ja.input.title}</Text>
-        </View>
 
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
           {/* 躯体幅 */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{ja.input.frameWidth}</Text>
+          <View style={[styles.section, dynamicStyles.section]}>
+            <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>{ja.input.frameWidth}</Text>
             <InputField
               label={ja.input.northSouth}
               value={inputData.frameWidth.northSouth?.toString() || ''}
@@ -102,8 +147,8 @@ export default function InputScreen() {
           </View>
 
           {/* 軒の出 */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{ja.input.eaveOverhang}</Text>
+          <View style={[styles.section, dynamicStyles.section]}>
+            <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>{ja.input.eaveOverhang}</Text>
             <InputField
               label={ja.input.north}
               value={inputData.eaveOverhang.north?.toString() || ''}
@@ -139,10 +184,10 @@ export default function InputScreen() {
           </View>
 
           {/* 境界線設定 */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{ja.input.propertyLine}</Text>
+          <View style={[styles.section, dynamicStyles.section]}>
+            <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>{ja.input.propertyLine}</Text>
             <View style={styles.propertyLineContainer}>
-              <View style={styles.propertyLineItem}>
+              <View style={[styles.propertyLineItem, dynamicStyles.propertyLineItem]}>
                 <SwitchField
                   label={ja.input.north}
                   value={inputData.propertyLine?.north || false}
@@ -159,7 +204,7 @@ export default function InputScreen() {
                   />
                 )}
               </View>
-              <View style={styles.propertyLineItem}>
+              <View style={[styles.propertyLineItem, dynamicStyles.propertyLineItem]}>
                 <SwitchField
                   label={ja.input.east}
                   value={inputData.propertyLine?.east || false}
@@ -176,7 +221,7 @@ export default function InputScreen() {
                   />
                 )}
               </View>
-              <View style={styles.propertyLineItem}>
+              <View style={[styles.propertyLineItem, dynamicStyles.propertyLineItem]}>
                 <SwitchField
                   label={ja.input.south}
                   value={inputData.propertyLine?.south || false}
@@ -193,7 +238,7 @@ export default function InputScreen() {
                   />
                 )}
               </View>
-              <View style={styles.propertyLineItem}>
+              <View style={[styles.propertyLineItem, dynamicStyles.propertyLineItem]}>
                 <SwitchField
                   label={ja.input.west}
                   value={inputData.propertyLine?.west || false}
@@ -214,7 +259,7 @@ export default function InputScreen() {
           </View>
 
           {/* 基準高さ */}
-          <View style={styles.section}>
+          <View style={[styles.section, dynamicStyles.section]}>
             <InputField
               label={ja.input.referenceHeight}
               value={inputData.referenceHeight?.toString() || ''}
@@ -227,7 +272,7 @@ export default function InputScreen() {
           </View>
 
           {/* 屋根の形状 */}
-          <View style={styles.section}>
+          <View style={[styles.section, dynamicStyles.section]}>
             <RadioField
               label={ja.input.roofShape}
               options={[
@@ -241,7 +286,7 @@ export default function InputScreen() {
           </View>
 
           {/* 根がらみ支柱 */}
-          <View style={styles.section}>
+          <View style={[styles.section, dynamicStyles.section]}>
             <SwitchField
               label={ja.input.tieColumns}
               value={inputData.hasTieColumns}
@@ -250,7 +295,7 @@ export default function InputScreen() {
           </View>
 
           {/* 軒手すり */}
-          <View style={styles.section}>
+          <View style={[styles.section, dynamicStyles.section]}>
             <InputField
               label={ja.input.eavesHandrails}
               value={inputData.eavesHandrails?.toString() || ''}
@@ -262,11 +307,11 @@ export default function InputScreen() {
           </View>
 
           {/* 特殊資材 */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{ja.input.specialMaterial}</Text>
+          <View style={[styles.section, dynamicStyles.section]}>
+            <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>{ja.input.specialMaterial}</Text>
             <View style={styles.directionContainer}>
-              <View style={styles.directionColumn}>
-                <Text style={styles.directionTitle}>{ja.input.northSouth}</Text>
+              <View style={[styles.directionColumn, dynamicStyles.directionColumn]}>
+                <Text style={[styles.directionTitle, dynamicStyles.directionTitle]}>{ja.input.northSouth}</Text>
                 <InputField
                   label={ja.input.material355}
                   value={inputData.specialMaterial?.northSouth?.material355?.toString() || ''}
@@ -292,8 +337,8 @@ export default function InputScreen() {
                   suffix={ja.common.items}
                 />
               </View>
-              <View style={styles.directionColumn}>
-                <Text style={styles.directionTitle}>{ja.input.eastWest}</Text>
+              <View style={[styles.directionColumn, dynamicStyles.directionColumn]}>
+                <Text style={[styles.directionTitle, dynamicStyles.directionTitle]}>{ja.input.eastWest}</Text>
                 <InputField
                   label={ja.input.material355}
                   value={inputData.specialMaterial?.eastWest?.material355?.toString() || ''}
@@ -322,30 +367,93 @@ export default function InputScreen() {
             </View>
           </View>
 
-          {/* 目標離れ */}
-          <View style={styles.section}>
-            <InputField
-              label={ja.input.targetOffset}
-              value={inputData.targetOffset?.toString() || ''}
-              onChangeText={(value) => handleNumberInput('targetOffset', '', value)}
-              placeholder="900"
-              keyboardType="numeric"
-              suffix={ja.common.mm}
-            />
+          {/* 目標離れ（4面個別設定） */}
+          <View style={[styles.section, dynamicStyles.section]}>
+            <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>{ja.input.targetOffset}</Text>
+            <Text style={[styles.sectionDescription, dynamicStyles.sectionTitle]}>{ja.input.targetOffsetDescription}</Text>
+            
+            {/* 北面 */}
+            <View style={[styles.propertyLineItem, dynamicStyles.propertyLineItem]}>
+              <SwitchField
+                label={`${ja.input.north} - ${ja.input.targetOffsetEnabled}`}
+                value={inputData.targetOffset?.north?.enabled || false}
+                onValueChange={(value) => setInputValue('targetOffset', 'north.enabled', value)}
+              />
+              <InputField
+                label={`${ja.input.north}目標離れ`}
+                value={inputData.targetOffset?.north?.value !== null ? String(inputData.targetOffset.north.value) : ''}
+                onChangeText={(value) => handleNumberInput('targetOffset', 'north.value', value)}
+                placeholder="900"
+                keyboardType="numeric"
+                suffix={ja.common.mm}
+                editable={inputData.targetOffset?.north?.enabled || false}
+              />
+            </View>
+            {/* 東面 */}
+            <View style={[styles.propertyLineItem, dynamicStyles.propertyLineItem]}>
+              <SwitchField
+                label={`${ja.input.east} - ${ja.input.targetOffsetEnabled}`}
+                value={inputData.targetOffset?.east?.enabled || false}
+                onValueChange={(value) => setInputValue('targetOffset', 'east.enabled', value)}
+              />
+              <InputField
+                label={`${ja.input.east}目標離れ`}
+                value={inputData.targetOffset?.east?.value !== null ? String(inputData.targetOffset.east.value) : ''}
+                onChangeText={(value) => handleNumberInput('targetOffset', 'east.value', value)}
+                placeholder="900"
+                keyboardType="numeric"
+                suffix={ja.common.mm}
+                editable={inputData.targetOffset?.east?.enabled || false}
+              />
+            </View>
+            {/* 南面 */}
+            <View style={[styles.propertyLineItem, dynamicStyles.propertyLineItem]}>
+              <SwitchField
+                label={`${ja.input.south} - ${ja.input.targetOffsetEnabled}`}
+                value={inputData.targetOffset?.south?.enabled || false}
+                onValueChange={(value) => setInputValue('targetOffset', 'south.enabled', value)}
+              />
+              <InputField
+                label={`${ja.input.south}目標離れ`}
+                value={inputData.targetOffset?.south?.value !== null ? String(inputData.targetOffset.south.value) : ''}
+                onChangeText={(value) => handleNumberInput('targetOffset', 'south.value', value)}
+                placeholder="900"
+                keyboardType="numeric"
+                suffix={ja.common.mm}
+                editable={inputData.targetOffset?.south?.enabled || false}
+              />
+            </View>
+            {/* 西面 */}
+            <View style={[styles.propertyLineItem, dynamicStyles.propertyLineItem]}>
+              <SwitchField
+                label={`${ja.input.west} - ${ja.input.targetOffsetEnabled}`}
+                value={inputData.targetOffset?.west?.enabled || false}
+                onValueChange={(value) => setInputValue('targetOffset', 'west.enabled', value)}
+              />
+              <InputField
+                label={`${ja.input.west}目標離れ`}
+                value={inputData.targetOffset?.west?.value !== null ? String(inputData.targetOffset.west.value) : ''}
+                onChangeText={(value) => handleNumberInput('targetOffset', 'west.value', value)}
+                placeholder="900"
+                keyboardType="numeric"
+                suffix={ja.common.mm}
+                editable={inputData.targetOffset?.west?.enabled || false}
+              />
+            </View>
           </View>
         </ScrollView>
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity
-            style={styles.resetButton}
+            style={[styles.resetButton, dynamicStyles.resetButton]}
             onPress={resetInputData}
           >
             <Ionicons name="refresh" color={colors.text.secondary} size={20} />
-            <Text style={styles.resetButtonText}>{ja.input.resetButton}</Text>
+            <Text style={[styles.resetButtonText, dynamicStyles.resetButtonText]}>{ja.input.resetButton}</Text>
           </TouchableOpacity>
           
           <TouchableOpacity
-            style={[styles.calculateButton, isLoading && styles.disabledButton]}
+            style={[styles.calculateButton, dynamicStyles.calculateButton, isLoading && styles.disabledButton]}
             onPress={handleCalculate}
             disabled={isLoading}
           >
@@ -353,34 +461,23 @@ export default function InputScreen() {
               <ActivityIndicator color={colors.text.primary} />
             ) : (
               <>
-                <Text style={styles.calculateButtonText}>{ja.input.calculateButton}</Text>
+                <Text style={[styles.calculateButtonText, dynamicStyles.calculateButtonText]}>{ja.input.calculateButton}</Text>
                 <Ionicons name="arrow-forward" color={colors.text.primary} size={20} />
               </>
             )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background.dark,
   },
   container: {
     flex: 1,
-  },
-  header: {
-    padding: 20,
-    paddingBottom: 10,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.text.primary,
-    textAlign: 'center',
   },
   scrollView: {
     flex: 1,
@@ -391,21 +488,18 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 24,
-    backgroundColor: colors.background.card,
     borderRadius: 12,
     padding: 16,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: colors.text.primary,
     marginBottom: 12,
   },
   propertyLineContainer: {
     gap: 16,
   },
   propertyLineItem: {
-    backgroundColor: colors.background.paper,
     borderRadius: 8,
     padding: 12,
   },
@@ -415,14 +509,12 @@ const styles = StyleSheet.create({
   },
   directionColumn: {
     flex: 1,
-    backgroundColor: colors.background.paper,
     borderRadius: 8,
     padding: 12,
   },
   directionTitle: {
     fontSize: 16,
     fontWeight: '500',
-    color: colors.text.primary,
     marginBottom: 12,
   },
   buttonContainer: {
@@ -435,13 +527,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.background.card,
     paddingVertical: 16,
     borderRadius: 8,
     gap: 8,
   },
   resetButtonText: {
-    color: colors.text.secondary,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -450,17 +540,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary.main,
     paddingVertical: 16,
     borderRadius: 8,
     gap: 8,
   },
   calculateButtonText: {
-    color: colors.text.primary,
     fontSize: 16,
     fontWeight: 'bold',
   },
   disabledButton: {
     opacity: 0.6,
+  },
+  sectionDescription: {
+    fontSize: 14,
+    marginBottom: 16,
+    opacity: 0.8,
+    lineHeight: 20,
   },
 });

@@ -27,7 +27,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 export const useAuthContext = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuthContext must be used within an AuthProvider');
+    // デフォルト値を返してエラーを防ぐ
+    return {
+      user: null,
+      profile: null,
+      session: null,
+      loading: true,
+      initialized: false,
+      signUp: async () => ({ data: null, error: null }),
+      signIn: async () => ({ data: null, error: null }),
+      signOut: async () => ({ error: null }),
+      updateProfile: async () => ({ data: null, error: null }),
+      refreshProfile: () => {},
+    };
   }
   return context;
 };

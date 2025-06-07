@@ -37,7 +37,10 @@ function convertToScaffoldInputData(inputData: InputData): ScaffoldInputData {
     use_355_EW: inputData.specialMaterial.eastWest.material355 || 0,
     use_300_EW: inputData.specialMaterial.eastWest.material300 || 0,
     use_150_EW: inputData.specialMaterial.eastWest.material150 || 0,
-    target_margin: inputData.targetOffset || 900,
+    target_margin_N: inputData.targetOffset?.north?.enabled ? (inputData.targetOffset.north.value ?? 900) : null,
+    target_margin_E: inputData.targetOffset?.east?.enabled ? (inputData.targetOffset.east.value ?? 900) : null,
+    target_margin_S: inputData.targetOffset?.south?.enabled ? (inputData.targetOffset.south.value ?? 900) : null,
+    target_margin_W: inputData.targetOffset?.west?.enabled ? (inputData.targetOffset.west.value ?? 900) : null,
   };
 }
 
@@ -95,7 +98,12 @@ export type InputData = {
       material150: number | null;
     };
   };
-  targetOffset: number | null;
+  targetOffset: {
+    north: { enabled: boolean; value: number | null };
+    east: { enabled: boolean; value: number | null };
+    south: { enabled: boolean; value: number | null };
+    west: { enabled: boolean; value: number | null };
+  };
   propertyLineDistance?: {
     north: number | null;
     east: number | null;
@@ -156,7 +164,12 @@ const defaultInputData: InputData = {
       material150: null,
     },
   },
-  targetOffset: null,
+  targetOffset: {
+    north: { enabled: false, value: null },
+    east: { enabled: false, value: null },
+    south: { enabled: false, value: null },
+    west: { enabled: false, value: null },
+  },
   propertyLineDistance: {
     north: null,
     east: null,
@@ -199,7 +212,12 @@ const testInputData: InputData = {
       material150: 0,
     },
   },
-  targetOffset: 900,
+  targetOffset: {
+    north: { enabled: true, value: 900 },
+    east: { enabled: true, value: 900 },
+    south: { enabled: true, value: 900 },
+    west: { enabled: true, value: 900 },
+  },
   propertyLineDistance: {
     north: null,
     east: null,
@@ -222,7 +240,9 @@ type ScaffoldContextType = {
   error: string | null;
   calculateScaffold: () => Promise<void>;
   testAPICall: () => Promise<void>; // テスト用のシンプルなAPI呼び出し
-  saveCalculationToHistory: (title?: string) => Promise<void>;
+  saveToLocal: () => Promise<void>; // ローカル保存専用
+  saveToCloud: () => Promise<void>; // クラウド保存専用
+  saveCalculationToHistory: (title?: string) => Promise<void>; // 後方互換性のため追加
 };
 
 // コンテキスト作成
@@ -245,7 +265,7 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
   // 入力値の更新 (ネスト階層対応済)
   const setInputValue = useCallback((
     category: keyof InputData,
-    field: string, // 例: 'northSouth' または 'northSouth.material355'
+    field: string, // 例: 'northSouth' または 'northSouth.material355' または 'north.enabled'
     value: any
   ) => {
     console.log('setInputValue called:', { category, field, value });
@@ -259,14 +279,44 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
         const fieldParts = field.split('.');
         let currentLevel: any = newData[category];
 
-        for (let i = 0; i < fieldParts.length - 1; i++) {
-          if (!currentLevel[fieldParts[i]]) {
-            currentLevel[fieldParts[i]] = {};
-          }
-          currentLevel = currentLevel[fieldParts[i]];
+        // カテゴリが存在しない場合は初期化
+        if (!currentLevel && category === 'targetOffset') {
+          newData[category] = {
+            north: { enabled: false, value: null },
+            east: { enabled: false, value: null },
+            south: { enabled: false, value: null },
+            west: { enabled: false, value: null },
+          } as any;
+          currentLevel = newData[category];
         }
-        currentLevel[fieldParts[fieldParts.length - 1]] = value;
+
+        // targetOffsetの場合、ネストされた構造を特別処理
+        if (category === 'targetOffset' && fieldParts.length === 2) {
+          const direction = fieldParts[0];
+          const property = fieldParts[1];
+          
+          if (!currentLevel[direction]) {
+            currentLevel[direction] = { enabled: false, value: null };
+          }
+          
+          if (property === 'value' && typeof value === 'string') {
+            currentLevel[direction][property] = value === '' ? null : Number(value);
+          } else {
+            currentLevel[direction][property] = value;
+          }
+        } else {
+          // 通常のネスト処理
+          for (let i = 0; i < fieldParts.length - 1; i++) {
+            if (!currentLevel[fieldParts[i]]) {
+              currentLevel[fieldParts[i]] = {};
+            }
+            currentLevel = currentLevel[fieldParts[i]];
+          }
+          currentLevel[fieldParts[fieldParts.length - 1]] = value;
+        }
       }
+      
+      console.log('Updated inputData:', JSON.stringify(newData, null, 2));
       return newData;
     });
   }, []);
@@ -283,22 +333,36 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
   const testAPICall = useCallback(async () => {
     console.log('testAPICall - Testing local calculation engine');
     try {
+      // まず計算エンジンが正常にインポートされているかテスト
+      const testInput = convertToScaffoldInputData(testInputData);
+      console.log('Test input for calculation engine:', testInput);
+      
+      const testResult = calculateAll(testInput);
+      console.log('Test calculation result:', testResult);
+      
       // 計算用のテストデータを設定
       setInputData(testInputData);
-      Alert.alert('テストデータ設定完了', '計算用のテストデータを設定しました。ローカル計算エンジンを使用します。');
+      Alert.alert('テストデータ設定完了', '計算用のテストデータを設定しました。ローカル計算エンジンが正常に動作しています。');
     } catch (error) {
       console.error('Test local calculation failed:', error);
-      Alert.alert('テストエラー', `テストに失敗しました: ${error}`);
+      Alert.alert('テストエラー', `計算エンジンのテストに失敗しました: ${error instanceof Error ? error.message : String(error)}`);
     }
   }, []);
 
   // ローカル計算エンジンを使用した計算
   const calculateScaffold = useCallback(async () => {
     console.log('calculateScaffold called - using local calculation engine');
+    console.log('Current input data:', JSON.stringify(inputData, null, 2));
+    
     setIsLoading(true);
     setError(null);
 
     try {
+      // 計算エンジンが利用可能かチェック
+      if (typeof calculateAll !== 'function') {
+        throw new Error('計算エンジンが正しくインポートされていません');
+      }
+
       // フロントエンド型からcore型への変換
       const scaffoldInputData = convertToScaffoldInputData(inputData);
       
@@ -307,116 +371,112 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
       // ローカル計算エンジンで計算実行
       const scaffoldResult = calculateAll(scaffoldInputData);
       
+      if (!scaffoldResult) {
+        throw new Error('計算結果が取得できませんでした');
+      }
+      
       console.log('Local calculation result:', scaffoldResult);
       
       // core型からフロントエンド型への変換
       const result = convertFromScaffoldResult(scaffoldResult);
 
+      if (!result) {
+        throw new Error('計算結果の変換に失敗しました');
+      }
+
       setCalculationResult(result);
       
       console.log('Setting calculation result:', result);
+      
+      // ローディング状態を先に解除
+      setIsLoading(false);
+      
       console.log('Navigating to result screen...');
       
-      // 自動的に履歴に保存（ローカル + Supabase）
-      try {
-        const historyItem: CalculationHistory = {
-          id: HistoryStorage.generateId(),
-          createdAt: new Date().toISOString(),
-          inputData: inputData,
-          result: result,
-        };
-        
-        // ローカルストレージに保存
-        await HistoryStorage.saveCalculation(historyItem);
-        console.log('Calculation automatically saved to local history');
-        
-        // Supabaseにも保存（認証済みの場合）
-        if (user) {
-          try {
-            const { error: supabaseError } = await supabase
-              .from('scaffold_calculations')
-              .insert({
-                user_id: user.id,
-                title: `計算結果 ${new Date().toLocaleDateString('ja-JP')}`,
-                // 入力データの個別フィールド
-                frame_width_ns: inputData.frameWidth.northSouth,
-                frame_width_ew: inputData.frameWidth.eastWest,
-                eaves_north: inputData.eaveOverhang.north,
-                eaves_east: inputData.eaveOverhang.east,
-                eaves_south: inputData.eaveOverhang.south,
-                eaves_west: inputData.eaveOverhang.west,
-                property_line_north: inputData.propertyLine.north,
-                property_line_east: inputData.propertyLine.east,
-                property_line_south: inputData.propertyLine.south,
-                property_line_west: inputData.propertyLine.west,
-                property_line_distance_north: inputData.propertyLineDistance?.north,
-                property_line_distance_east: inputData.propertyLineDistance?.east,
-                property_line_distance_south: inputData.propertyLineDistance?.south,
-                property_line_distance_west: inputData.propertyLineDistance?.west,
-                reference_height: inputData.referenceHeight,
-                roof_shape: inputData.roofShape,
-                has_tie_columns: inputData.hasTieColumns,
-                eaves_handrails: inputData.eavesHandrails,
-                special_material_ns_355: inputData.specialMaterial.northSouth.material355,
-                special_material_ns_300: inputData.specialMaterial.northSouth.material300,
-                special_material_ns_150: inputData.specialMaterial.northSouth.material150,
-                special_material_ew_355: inputData.specialMaterial.eastWest.material355,
-                special_material_ew_300: inputData.specialMaterial.eastWest.material300,
-                special_material_ew_150: inputData.specialMaterial.eastWest.material150,
-                target_offset: inputData.targetOffset,
-                // 計算結果の個別フィールド
-                ns_total_span: result.ns_total_span,
-                ew_total_span: result.ew_total_span,
-                ns_span_structure: result.ns_span_structure,
-                ew_span_structure: result.ew_span_structure,
-                north_gap: result.north_gap,
-                south_gap: result.south_gap,
-                east_gap: result.east_gap,
-                west_gap: result.west_gap,
-                num_stages: result.num_stages,
-                modules_count: result.modules_count,
-                jack_up_height: result.jack_up_height,
-                first_layer_height: result.first_layer_height,
-                tie_ok: result.tie_ok,
-                tie_column_used: result.tie_column_used,
-              });
-              
-            if (supabaseError) {
-              console.error('Failed to save to Supabase:', supabaseError);
-            } else {
-              console.log('Calculation saved to Supabase database');
-            }
-          } catch (supabaseError) {
-            console.error('Supabase save error:', supabaseError);
-          }
-        }
-      } catch (historyError) {
-        console.error('Failed to auto-save to history:', historyError);
-      }
+      // 結果画面へ即座に遷移
+      router.push('/(drawer)/result');
+      console.log('Navigation initiated');
       
-      // 結果画面へ遷移
-      setTimeout(() => {
-        try {
-          router.push('/(tabs)/result');
-          console.log('Navigation complete');
-        } catch (navError) {
-          console.error('Navigation error:', navError);
-          Alert.alert('画面遷移エラー', 'ルーティングに問題が発生しました。');
-        }
-      }, 500);  // 少し遅延を入れて状態更新が完了するのを待つ
+      // 自動保存は無効化 - ユーザーが手動で保存する必要がある
+      console.log('ℹ️ Auto-save disabled - user must manually save');
 
     } catch (err) {
       console.error('Local calculation failed:', err);
       const errorMessage = err instanceof Error ? err.message : '計算処理中にエラーが発生しました。入力データを確認してください。';
       setError(errorMessage);
-      Alert.alert('計算エラー', errorMessage);
-    } finally {
       setIsLoading(false);
+      Alert.alert('計算エラー', `${errorMessage}\n\nデバッグ情報: ${err instanceof Error ? err.stack : String(err)}`);
     }
   }, [inputData, router]);
 
-  // 計算結果を履歴に保存
-  const saveCalculationToHistory = useCallback(async (title?: string) => {
+  // バックグラウンドで履歴保存を行う関数（ナビゲーションをブロックしない）
+  const saveToHistoryInBackground = useCallback(async (inputData: InputData, result: CalculationResult) => {
+    console.log('💾 saveToHistoryInBackground called');
+    try {
+      const historyItem: CalculationHistory = {
+        id: HistoryStorage.generateId(),
+        createdAt: new Date().toISOString(),
+        inputData: inputData,
+        result: result,
+      };
+      
+      console.log('📦 Created history item:', historyItem.id);
+      console.log('📊 Input data keys:', Object.keys(historyItem.inputData));
+      console.log('📈 Result data keys:', Object.keys(historyItem.result));
+      
+      // ローカルストレージに保存
+      console.log('💾 Attempting to save to local storage...');
+      await HistoryStorage.saveCalculation(historyItem);
+      console.log('✅ Calculation automatically saved to local history');
+      
+      // Supabaseにも保存（認証済みで、プロフィールが存在する場合）
+      if (user) {
+        try {
+          // プロフィールが存在することを確認
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('id', user.id)
+            .single();
+
+          if (profileError && profileError.code === 'PGRST116') {
+            // プロフィールが存在しない場合はローカル保存のみ
+            console.log('Profile not found for user:', user.id, 'Skipping Supabase save');
+            return;
+          } else if (profileError) {
+            console.error('Error checking profile:', profileError);
+            console.log('Profile check failed, skipping Supabase save');
+            return;
+          }
+
+          // プロフィールが存在する場合のみSupabaseに保存
+          const { error: supabaseError } = await supabase
+            .from('scaffold_calculations')
+            .insert({
+              user_id: user.id,
+              title: `計算結果 ${new Date().toLocaleDateString('ja-JP')}`,
+              // 入力データをJSONとして保存
+              input_data: JSON.stringify(inputData),
+              // 計算結果をJSONとして保存
+              result_data: JSON.stringify(result),
+            } as any);
+            
+          if (supabaseError) {
+            console.error('Failed to save to Supabase:', supabaseError);
+          } else {
+            console.log('Calculation saved to Supabase database');
+          }
+        } catch (supabaseError) {
+          console.error('Supabase save error:', supabaseError);
+        }
+      }
+    } catch (historyError) {
+      console.error('Failed to auto-save to history:', historyError);
+    }
+  }, [user]);
+
+  // ローカル保存専用関数
+  const saveToLocal = useCallback(async () => {
     if (!calculationResult) {
       Alert.alert('エラー', '保存する計算結果がありません');
       return;
@@ -428,70 +488,158 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
         createdAt: new Date().toISOString(),
         inputData: inputData,
         result: calculationResult,
+      };
+
+      console.log('💾 Saving to local storage only...');
+      await HistoryStorage.saveCalculation(historyItem);
+      Alert.alert('保存完了', 'ローカルに保存しました');
+    } catch (error) {
+      console.error('Failed to save to local:', error);
+      Alert.alert('保存エラー', 'ローカル保存に失敗しました');
+    }
+  }, [calculationResult, inputData]);
+
+  // クラウド保存専用関数
+  const saveToCloud = useCallback(async () => {
+    if (!calculationResult) {
+      Alert.alert('エラー', '保存する計算結果がありません');
+      return;
+    }
+
+    if (!user) {
+      Alert.alert('エラー', 'クラウド保存にはログインが必要です');
+      return;
+    }
+
+    try {
+      const historyItem: CalculationHistory = {
+        id: HistoryStorage.generateId(),
+        createdAt: new Date().toISOString(),
+        inputData: inputData,
+        result: calculationResult,
+      };
+
+      console.log('☁️ Saving to cloud only...');
+      
+      // プロフィールが存在することを確認
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError && profileError.code === 'PGRST116') {
+        Alert.alert('エラー', 'ユーザープロフィールが見つかりません');
+        return;
+      } else if (profileError) {
+        console.error('Error checking profile:', profileError);
+        Alert.alert('エラー', 'プロフィール確認に失敗しました');
+        return;
+      }
+
+      const { error: supabaseError } = await supabase
+        .from('scaffold_calculations')
+        .insert({
+          user_id: user.id,
+          title: `計算結果 ${new Date().toLocaleDateString('ja-JP')}`,
+          // 入力データをJSONとして保存
+          input_data: JSON.stringify(inputData),
+          // 計算結果をJSONとして保存
+          result_data: JSON.stringify(calculationResult),
+        } as any);
+
+      if (supabaseError) {
+        console.error('Failed to save to Supabase:', supabaseError);
+        Alert.alert('エラー', `クラウド保存に失敗しました: ${supabaseError.message}`);
+      } else {
+        console.log('✅ Successfully saved to cloud');
+        Alert.alert('✅ クラウド保存完了', '計算結果をクラウドに保存しました');
+      }
+    } catch (error) {
+      console.error('Cloud save error:', error);
+      Alert.alert('エラー', 'クラウド保存でエラーが発生しました');
+    }
+  }, [calculationResult, inputData, user]);
+
+  // 計算結果を履歴に保存（後方互換性のため残す）
+  const saveCalculationToHistory = useCallback(async (title?: string) => {
+    if (!calculationResult) {
+      Alert.alert('エラー', '保存する計算結果がありません');
+      return;
+    }
+
+    console.log('💾 Manual save requested - user:', !!user);
+
+    try {
+      const historyItem: CalculationHistory = {
+        id: HistoryStorage.generateId(),
+        createdAt: new Date().toISOString(),
+        inputData: inputData,
+        result: calculationResult,
         title: title,
       };
 
-      // ローカルストレージに保存
-      await HistoryStorage.saveCalculation(historyItem);
-      
-      // Supabaseにも保存（認証済みの場合）
       if (user) {
-        const { error: supabaseError } = await supabase
-          .from('scaffold_calculations')
-          .insert({
-            user_id: user.id,
-            title: title || `計算結果 ${new Date().toLocaleDateString('ja-JP')}`,
-            // 入力データの個別フィールド
-            frame_width_ns: inputData.frameWidth.northSouth,
-            frame_width_ew: inputData.frameWidth.eastWest,
-            eaves_north: inputData.eaveOverhang.north,
-            eaves_east: inputData.eaveOverhang.east,
-            eaves_south: inputData.eaveOverhang.south,
-            eaves_west: inputData.eaveOverhang.west,
-            property_line_north: inputData.propertyLine.north,
-            property_line_east: inputData.propertyLine.east,
-            property_line_south: inputData.propertyLine.south,
-            property_line_west: inputData.propertyLine.west,
-            property_line_distance_north: inputData.propertyLineDistance?.north,
-            property_line_distance_east: inputData.propertyLineDistance?.east,
-            property_line_distance_south: inputData.propertyLineDistance?.south,
-            property_line_distance_west: inputData.propertyLineDistance?.west,
-            reference_height: inputData.referenceHeight,
-            roof_shape: inputData.roofShape,
-            has_tie_columns: inputData.hasTieColumns,
-            eaves_handrails: inputData.eavesHandrails,
-            special_material_ns_355: inputData.specialMaterial.northSouth.material355,
-            special_material_ns_300: inputData.specialMaterial.northSouth.material300,
-            special_material_ns_150: inputData.specialMaterial.northSouth.material150,
-            special_material_ew_355: inputData.specialMaterial.eastWest.material355,
-            special_material_ew_300: inputData.specialMaterial.eastWest.material300,
-            special_material_ew_150: inputData.specialMaterial.eastWest.material150,
-            target_offset: inputData.targetOffset,
-            // 計算結果の個別フィールド
-            ns_total_span: calculationResult.ns_total_span,
-            ew_total_span: calculationResult.ew_total_span,
-            ns_span_structure: calculationResult.ns_span_structure,
-            ew_span_structure: calculationResult.ew_span_structure,
-            north_gap: calculationResult.north_gap,
-            south_gap: calculationResult.south_gap,
-            east_gap: calculationResult.east_gap,
-            west_gap: calculationResult.west_gap,
-            num_stages: calculationResult.num_stages,
-            modules_count: calculationResult.modules_count,
-            jack_up_height: calculationResult.jack_up_height,
-            first_layer_height: calculationResult.first_layer_height,
-            tie_ok: calculationResult.tie_ok,
-            tie_column_used: calculationResult.tie_column_used,
-          });
-          
-        if (supabaseError) {
-          console.error('Failed to save to Supabase:', supabaseError);
-          Alert.alert('保存完了', 'ローカル履歴に保存しました（クラウド同期は失敗）');
-        } else {
-          Alert.alert('保存完了', '計算結果をローカル・クラウド両方に保存しました');
+        // ログイン済みの場合はクラウドのみに保存
+        console.log('☁️ User logged in - saving to cloud only...');
+      } else {
+        // 未ログインの場合はローカルのみに保存
+        console.log('💾 User not logged in - saving to local storage...');
+        await HistoryStorage.saveCalculation(historyItem);
+      }
+      
+      // Supabaseに保存（認証済みで、プロフィールが存在する場合）
+      if (user) {
+        try {
+          // プロフィールが存在することを確認
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('id', user.id)
+            .single();
+
+          if (profileError && profileError.code === 'PGRST116') {
+            // プロフィールが存在しない場合はローカル保存のみ
+            console.log('Profile not found for user:', user.id, 'Skipping Supabase save');
+            Alert.alert('保存完了', 'ローカル履歴に保存しました');
+            return;
+          } else if (profileError) {
+            console.error('Error checking profile:', profileError);
+            console.log('Profile check failed, skipping Supabase save');
+            Alert.alert('保存完了', 'ローカル履歴に保存しました');
+            return;
+          }
+
+          const { error: supabaseError } = await supabase
+            .from('scaffold_calculations')
+            .insert({
+              user_id: user.id as string,
+              title: title || `計算結果 ${new Date().toLocaleDateString('ja-JP')}`,
+              // 入力データをJSONとして保存
+              input_data: JSON.stringify(inputData),
+              // 計算結果をJSONとして保存
+              result_data: JSON.stringify(calculationResult),
+            } as any);
+            
+          if (supabaseError) {
+            console.error('Failed to save to Supabase:', supabaseError);
+            // クラウド保存に失敗した場合はローカルに保存
+            console.log('💾 Cloud save failed, falling back to local storage...');
+            await HistoryStorage.saveCalculation(historyItem);
+            Alert.alert('保存完了', 'クラウド保存に失敗したため、ローカルに保存しました');
+          } else {
+            console.log('✅ Successfully saved to cloud only');
+            Alert.alert('✅ クラウド保存完了', '計算結果をクラウドに保存しました');
+          }
+        } catch (error) {
+          console.error('Supabase save error:', error);
+          // クラウド保存エラー時はローカルに保存
+          console.log('💾 Cloud save error, falling back to local storage...');
+          await HistoryStorage.saveCalculation(historyItem);
+          Alert.alert('保存完了', 'クラウド保存でエラーが発生したため、ローカルに保存しました');
         }
       } else {
-        Alert.alert('保存完了', 'ローカル履歴に保存しました');
+        Alert.alert('保存完了', 'ローカルに保存しました');
       }
     } catch (error) {
       console.error('Failed to save calculation to history:', error);
@@ -510,6 +658,8 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
         error,
         calculateScaffold,
         testAPICall,
+        saveToLocal,
+        saveToCloud,
         saveCalculationToHistory,
       }}
     >

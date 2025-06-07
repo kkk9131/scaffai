@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../../context/AuthContext';
-import { colors } from '../../constants/colors';
+import { colors as baseColors } from '../../constants/colors';
 import { ja } from '../../constants/translations';
 
 export default function LoginScreen() {
@@ -91,7 +91,7 @@ export default function LoginScreen() {
         >
           <View style={styles.header}>
             <View style={styles.iconContainer}>
-              <Ionicons name="construct" size={60} color={colors.primary.main} />
+              <Ionicons name="construct" size={60} color={baseColors.primary.main} />
             </View>
             <Text style={styles.title}>ScaffAI</Text>
             <Text style={styles.subtitle}>
@@ -108,7 +108,7 @@ export default function LoginScreen() {
                   value={name}
                   onChangeText={setName}
                   placeholder="お名前を入力"
-                  placeholderTextColor={colors.text.secondary}
+                  placeholderTextColor={baseColors.text.secondary}
                   autoCapitalize="words"
                   returnKeyType="next"
                 />
@@ -122,7 +122,7 @@ export default function LoginScreen() {
                 value={email}
                 onChangeText={setEmail}
                 placeholder="email@example.com"
-                placeholderTextColor={colors.text.secondary}
+                placeholderTextColor={baseColors.text.secondary}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -138,7 +138,7 @@ export default function LoginScreen() {
                   value={password}
                   onChangeText={setPassword}
                   placeholder="パスワードを入力"
-                  placeholderTextColor={colors.text.secondary}
+                  placeholderTextColor={baseColors.text.secondary}
                   secureTextEntry={!showPassword}
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -152,7 +152,7 @@ export default function LoginScreen() {
                   <Ionicons
                     name={showPassword ? 'eye-off' : 'eye'}
                     size={20}
-                    color={colors.text.secondary}
+                    color={baseColors.text.secondary}
                   />
                 </TouchableOpacity>
               </View>
@@ -164,7 +164,7 @@ export default function LoginScreen() {
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color={colors.text.primary} />
+                <ActivityIndicator color={baseColors.text.primary} />
               ) : (
                 <Text style={styles.authButtonText}>
                   {isSignUp ? 'アカウント作成' : 'ログイン'}
@@ -193,7 +193,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.background.primary,
+    backgroundColor: baseColors.background.primary,
   },
   container: {
     flex: 1,
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: colors.background.secondary,
+    backgroundColor: baseColors.background.secondary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
@@ -219,12 +219,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: colors.text.primary,
+    color: baseColors.text.primary,
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 18,
-    color: colors.text.secondary,
+    color: baseColors.text.secondary,
   },
   form: {
     gap: 24,
@@ -235,39 +235,39 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.text.primary,
+    color: baseColors.text.primary,
   },
   input: {
     height: 48,
     borderWidth: 1,
-    borderColor: colors.border.main,
+    borderColor: baseColors.border.main,
     borderRadius: 8,
     paddingHorizontal: 16,
     fontSize: 16,
-    color: colors.text.primary,
-    backgroundColor: colors.background.secondary,
+    color: baseColors.text.primary,
+    backgroundColor: baseColors.background.secondary,
   },
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.border.main,
+    borderColor: baseColors.border.main,
     borderRadius: 8,
-    backgroundColor: colors.background.secondary,
+    backgroundColor: baseColors.background.secondary,
   },
   passwordInput: {
     flex: 1,
     height: 48,
     paddingHorizontal: 16,
     fontSize: 16,
-    color: colors.text.primary,
+    color: baseColors.text.primary,
   },
   eyeButton: {
     padding: 12,
   },
   authButton: {
     height: 48,
-    backgroundColor: colors.primary.main,
+    backgroundColor: baseColors.primary.main,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
   authButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.text.primary,
+    color: baseColors.text.primary,
   },
   toggleButton: {
     alignItems: 'center',
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
   },
   toggleText: {
     fontSize: 14,
-    color: colors.primary.main,
+    color: baseColors.primary.main,
     textAlign: 'center',
   },
 });
