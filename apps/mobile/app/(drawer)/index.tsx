@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,15 +14,122 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors as baseColors } from '../../constants/colors';
 import { useTheme } from '../../context/ThemeContext';
 import { ja } from '../../constants/translations';
+import { HistoryStorage } from '../../utils/storage';
+import { CalculationHistory } from '../../types/history';
+import { useAuthContext } from '../../context/AuthContext';
+import { supabase } from '../../lib/supabase';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function HomeScreen() {
+  console.log('🏠 [DASHBOARD] HomeScreen component rendering...');
   const router = useRouter();
   const { colors, isDark } = useTheme();
+  const { user } = useAuthContext();
+  console.log('🏠 [DASHBOARD] HomeScreen initialized with user:', !!user);
+  
+  // 統計データの状態
+  const [stats, setStats] = useState({
+    totalCalculations: 0,
+    thisMonthCalculations: 0,
+    savedCalculations: 0,
+  });
+  
+  const [recentActivity, setRecentActivity] = useState<CalculationHistory | null>(null);
+  
+  // 統計データを計算する関数
+  const calculateStats = useCallback(async () => {
+    try {
+      console.log('📊 [DASHBOARD] Starting stats calculation...');
+      console.log('📊 [DASHBOARD] Current user:', !!user);
+      
+      // ローカル履歴を取得
+      const localHistory = await HistoryStorage.getHistory();
+      console.log('📋 Local history loaded:', localHistory.length, 'items');
+      
+      // クラウド履歴を取得（ログイン済みの場合）
+      let cloudHistory: any[] = [];
+      if (user) {
+        try {
+          const { data, error } = await supabase
+            .from('scaffold_calculations')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+          
+          if (!error && data) {
+            cloudHistory = data;
+            console.log('☁️ Cloud history loaded:', cloudHistory.length, 'items');
+          }
+        } catch (cloudError) {
+          console.warn('Cloud history fetch failed:', cloudError);
+        }
+      }
+      
+      // 全体の履歴を統合（重複除去は簡単のため省略）
+      const allHistory = [...localHistory, ...cloudHistory];
+      console.log('📊 Total calculations:', allHistory.length);
+      
+      // 今月の計算を計算
+      const now = new Date();
+      const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const thisMonthCalculations = allHistory.filter(item => {
+        const createdAt = new Date(item.created_at || item.createdAt);
+        return createdAt >= thisMonthStart;
+      }).length;
+      
+      // 保存済み計算数（ローカル + クラウド）
+      const savedCalculations = localHistory.length + cloudHistory.length;
+      
+      // 最新のアクティビティを取得
+      const latestActivity = allHistory.length > 0 ? allHistory[0] : null;
+      
+      console.log('📊 [DASHBOARD] Final stats calculated:', {
+        total: allHistory.length,
+        thisMonth: thisMonthCalculations,
+        saved: savedCalculations
+      });
+      
+      console.log('📊 [DASHBOARD] Setting stats state...');
+      setStats({
+        totalCalculations: allHistory.length,
+        thisMonthCalculations: thisMonthCalculations,
+        savedCalculations: savedCalculations,
+      });
+      console.log('📊 [DASHBOARD] Stats state updated!');
+      
+      if (latestActivity) {
+        setRecentActivity(latestActivity);
+      }
+      
+    } catch (error) {
+      console.error('Failed to calculate stats:', error);
+      // エラー時はデフォルト値を設定
+      setStats({
+        totalCalculations: 0,
+        thisMonthCalculations: 0,
+        savedCalculations: 0,
+      });
+    }
+  }, [user]);
+  
+  // 初期読み込み時に統計を更新
+  useEffect(() => {
+    console.log('🏠 [DASHBOARD] Component mounted - updating stats');
+    calculateStats();
+  }, [calculateStats]);
+  
+  // 画面フォーカス時に統計を更新
+  useFocusEffect(
+    useCallback(() => {
+      console.log('🏠 [DASHBOARD] Screen focused - updating stats');
+      calculateStats();
+    }, [calculateStats])
+  );
 
   const quickActions = [
     {
@@ -51,11 +158,27 @@ export default function HomeScreen() {
     },
   ];
 
+  // 統計カードのデータ（実データを使用）
   const statsCards = [
-    { label: '総計算回数', value: '127', icon: 'analytics' },
-    { label: '今月の計算', value: '23', icon: 'calendar' },
-    { label: '保存済み', value: '45', icon: 'bookmark' },
+    { 
+      label: '総計算回数', 
+      value: stats.totalCalculations.toString(), 
+      icon: 'analytics' 
+    },
+    { 
+      label: '今月の計算', 
+      value: stats.thisMonthCalculations.toString(), 
+      icon: 'calendar' 
+    },
+    { 
+      label: '保存済み', 
+      value: stats.savedCalculations.toString(), 
+      icon: 'bookmark' 
+    },
   ];
+  
+  console.log('📊 [DASHBOARD] Rendering with stats:', stats);
+  console.log('📊 [DASHBOARD] StatsCards values:', statsCards.map(s => s.value));
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]}>
@@ -71,7 +194,7 @@ export default function HomeScreen() {
       >
         <View style={styles.header}>
           <View style={styles.welcomeSection}>
-            <Text style={[styles.welcomeText, { color: '#FFFFFF' }]}>おかえりなさい</Text>
+            <Text style={[styles.welcomeText, { color: '#FFFFFF' }]}>おかえりなさい [Debug: Stats={stats.totalCalculations}]</Text>
             <Text style={[styles.appTitle, { color: '#FFFFFF' }]}>{ja.appName}</Text>
             <Text style={[styles.tagline, { color: 'rgba(255,255,255,0.8)' }]}>プロフェッショナル足場計算ツール</Text>
           </View>
@@ -148,15 +271,35 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
           
-          <View style={[styles.recentCard, { backgroundColor: colors.background.card }]}>
-            <View style={styles.recentItem}>
-              <Ionicons name="checkmark-circle" size={20} color={baseColors.secondary.main} />
-              <View style={styles.recentContent}>
-                <Text style={[styles.recentTitle, { color: colors.text.primary }]}>1000×1000mm 計算完了</Text>
-                <Text style={[styles.recentTime, { color: colors.text.secondary }]}>2時間前</Text>
+          {recentActivity ? (
+            <View style={[styles.recentCard, { backgroundColor: colors.background.card }]}>
+              <View style={styles.recentItem}>
+                <Ionicons name="checkmark-circle" size={20} color={baseColors.secondary.main} />
+                <View style={styles.recentContent}>
+                  <Text style={[styles.recentTitle, { color: colors.text.primary }]}>
+                    {HistoryStorage.getFrameSizeText(recentActivity.inputData)} 計算完了
+                  </Text>
+                  <Text style={[styles.recentTime, { color: colors.text.secondary }]}>
+                    {HistoryStorage.formatDate(recentActivity.createdAt)}
+                  </Text>
+                </View>
               </View>
             </View>
-          </View>
+          ) : (
+            <View style={[styles.recentCard, { backgroundColor: colors.background.card }]}>
+              <View style={styles.recentItem}>
+                <Ionicons name="time-outline" size={20} color={colors.text.secondary} />
+                <View style={styles.recentContent}>
+                  <Text style={[styles.recentTitle, { color: colors.text.secondary }]}>
+                    まだ計算履歴がありません
+                  </Text>
+                  <Text style={[styles.recentTime, { color: colors.text.secondary }]}>
+                    新しい計算を開始してください
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
         </View>
 
         <View style={styles.bottomPadding} />

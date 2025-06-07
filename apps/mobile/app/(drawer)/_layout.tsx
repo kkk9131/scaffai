@@ -1,7 +1,7 @@
 import React from 'react';
 import { Drawer } from 'expo-router/drawer';
 import { Ionicons } from '@expo/vector-icons';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { DrawerContentScrollView, DrawerItem } from '@react-navigation/drawer';
 import { router } from 'expo-router';
 import { colors as baseColors } from '../../constants/colors';
@@ -12,6 +12,41 @@ import { ja } from '../../constants/translations';
 function CustomDrawerContent(props: any) {
   const { colors, isDark } = useTheme();
   const { user, signOut } = useAuthContext();
+
+  const handleSignOut = () => {
+    Alert.alert(
+      'ログアウト',
+      'ログアウトしますか？',
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: 'ログアウト',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              console.log('🚪 [DRAWER] Starting logout process...');
+              console.log('🚪 [DRAWER] signOut function available:', typeof signOut);
+              
+              const result = await signOut();
+              console.log('🚪 [DRAWER] Logout result:', result);
+              
+              if (result && result.error) {
+                console.error('❌ [DRAWER] Logout failed:', result.error);
+                Alert.alert('エラー', 'ログアウトに失敗しました');
+              } else {
+                console.log('✅ [DRAWER] Successfully signed out');
+                // AuthGuardによって自動的にログイン画面に遷移される
+                Alert.alert('ログアウト完了', 'ログアウトしました');
+              }
+            } catch (error) {
+              console.error('❌ [DRAWER] Sign out error:', error);
+              Alert.alert('エラー', 'ログアウト処理中にエラーが発生しました');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const menuItems = [
     {
@@ -90,7 +125,7 @@ function CustomDrawerContent(props: any) {
       <View style={[styles.drawerFooter, { borderTopColor: colors.border.main }]}>
         <TouchableOpacity
           style={[styles.signOutButton, { backgroundColor: colors.background.card }]}
-          onPress={signOut}
+          onPress={handleSignOut}
         >
           <Ionicons name="log-out" size={20} color={baseColors.error} />
           <Text style={[styles.signOutText, { color: baseColors.error }]}>ログアウト</Text>

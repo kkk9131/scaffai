@@ -351,7 +351,14 @@ export default function HistoryScreen() {
       localHistoryCount: localHistory.length,
       usingHistoryCount: currentHistory.length
     });
-    applyFilters(currentHistory, filter);
+    
+    // 履歴が存在する場合のみフィルタリングを実行
+    if (currentHistory && Array.isArray(currentHistory)) {
+      applyFilters(currentHistory, filter);
+    } else {
+      console.log('📊 History not ready, setting empty filtered list');
+      setFilteredHistory([]);
+    }
   }, [localHistory, cloudHistory, showCloudHistory, filter, applyFilters]);
 
   // リフレッシュ
@@ -495,21 +502,12 @@ export default function HistoryScreen() {
       await loadHistory();
       console.log('✅ History reloaded successfully');
       
-      // 少し待ってからフィルタリングを強制的に再実行
-      setTimeout(() => {
-        console.log('🔄 Forcing filter reapplication after timeout');
-        const currentHistory = showCloudHistory ? cloudHistory : localHistory;
-        console.log('📊 Current history for filtering:', currentHistory.length, 'items');
-        applyFilters(currentHistory, filter);
-        console.log('✅ Filters reapplied successfully');
-      }, 100);
-      
       Alert.alert('削除完了', '計算履歴を削除しました');
     } catch (error) {
       console.error('❌ Failed to delete history item:', error);
       Alert.alert(ja.common.error, `削除に失敗しました: ${error instanceof Error ? error.message : String(error)}`);
     }
-  }, [loadHistory, showCloudHistory, user]);
+  }, [loadHistory, showCloudHistory, user, cloudHistory, localHistory, filter, applyFilters]);
 
   // 検索文字列の更新
   const handleSearchChange = useCallback((text: string) => {

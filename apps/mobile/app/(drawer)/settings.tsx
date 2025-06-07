@@ -18,10 +18,24 @@ import { SettingsSwitch } from '../../components/SettingsSwitch';
 import { HistoryStorage } from '../../utils/storage';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
 
 export default function SettingsScreen() {
   const { theme, toggleTheme, colors, isDark } = useTheme();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const router = useRouter();
+
+  // オンボーディング再表示処理
+  const handleShowOnboarding = async () => {
+    try {
+      await AsyncStorage.removeItem('@scaffai_onboarding_completed');
+      router.push('/onboarding');
+    } catch (error) {
+      console.error('Failed to reset onboarding:', error);
+      Alert.alert('エラー', 'オンボーディングの再表示に失敗しました');
+    }
+  };
 
   // 履歴クリア処理
   const handleClearHistory = () => {
@@ -116,6 +130,23 @@ export default function SettingsScreen() {
           />
         </SettingsSection>
 
+        {/* ヘルプ・サポート */}
+        <SettingsSection title="ヘルプ・サポート">
+          <SettingsItem
+            icon="help-circle"
+            title="使い方ガイド"
+            description="アプリの基本的な使い方を確認します"
+            onPress={handleShowOnboarding}
+          />
+          
+          <SettingsItem
+            icon="help-circle"
+            title="よくある質問"
+            description="問題の解決方法を確認できます"
+            onPress={() => router.push('/faq')}
+          />
+        </SettingsSection>
+
         {/* アプリ情報 */}
         <SettingsSection title={ja.settings.appInfo}>
           <SettingsItem
@@ -137,13 +168,6 @@ export default function SettingsScreen() {
             title={ja.settings.website}
             description="アプリの公式サイトを開きます"
             onPress={() => openURL('https://scaffai.example.com')}
-          />
-          
-          <SettingsItem
-            icon="help-circle"
-            title={ja.settings.support}
-            description="サポートページを開きます"
-            onPress={() => openURL('https://scaffai.example.com/support')}
           />
           
           <SettingsItem

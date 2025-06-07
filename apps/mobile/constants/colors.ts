@@ -18,6 +18,7 @@ export const colors = {
     orange: '#F97316', // オレンジアクセント
     orangeLight: '#FB923C',
     orangeDark: '#EA580C',
+    purple: '#8B5CF6', // パープルアクセント
   },
   success: '#2E7D32',
   warning: '#F57C00',

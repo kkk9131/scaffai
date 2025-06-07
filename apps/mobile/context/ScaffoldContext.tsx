@@ -2,7 +2,7 @@ import React, { createContext, useState, useContext, useCallback } from 'react';
 import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
 import { calculateAll, type ScaffoldInputData, type ScaffoldCalculationResult } from '@scaffai/core';
-import { HistoryStorage } from '../utils/storage';
+import { HistoryStorage, CalculationStatsStorage } from '../utils/storage';
 import { CalculationHistory } from '../types/history';
 import { supabase } from '../lib/supabase';
 import { useAuthContext } from './AuthContext';
@@ -387,6 +387,14 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
       setCalculationResult(result);
       
       console.log('Setting calculation result:', result);
+      
+      // 計算統計をインクリメント（計算実行回数をカウント）
+      try {
+        await CalculationStatsStorage.incrementCalculation();
+        console.log('✅ Calculation stats incremented');
+      } catch (statsError) {
+        console.warn('Failed to update calculation stats:', statsError);
+      }
       
       // ローディング状態を先に解除
       setIsLoading(false);
