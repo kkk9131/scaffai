@@ -28,7 +28,20 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "ScaffAI Mobile",
+      "shortName": "ScaffAI",
+      "lang": "ja",
+      "scope": "/",
+      "themeColor": "#007AFF",
+      "backgroundColor": "#ffffff",
+      "display": "standalone",
+      "orientation": "portrait",
+      "startUrl": "/",
+      "icons": {
+        "icon": "./assets/icon.png",
+        "apple": "./assets/icon.png"
+      }
     },
     "plugins": [
       "expo-router",
