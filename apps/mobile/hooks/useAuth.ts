@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
-import { Tables } from '@scaffai/core';
+import { Tables } from '../lib/types';
 
 type Profile = Tables<'profiles'>;
 

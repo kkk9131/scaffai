@@ -1,6 +1,6 @@
 import React, { createContext, useContext } from 'react';
 import { useAuth, AuthState } from '../hooks/useAuth';
-import { Tables } from '@scaffai/core';
+import { Tables } from '../lib/types';
 
 type Profile = Tables<'profiles'>;
 

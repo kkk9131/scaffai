@@ -1,7 +1,8 @@
 import React, { createContext, useState, useContext, useCallback } from 'react';
 import { useRouter } from 'expo-router';
 import { Alert } from 'react-native';
-import { calculateAll, type ScaffoldInputData, type ScaffoldCalculationResult } from '@scaffai/core';
+import { calculateAll } from '@scaffai/core';
+import { type ScaffoldInputData, type ScaffoldCalculationResult } from '../lib/types';
 import { HistoryStorage, CalculationStatsStorage } from '../utils/storage';
 import { CalculationHistory } from '../types/history';
 import { supabase } from '../lib/supabase';
