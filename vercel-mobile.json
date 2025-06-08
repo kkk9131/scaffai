@@ -16,7 +16,7 @@
       "dest": "/$1"
     }
   ],
-  "installCommand": "cd apps/mobile && pnpm install",
+  "installCommand": "npm install",
   "buildCommand": "cd apps/mobile && npx expo export --platform web",
   "outputDirectory": "apps/mobile/dist"
 }
