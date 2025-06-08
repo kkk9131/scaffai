@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "name": "scaffai-mobile",
+  "builds": [
+    {
+      "src": "apps/mobile/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ],
+  "installCommand": "cd apps/mobile && pnpm install",
+  "buildCommand": "cd apps/mobile && npx expo export --platform web",
+  "outputDirectory": "apps/mobile/dist"
+}
