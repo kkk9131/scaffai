@@ -110,14 +110,11 @@ export function calculateAll(input: ScaffoldInputData): ScaffoldCalculationResul
         jackUpHeight -= TIE_COLUMN_REDUCTION_SMALL;
       } else {
         tiePossible = false;
-        jackUpHeight = leftover;
-        reductionLoops = 0;
       }
     } else if (jackUpHeight >= TIE_COLUMN_MIN_HEIGHT_FOR_SMALL_REDUCTION) {
       jackUpHeight -= TIE_COLUMN_REDUCTION_SMALL;
     } else {
       tiePossible = false;
-      jackUpHeight = leftover;
     }
   } else {
     while (jackUpHeight >= TIE_COLUMN_REDUCTION_LARGE) {
