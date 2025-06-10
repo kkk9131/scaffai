@@ -1,14 +1,14 @@
 'use client';
 
 import React from 'react';
-import { useCalculatorStore, ScaffoldInputData } from '../../lib/stores/calculatorStore';
-import { Building2, ArrowRight, Ruler, Settings, Wrench } from 'lucide-react';
+import { useCalculatorStore, MobileScaffoldInputData } from '../../lib/stores/calculatorStore';
+import { Building2, ArrowRight, Ruler, Settings, Wrench, MapPin, Target } from 'lucide-react';
 
 export default function CalculatorForm() {
   const { inputData, updateInput, calculate, isCalculating, error } = useCalculatorStore();
 
-  const handleInputChange = (field: keyof ScaffoldInputData, value: any) => {
-    updateInput({ [field]: value });
+  const handleInputChange = (data: Partial<MobileScaffoldInputData>) => {
+    updateInput(data);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -25,34 +25,44 @@ export default function CalculatorForm() {
         </div>
       )}
 
-      {/* 建物の幅 */}
+      {/* 躯体幅 */}
       <section className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl border border-slate-200/50 dark:border-slate-700/50 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Building2 className="w-5 h-5 text-slate-600 dark:text-slate-400" />
-          <h2 className="text-lg font-semibold">建物の幅</h2>
+          <h2 className="text-lg font-semibold">躯体幅</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1">南北方向</label>
+            <label className="block text-sm font-medium mb-1">南北</label>
             <div className="relative">
               <input
                 type="number"
-                value={inputData.width_NS}
-                onChange={(e) => handleInputChange('width_NS', parseInt(e.target.value) || 0)}
-                placeholder="例: 10000"
+                value={inputData.frameWidth.northSouth}
+                onChange={(e) => handleInputChange({
+                  frameWidth: {
+                    ...inputData.frameWidth,
+                    northSouth: parseInt(e.target.value) || 0
+                  }
+                })}
+                placeholder="例: 1000"
                 className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">mm</span>
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">東西方向</label>
+            <label className="block text-sm font-medium mb-1">東西</label>
             <div className="relative">
               <input
                 type="number"
-                value={inputData.width_EW}
-                onChange={(e) => handleInputChange('width_EW', parseInt(e.target.value) || 0)}
-                placeholder="例: 9000"
+                value={inputData.frameWidth.eastWest}
+                onChange={(e) => handleInputChange({
+                  frameWidth: {
+                    ...inputData.frameWidth,
+                    eastWest: parseInt(e.target.value) || 0
+                  }
+                })}
+                placeholder="例: 1000"
                 className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">mm</span>
@@ -67,54 +77,74 @@ export default function CalculatorForm() {
           <ArrowRight className="w-5 h-5 text-slate-600 dark:text-slate-400" />
           <h2 className="text-lg font-semibold">軒の出</h2>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1">北側</label>
+            <label className="block text-sm font-medium mb-1">北</label>
             <div className="relative">
               <input
                 type="number"
-                value={inputData.eaves_N}
-                onChange={(e) => handleInputChange('eaves_N', parseInt(e.target.value) || 0)}
-                placeholder="例: 500"
+                value={inputData.eaveOverhang.north}
+                onChange={(e) => handleInputChange({
+                  eaveOverhang: {
+                    ...inputData.eaveOverhang,
+                    north: parseInt(e.target.value) || 0
+                  }
+                })}
+                placeholder="0"
                 className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">mm</span>
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">東側</label>
+            <label className="block text-sm font-medium mb-1">東</label>
             <div className="relative">
               <input
                 type="number"
-                value={inputData.eaves_E}
-                onChange={(e) => handleInputChange('eaves_E', parseInt(e.target.value) || 0)}
-                placeholder="例: 500"
+                value={inputData.eaveOverhang.east}
+                onChange={(e) => handleInputChange({
+                  eaveOverhang: {
+                    ...inputData.eaveOverhang,
+                    east: parseInt(e.target.value) || 0
+                  }
+                })}
+                placeholder="0"
                 className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">mm</span>
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">南側</label>
+            <label className="block text-sm font-medium mb-1">南</label>
             <div className="relative">
               <input
                 type="number"
-                value={inputData.eaves_S}
-                onChange={(e) => handleInputChange('eaves_S', parseInt(e.target.value) || 0)}
-                placeholder="例: 500"
+                value={inputData.eaveOverhang.south}
+                onChange={(e) => handleInputChange({
+                  eaveOverhang: {
+                    ...inputData.eaveOverhang,
+                    south: parseInt(e.target.value) || 0
+                  }
+                })}
+                placeholder="0"
                 className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">mm</span>
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">西側</label>
+            <label className="block text-sm font-medium mb-1">西</label>
             <div className="relative">
               <input
                 type="number"
-                value={inputData.eaves_W}
-                onChange={(e) => handleInputChange('eaves_W', parseInt(e.target.value) || 0)}
-                placeholder="例: 500"
+                value={inputData.eaveOverhang.west}
+                onChange={(e) => handleInputChange({
+                  eaveOverhang: {
+                    ...inputData.eaveOverhang,
+                    west: parseInt(e.target.value) || 0
+                  }
+                })}
+                placeholder="0"
                 className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">mm</span>
@@ -123,53 +153,111 @@ export default function CalculatorForm() {
         </div>
       </section>
 
-      {/* 基本設定 */}
+      {/* 敷地境界線の有無 */}
+      <section className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl border border-slate-200/50 dark:border-slate-700/50 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <MapPin className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+          <h2 className="text-lg font-semibold">敷地境界線の有無</h2>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          {(['north', 'east', 'south', 'west'] as const).map((direction) => {
+            const labels = { north: '北', east: '東', south: '南', west: '西' };
+            return (
+              <div key={direction}>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={inputData.propertyLine[direction]}
+                    onChange={(e) => handleInputChange({
+                      propertyLine: {
+                        ...inputData.propertyLine,
+                        [direction]: e.target.checked
+                      },
+                      propertyLineDistance: {
+                        ...inputData.propertyLineDistance,
+                        [direction]: e.target.checked ? 0 : null
+                      }
+                    })}
+                    className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-blue-600"
+                  />
+                  <span>{labels[direction]}</span>
+                </label>
+              </div>
+            );
+          })}
+        </div>
+        
+        {/* 境界線距離の入力フィールド（チェックされた面のみ表示） */}
+        {Object.entries(inputData.propertyLine).some(([_, enabled]) => enabled) && (
+          <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
+            <h3 className="text-sm font-medium mb-3 text-slate-600 dark:text-slate-400">敷地境界線距離</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {(['north', 'east', 'south', 'west'] as const).map((direction) => {
+                const labels = { north: '北', east: '東', south: '南', west: '西' };
+                if (!inputData.propertyLine[direction]) return null;
+                
+                return (
+                  <div key={`distance-${direction}`}>
+                    <label className="block text-sm font-medium mb-1">{labels[direction]}</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={inputData.propertyLineDistance[direction] || ''}
+                        onChange={(e) => handleInputChange({
+                          propertyLineDistance: {
+                            ...inputData.propertyLineDistance,
+                            [direction]: parseInt(e.target.value) || 0
+                          }
+                        })}
+                        placeholder="距離"
+                        className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                      />
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">mm</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* 基準高さ・屋根形状 */}
       <section className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl border border-slate-200/50 dark:border-slate-700/50 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Settings className="w-5 h-5 text-slate-600 dark:text-slate-400" />
-          <h2 className="text-lg font-semibold">基本設定</h2>
+          <h2 className="text-lg font-semibold">基準高さ・屋根形状</h2>
         </div>
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">基準高さ</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  value={inputData.standard_height}
-                  onChange={(e) => handleInputChange('standard_height', parseInt(e.target.value) || 0)}
-                  placeholder="例: 2400"
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
-                />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">mm</span>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">軒先すわり</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  value={inputData.railing_count}
-                  onChange={(e) => handleInputChange('railing_count', parseInt(e.target.value) || 0)}
-                  placeholder="例: 0"
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
-                />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">個</span>
-              </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">基準高さ</label>
+            <div className="relative">
+              <input
+                type="number"
+                value={inputData.referenceHeight}
+                onChange={(e) => handleInputChange({
+                  referenceHeight: parseInt(e.target.value) || 0
+                })}
+                placeholder="2400"
+                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+              />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">mm</span>
             </div>
           </div>
 
           {/* 屋根形状 */}
           <div>
-            <label className="block text-sm font-medium mb-2">屋根形状</label>
+            <label className="block text-sm font-medium mb-2">屋根の形状</label>
             <div className="space-y-2">
               <label className="flex items-center gap-2 p-3 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50">
                 <input
                   type="radio"
                   name="roof_shape"
-                  value="フラット"
-                  checked={inputData.roof_shape === 'フラット'}
-                  onChange={(e) => handleInputChange('roof_shape', e.target.value)}
+                  value="flat"
+                  checked={inputData.roofShape === 'flat'}
+                  onChange={(e) => handleInputChange({
+                    roofShape: e.target.value as 'flat' | 'sloped' | 'roofDeck'
+                  })}
                   className="w-4 h-4 text-blue-600"
                 />
                 <span>フラット</span>
@@ -181,9 +269,11 @@ export default function CalculatorForm() {
                 <input
                   type="radio"
                   name="roof_shape"
-                  value="勾配軒"
-                  checked={inputData.roof_shape === '勾配軒'}
-                  onChange={(e) => handleInputChange('roof_shape', e.target.value)}
+                  value="sloped"
+                  checked={inputData.roofShape === 'sloped'}
+                  onChange={(e) => handleInputChange({
+                    roofShape: e.target.value as 'flat' | 'sloped' | 'roofDeck'
+                  })}
                   className="w-4 h-4 text-blue-600"
                 />
                 <span>勾配軒</span>
@@ -195,9 +285,11 @@ export default function CalculatorForm() {
                 <input
                   type="radio"
                   name="roof_shape"
-                  value="陸屋根"
-                  checked={inputData.roof_shape === '陸屋根'}
-                  onChange={(e) => handleInputChange('roof_shape', e.target.value)}
+                  value="roofDeck"
+                  checked={inputData.roofShape === 'roofDeck'}
+                  onChange={(e) => handleInputChange({
+                    roofShape: e.target.value as 'flat' | 'sloped' | 'roofDeck'
+                  })}
                   className="w-4 h-4 text-blue-600"
                 />
                 <span>陸屋根</span>
@@ -207,22 +299,257 @@ export default function CalculatorForm() {
               </label>
             </div>
           </div>
+        </div>
+      </section>
 
+      {/* 根がらみ支柱・軒先手摺 */}
+      <section className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl border border-slate-200/50 dark:border-slate-700/50 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Wrench className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+          <h2 className="text-lg font-semibold">根がらみ支柱・軒先手摺</h2>
+        </div>
+        <div className="space-y-4">
           {/* 根がらみ支柱 */}
           <div>
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
-                checked={inputData.tie_column}
-                onChange={(e) => handleInputChange('tie_column', e.target.checked)}
+                checked={inputData.hasTieColumns}
+                onChange={(e) => handleInputChange({
+                  hasTieColumns: e.target.checked
+                })}
                 className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-blue-600"
               />
-              <span>根がらみ支柱を使用</span>
+              <span>根がらみ支柱の有無</span>
             </label>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 ml-6">
-              精度向上のための根がらみ支柱の使用
+              構造安定性向上のための根がらみ支柱の使用
             </p>
           </div>
+
+          {/* 軒先手摺 */}
+          <div>
+            <label className="block text-sm font-medium mb-1">軒先手摺の本数</label>
+            <div className="relative">
+              <input
+                type="number"
+                value={inputData.eavesHandrails}
+                onChange={(e) => handleInputChange({
+                  eavesHandrails: parseInt(e.target.value) || 0
+                })}
+                placeholder="0"
+                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+              />
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">本</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 特殊部材数 */}
+      <section className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl border border-slate-200/50 dark:border-slate-700/50 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Ruler className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+          <h2 className="text-lg font-semibold">特殊部材数</h2>
+        </div>
+        
+        {/* 南北方向 */}
+        <div className="mb-6">
+          <h3 className="text-sm font-medium mb-3 text-slate-600 dark:text-slate-400">南北方向</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">355mm</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={inputData.specialMaterial.northSouth.material355}
+                  onChange={(e) => handleInputChange({
+                    specialMaterial: {
+                      ...inputData.specialMaterial,
+                      northSouth: {
+                        ...inputData.specialMaterial.northSouth,
+                        material355: parseInt(e.target.value) || 0
+                      }
+                    }
+                  })}
+                  placeholder="0"
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">本</span>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">300mm</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={inputData.specialMaterial.northSouth.material300}
+                  onChange={(e) => handleInputChange({
+                    specialMaterial: {
+                      ...inputData.specialMaterial,
+                      northSouth: {
+                        ...inputData.specialMaterial.northSouth,
+                        material300: parseInt(e.target.value) || 0
+                      }
+                    }
+                  })}
+                  placeholder="0"
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">本</span>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">150mm</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={inputData.specialMaterial.northSouth.material150}
+                  onChange={(e) => handleInputChange({
+                    specialMaterial: {
+                      ...inputData.specialMaterial,
+                      northSouth: {
+                        ...inputData.specialMaterial.northSouth,
+                        material150: parseInt(e.target.value) || 0
+                      }
+                    }
+                  })}
+                  placeholder="0"
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">本</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 東西方向 */}
+        <div>
+          <h3 className="text-sm font-medium mb-3 text-slate-600 dark:text-slate-400">東西方向</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">355mm</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={inputData.specialMaterial.eastWest.material355}
+                  onChange={(e) => handleInputChange({
+                    specialMaterial: {
+                      ...inputData.specialMaterial,
+                      eastWest: {
+                        ...inputData.specialMaterial.eastWest,
+                        material355: parseInt(e.target.value) || 0
+                      }
+                    }
+                  })}
+                  placeholder="0"
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">本</span>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">300mm</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={inputData.specialMaterial.eastWest.material300}
+                  onChange={(e) => handleInputChange({
+                    specialMaterial: {
+                      ...inputData.specialMaterial,
+                      eastWest: {
+                        ...inputData.specialMaterial.eastWest,
+                        material300: parseInt(e.target.value) || 0
+                      }
+                    }
+                  })}
+                  placeholder="0"
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">本</span>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">150mm</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={inputData.specialMaterial.eastWest.material150}
+                  onChange={(e) => handleInputChange({
+                    specialMaterial: {
+                      ...inputData.specialMaterial,
+                      eastWest: {
+                        ...inputData.specialMaterial.eastWest,
+                        material150: parseInt(e.target.value) || 0
+                      }
+                    }
+                  })}
+                  placeholder="0"
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">本</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 目標離れ */}
+      <section className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl border border-slate-200/50 dark:border-slate-700/50 p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Target className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+          <h2 className="text-lg font-semibold">目標離れ（4面個別設定）</h2>
+        </div>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+          チェックを入れると、その面の目標離れを個別に設定できます。チェックを外すと軒の出+80mmの最小離れのみ使用されます。
+        </p>
+        
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {(['north', 'east', 'south', 'west'] as const).map((direction) => {
+            const labels = { north: '北', east: '東', south: '南', west: '西' };
+            return (
+              <div key={`target-${direction}`} className="space-y-3">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={inputData.targetOffset[direction].enabled}
+                    onChange={(e) => handleInputChange({
+                      targetOffset: {
+                        ...inputData.targetOffset,
+                        [direction]: {
+                          enabled: e.target.checked,
+                          value: e.target.checked ? 0 : null
+                        }
+                      }
+                    })}
+                    className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-blue-600"
+                  />
+                  <span>{labels[direction]}</span>
+                </label>
+                
+                {inputData.targetOffset[direction].enabled && (
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={inputData.targetOffset[direction].value || ''}
+                      onChange={(e) => handleInputChange({
+                        targetOffset: {
+                          ...inputData.targetOffset,
+                          [direction]: {
+                            enabled: true,
+                            value: parseInt(e.target.value) || 0
+                          }
+                        }
+                      })}
+                      placeholder="目標離れ"
+                      className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">mm</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </section>
 

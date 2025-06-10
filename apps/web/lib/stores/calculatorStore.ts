@@ -1,13 +1,18 @@
 import { create } from 'zustand';
 import { calculateAll } from '../calculator/engine';
-import { ScaffoldInputData, ScaffoldCalculationResult } from '../calculator/types';
+import { 
+  MobileScaffoldInputData, 
+  ScaffoldInputData,
+  ScaffoldCalculationResult, 
+  convertMobileToEngine 
+} from '../calculator/types';
 
 // Re-export types for external use
-export type { ScaffoldInputData, ScaffoldCalculationResult };
+export type { MobileScaffoldInputData, ScaffoldCalculationResult };
 
 interface CalculatorState {
   // 入力データ
-  inputData: ScaffoldInputData;
+  inputData: MobileScaffoldInputData;
   
   // 計算結果
   result: ScaffoldCalculationResult | null;
@@ -17,37 +22,88 @@ interface CalculatorState {
   error: string | null;
   
   // アクション
-  updateInput: (data: Partial<ScaffoldInputData>) => void;
+  updateInput: (data: Partial<MobileScaffoldInputData>) => void;
   calculate: () => Promise<void>;
   reset: () => void;
 }
 
-// デフォルト値
-const defaultInputData: ScaffoldInputData = {
-  width_NS: 10000,
-  width_EW: 9000,
-  eaves_N: 500,
-  eaves_E: 500,
-  eaves_S: 500,
-  eaves_W: 500,
-  boundary_N: null,
-  boundary_E: null,
-  boundary_S: null,
-  boundary_W: null,
-  standard_height: 2400,
-  roof_shape: 'フラット',
-  tie_column: true,
-  railing_count: 0,
-  use_355_NS: 0,
-  use_300_NS: 0,
-  use_150_NS: 0,
-  use_355_EW: 0,
-  use_300_EW: 0,
-  use_150_EW: 0,
-  target_margin_N: 900,
-  target_margin_E: 900,
-  target_margin_S: 900,
-  target_margin_W: 900,
+// デフォルト値（モバイル版と同じ）
+const defaultInputData: MobileScaffoldInputData = {
+  // 躯体幅 - Required, default values matching mobile
+  frameWidth: {
+    northSouth: 1000,  // モバイル版のdefault placeholder
+    eastWest: 1000,
+  },
+  
+  // 軒の出 - Optional, default to 0
+  eaveOverhang: {
+    north: 0,
+    east: 0,
+    south: 0,
+    west: 0,
+  },
+  
+  // 敷地境界線の有無 - Default: all disabled
+  propertyLine: {
+    north: false,
+    east: false,
+    south: false,
+    west: false,
+  },
+  
+  // 敷地境界線距離 - Default: all null when disabled
+  propertyLineDistance: {
+    north: null,
+    east: null,
+    south: null,
+    west: null,
+  },
+  
+  // 基準高さ - Required, default from mobile placeholder
+  referenceHeight: 2400,
+  
+  // 屋根の形状 - Required, default 'flat'
+  roofShape: 'flat',
+  
+  // 根がらみ支柱の有無 - Default: false
+  hasTieColumns: false,
+  
+  // 軒先手摺の本数 - Default: 0
+  eavesHandrails: 0,
+  
+  // 特殊部材数 - Default: all 0
+  specialMaterial: {
+    northSouth: {
+      material355: 0,
+      material300: 0,
+      material150: 0,
+    },
+    eastWest: {
+      material355: 0,
+      material300: 0,
+      material150: 0,
+    },
+  },
+  
+  // 目標離れ - Default: all disabled
+  targetOffset: {
+    north: {
+      enabled: false,
+      value: null,
+    },
+    east: {
+      enabled: false,
+      value: null,
+    },
+    south: {
+      enabled: false,
+      value: null,
+    },
+    west: {
+      enabled: false,
+      value: null,
+    },
+  },
 };
 
 export const useCalculatorStore = create<CalculatorState>((set, get) => ({
@@ -67,8 +123,9 @@ export const useCalculatorStore = create<CalculatorState>((set, get) => ({
     set({ isCalculating: true, error: null });
     
     try {
-      // 計算エンジンを呼び出し（後で実装）
-      const result = await calculateScaffold(inputData);
+      // モバイル版データを計算エンジン用データに変換
+      const engineData = convertMobileToEngine(inputData);
+      const result = await calculateScaffold(engineData);
       set({ result, isCalculating: false });
     } catch (error) {
       set({ 
