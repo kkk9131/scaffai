@@ -1,14 +1,18 @@
-export default function Home() {
+'use client';
+
+import { ThemeProvider } from '../contexts/ThemeContext';
+import Sidebar from '../components/layout/Sidebar';
+import Home from '../pages/Home';
+
+export default function RootPage() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm">
-        <h1 className="text-4xl font-bold text-center mb-8">
-          ScaffAI Web
-        </h1>
-        <p className="text-center text-gray-600">
-          足場計算Webアプリケーション
-        </p>
+    <ThemeProvider>
+      <div className="flex h-screen">
+        <Sidebar />
+        <div className="flex-1 overflow-auto">
+          <Home />
+        </div>
       </div>
-    </main>
-  )
+    </ThemeProvider>
+  );
 }

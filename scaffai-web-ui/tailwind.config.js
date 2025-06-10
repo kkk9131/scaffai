@@ -1,13 +1,6 @@
 /** @type {import('tailwindcss').Config} */
-module.exports = {
-  content: [
-    './pages/**/*.{js,ts,jsx,tsx,mdx}',
-    './components/**/*.{js,ts,jsx,tsx,mdx}',
-    './app/**/*.{js,ts,jsx,tsx,mdx}',
-    './contexts/**/*.{js,ts,jsx,tsx}',
-    './store/**/*.{js,ts,jsx,tsx}',
-    './lib/**/*.{js,ts,jsx,tsx}',
-  ],
+export default {
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   darkMode: 'class',
   theme: {
     extend: {
@@ -44,9 +37,6 @@ module.exports = {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
-        'scaffai-primary': '#2563eb',
-        'scaffai-secondary': '#64748b',
-        'scaffai-accent': '#f59e0b',
       },
       fontFamily: {
         sans: ['Noto Sans JP', 'Inter', 'sans-serif'],
@@ -88,4 +78,4 @@ module.exports = {
     },
   },
   plugins: [],
-}
+};
