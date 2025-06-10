@@ -1,11 +1,13 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { useCalculatorStore, MobileScaffoldInputData } from '../../lib/stores/calculatorStore';
-import { Building2, ArrowRight, Ruler, Settings, Wrench, MapPin, Target } from 'lucide-react';
+import { Building2, ArrowRight, Ruler, Settings, Wrench, MapPin, Target, Edit3 } from 'lucide-react';
 
 export default function CalculatorForm() {
   const { inputData, updateInput, calculate, isCalculating, error } = useCalculatorStore();
+  const router = useRouter();
 
   const handleInputChange = (data: Partial<MobileScaffoldInputData>) => {
     updateInput(data);
@@ -14,6 +16,26 @@ export default function CalculatorForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await calculate();
+  };
+
+  const handleGoToDrawingEditor = () => {
+    // 入力データをセッションストレージに保存
+    sessionStorage.setItem('drawingData', JSON.stringify({
+      building: {
+        width: inputData.frameWidth.eastWest,
+        height: inputData.frameWidth.northSouth,
+      },
+      eaves: {
+        north: inputData.eaveOverhang.north,
+        east: inputData.eaveOverhang.east,
+        south: inputData.eaveOverhang.south,
+        west: inputData.eaveOverhang.west,
+      },
+      timestamp: Date.now(),
+    }));
+    
+    // 作図エディタページへナビゲート
+    router.push('/draw');
   };
 
   return (
@@ -553,8 +575,17 @@ export default function CalculatorForm() {
         </div>
       </section>
 
-      {/* 計算ボタン */}
-      <div className="flex justify-end pt-4">
+      {/* ボタンエリア */}
+      <div className="flex flex-col sm:flex-row gap-4 justify-end pt-4">
+        <button
+          type="button"
+          onClick={handleGoToDrawingEditor}
+          className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-xl font-medium shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+        >
+          <Edit3 className="w-4 h-4" />
+          <span>作図エディタへ</span>
+        </button>
+        
         <button
           type="submit"
           disabled={isCalculating}

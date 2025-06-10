@@ -3,10 +3,11 @@
 import { ThemeProvider } from '../../contexts/ThemeContext';
 import Sidebar from '../../components/layout/Sidebar';
 import CalculatorForm from '../../components/Calculator/CalculatorForm';
+import DrawingCanvas from '../../components/DrawingCanvas/DrawingCanvas';
 import { useCalculatorStore } from '../../lib/stores/calculatorStore';
 
 export default function CalculatorPage() {
-  const { result } = useCalculatorStore();
+  const { result, inputData } = useCalculatorStore();
 
   return (
     <ThemeProvider>
@@ -24,6 +25,17 @@ export default function CalculatorPage() {
                 </header>
 
                 <CalculatorForm />
+
+                {/* Drawing Canvas Section */}
+                <section className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl border border-slate-200/50 dark:border-slate-700/50 p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <svg className="w-5 h-5 text-slate-600 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v6a2 2 0 002 2h4a2 2 0 002-2V5zM21 15a2 2 0 00-2-2h-4a2 2 0 00-2 2v2a2 2 0 002 2h4a2 2 0 002-2v-2z" />
+                    </svg>
+                    <h2 className="text-lg font-semibold">建物平面図プレビュー</h2>
+                  </div>
+                  <DrawingCanvas inputData={inputData} />
+                </section>
 
                 {/* Results Section */}
                 {result && (

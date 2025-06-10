@@ -70,10 +70,23 @@ export default function DrawingEditor() {
   const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false);
   const [defaultEavesLength, setDefaultEavesLength] = useState(600);
   const [isClient, setIsClient] = useState(false);
+  const [drawingData, setDrawingData] = useState<any>(null);
   const stageRef = useRef(null);
 
   useEffect(() => {
     setIsClient(true);
+    
+    // セッションストレージから簡易計算データを読み込み
+    const savedDrawingData = sessionStorage.getItem('drawingData');
+    if (savedDrawingData) {
+      try {
+        const data = JSON.parse(savedDrawingData);
+        setDrawingData(data);
+        console.log('計算機からのデータを読み込みました:', data);
+      } catch (error) {
+        console.error('データ読み込みエラー:', error);
+      }
+    }
   }, []);
 
   const toolConfigs: Record<Tool, { color: string; strokeWidth: number; dash?: number[] }> = {
@@ -457,6 +470,39 @@ export default function DrawingEditor() {
               </div>
             </div>
             
+            {/* 計算機からのデータ表示 */}
+            {drawingData && (
+              <div className="mb-6">
+                <h2 className="text-lg font-semibold mb-4 text-emerald-600">計算機からのデータ</h2>
+                <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-4 space-y-3">
+                  <div>
+                    <h3 className="text-sm font-medium text-emerald-800 dark:text-emerald-300">建物寸法</h3>
+                    <p className="text-sm text-emerald-700 dark:text-emerald-400">
+                      {drawingData.building?.width}mm × {drawingData.building?.height}mm
+                    </p>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-500">（東西 × 南北）</p>
+                  </div>
+                  
+                  {(drawingData.eaves?.north > 0 || drawingData.eaves?.east > 0 || 
+                    drawingData.eaves?.south > 0 || drawingData.eaves?.west > 0) && (
+                    <div>
+                      <h3 className="text-sm font-medium text-emerald-800 dark:text-emerald-300">軒の出</h3>
+                      <div className="grid grid-cols-2 gap-2 text-xs text-emerald-700 dark:text-emerald-400">
+                        {drawingData.eaves?.north > 0 && <span>北: {drawingData.eaves.north}mm</span>}
+                        {drawingData.eaves?.east > 0 && <span>東: {drawingData.eaves.east}mm</span>}
+                        {drawingData.eaves?.south > 0 && <span>南: {drawingData.eaves.south}mm</span>}
+                        {drawingData.eaves?.west > 0 && <span>西: {drawingData.eaves.west}mm</span>}
+                      </div>
+                    </div>
+                  )}
+                  
+                  <button className="w-full px-3 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 transition-colors">
+                    このデータで作図開始
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div>
               <h2 className="text-lg font-semibold mb-4">計算設定</h2>
               
