@@ -18,7 +18,8 @@ export function calculateSpanWithBoundaries(
   availableNormalPartsList: readonly number[],
   leftBoundary: number | null = null,
   rightBoundary: number | null = null,
-  targetMargin: number = DEFAULT_TARGET_MARGIN,
+  targetMarginLeft: number = DEFAULT_TARGET_MARGIN,
+  targetMarginRight: number = DEFAULT_TARGET_MARGIN,
   debugPrints: boolean = false
 ): SpanCalculationResult {
   
@@ -32,13 +33,15 @@ export function calculateSpanWithBoundaries(
     ? Math.max(0, rightBoundary - BOUNDARY_OFFSET) 
     : Infinity;
   
-  const effectiveTargetL = Math.min(targetMargin, maxAllowedL);
-  const effectiveTargetR = Math.min(targetMargin, maxAllowedR);
+  // 境界制約がない場合は目標離れを優先、ある場合は制約内での最大値を使用
+  const effectiveTargetL = leftBoundary !== null ? Math.min(targetMarginLeft, maxAllowedL) : targetMarginLeft;
+  const effectiveTargetR = rightBoundary !== null ? Math.min(targetMarginRight, maxAllowedR) : targetMarginRight;
   const idealTargetTotalSpan = width + effectiveTargetL + effectiveTargetR;
   const absoluteMaxTotalSpan = width + maxAllowedL + maxAllowedR;
   
   if (debugPrints) {
     console.log(`[DEBUG CSB_Revised] ideal_target_total_span=${idealTargetTotalSpan}, absolute_max_total_span=${absoluteMaxTotalSpan}`);
+    console.log(`[DEBUG CSB_Revised] target_margins: L=${targetMarginLeft}, R=${targetMarginRight}, effective: L=${effectiveTargetL}, R=${effectiveTargetR}`);
     console.log(`[DEBUG CSB_Revised] mandatory_special_parts=${mandatorySpecialParts}, sum_mandatory_special=${sumOfMandatorySpecial}`);
   }
   
@@ -58,8 +61,11 @@ export function calculateSpanWithBoundaries(
   let bestComboNormalParts: number[] = [];
   let minAbsDiffToTargetSumNormal = Infinity;
   
-  // 通常部材の組み合わせを探索（0個から4個まで）
-  for (let rCount = 0; rCount <= 4; rCount++) {
+  // 通常部材の組み合わせを探索（境界制約なしの場合は上限を拡張）
+  const hasNoBoundary = leftBoundary === null && rightBoundary === null;
+  const maxCombinations = hasNoBoundary ? 6 : 4;  // 境界制約なしなら6個まで
+  
+  for (let rCount = 0; rCount <= maxCombinations; rCount++) {
     const combinations = generateCombinations([...availableNormalPartsList], rCount);
     
     for (const comboNormal of combinations) {
@@ -75,19 +81,49 @@ export function calculateSpanWithBoundaries(
         continue;
       }
       
-      // 理想値への近さで評価
-      const diff = Math.abs(currentSumNormal - targetSumForNormalPartsIdeal);
-      
-      if (diff < minAbsDiffToTargetSumNormal) {
-        minAbsDiffToTargetSumNormal = diff;
-        bestComboNormalParts = [...comboNormal];
-      } else if (diff === minAbsDiffToTargetSumNormal) {
-        // 同じ差の場合は部材数が少ない、または1800が多い構成を優先
-        if (comboNormal.length < bestComboNormalParts.length ||
-            (comboNormal.length === bestComboNormalParts.length &&
-             comboNormal.filter(p => p === STANDARD_PART_SIZE).length >
-             bestComboNormalParts.filter(p => p === STANDARD_PART_SIZE).length)) {
+      if (hasNoBoundary) {
+        // 境界制約なし: 理想値以上で1800優先の組み合わせを選択
+        if (currentSumNormal >= targetSumForNormalPartsIdeal) {
+          const bestSum = bestComboNormalParts.reduce((sum, part) => sum + part, 0);
+          const current1800Count = comboNormal.filter(p => p === STANDARD_PART_SIZE).length;
+          const best1800Count = bestComboNormalParts.filter(p => p === STANDARD_PART_SIZE).length;
+          
+          if (bestComboNormalParts.length === 0 || 
+              currentSumNormal < bestSum ||
+              (currentSumNormal === bestSum && current1800Count > best1800Count) ||
+              (currentSumNormal === bestSum && current1800Count === best1800Count && 
+               comboNormal.length < bestComboNormalParts.length)) {
+            bestComboNormalParts = [...comboNormal];
+          }
+        } else if (bestComboNormalParts.length === 0 || 
+                   bestComboNormalParts.reduce((sum, part) => sum + part, 0) < targetSumForNormalPartsIdeal) {
+          // まだ理想値に達する組み合わせが見つかっていない場合
+          const bestSum = bestComboNormalParts.reduce((sum, part) => sum + part, 0);
+          const current1800Count = comboNormal.filter(p => p === STANDARD_PART_SIZE).length;
+          const best1800Count = bestComboNormalParts.filter(p => p === STANDARD_PART_SIZE).length;
+          
+          if (currentSumNormal > bestSum ||
+              (currentSumNormal === bestSum && current1800Count > best1800Count) ||
+              (currentSumNormal === bestSum && current1800Count === best1800Count && 
+               comboNormal.length < bestComboNormalParts.length)) {
+            bestComboNormalParts = [...comboNormal];
+          }
+        }
+      } else {
+        // 境界制約あり: 理想値への近さで評価、1800優先
+        const diff = Math.abs(currentSumNormal - targetSumForNormalPartsIdeal);
+        const current1800Count = comboNormal.filter(p => p === STANDARD_PART_SIZE).length;
+        const best1800Count = bestComboNormalParts.filter(p => p === STANDARD_PART_SIZE).length;
+        
+        if (diff < minAbsDiffToTargetSumNormal) {
+          minAbsDiffToTargetSumNormal = diff;
           bestComboNormalParts = [...comboNormal];
+        } else if (diff === minAbsDiffToTargetSumNormal) {
+          // 同じ差の場合は1800の数、次に部材数の少なさで優先
+          if (current1800Count > best1800Count ||
+              (current1800Count === best1800Count && comboNormal.length < bestComboNormalParts.length)) {
+            bestComboNormalParts = [...comboNormal];
+          }
         }
       }
     }
@@ -108,6 +144,32 @@ export function calculateSpanWithBoundaries(
         
         if (debugPrints) {
           console.log(`[DEBUG CSB_Revised] Fallback selected normal parts: ${bestComboNormalParts}`);
+        }
+      }
+    }
+  }
+  
+  // 境界制約なしで理想値に達していない場合の追加フォールバック
+  if (hasNoBoundary && bestComboNormalParts.length > 0) {
+    const currentSum = bestComboNormalParts.reduce((sum, part) => sum + part, 0);
+    if (currentSum < targetSumForNormalPartsIdeal) {
+      if (debugPrints) {
+        console.log(`[DEBUG CSB_Revised] No boundary constraint but ideal not reached. Current: ${currentSum}, Ideal: ${targetSumForNormalPartsIdeal}`);
+      }
+      
+      // 1800を追加して理想値を目指す
+      const shortage = targetSumForNormalPartsIdeal - currentSum;
+      const additionalParts = selectParts(shortage, availableNormalPartsList, 6);
+      
+      if (additionalParts.length > 0) {
+        const enhancedParts = [...bestComboNormalParts, ...additionalParts];
+        const enhancedSum = enhancedParts.reduce((sum, part) => sum + part, 0);
+        
+        if (enhancedSum >= targetSumForNormalPartsIdeal) {
+          bestComboNormalParts = enhancedParts;
+          if (debugPrints) {
+            console.log(`[DEBUG CSB_Revised] Enhanced to reach ideal: ${bestComboNormalParts}, sum=${enhancedSum}`);
+          }
         }
       }
     }
