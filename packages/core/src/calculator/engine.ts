@@ -32,16 +32,8 @@ export function calculateAll(input: ScaffoldInputData): ScaffoldCalculationResul
 
   // 南北方向の計算（東面・西面の離れを決定）
   // 個別の目標離れを考慮して計算（東=left, 西=right）
-  // 両方指定されている場合は、より大きい値を基準として使用
-  // どちらか一方のみの場合はその値を使用
-  // 両方nullの場合は軒の出+80mmを使用
   const targetMarginEast = target_margin_E;
   const targetMarginWest = target_margin_W;
-  const targetMarginNS = targetMarginEast !== null && targetMarginWest !== null 
-    ? Math.max(targetMarginEast, targetMarginWest)  // 両方指定時は大きい方を基準として使用
-    : targetMarginEast !== null ? targetMarginEast 
-    : targetMarginWest !== null ? targetMarginWest
-    : null;  // 両方nullの場合は軒の出+80mmを使用
     
   const nsResult = calculateFaceDimensions(
     width_NS,
@@ -49,22 +41,15 @@ export function calculateAll(input: ScaffoldInputData): ScaffoldCalculationResul
     boundary_E, boundary_W,
     use_150_NS, use_300_NS, use_355_NS,
     NORMAL_PARTS,
-    targetMarginNS,
+    targetMarginEast,
+    targetMarginWest,
     "NS_direction (East/West gaps)"
   );
 
   // 東西方向の計算（北面・南面の離れを決定）
   // 個別の目標離れを考慮して計算（南=left, 北=right）
-  // 両方指定されている場合は、より大きい値を基準として使用
-  // どちらか一方のみの場合はその値を使用
-  // 両方nullの場合は軒の出+80mmを使用
   const targetMarginSouth = target_margin_S;
   const targetMarginNorth = target_margin_N;
-  const targetMarginEW = targetMarginSouth !== null && targetMarginNorth !== null 
-    ? Math.max(targetMarginSouth, targetMarginNorth)  // 両方指定時は大きい方を基準として使用
-    : targetMarginSouth !== null ? targetMarginSouth
-    : targetMarginNorth !== null ? targetMarginNorth
-    : null;  // 両方nullの場合は軒の出+80mmを使用
     
   const ewResult = calculateFaceDimensions(
     width_EW,
@@ -72,7 +57,8 @@ export function calculateAll(input: ScaffoldInputData): ScaffoldCalculationResul
     boundary_S, boundary_N,
     use_150_EW, use_300_EW, use_355_EW,
     NORMAL_PARTS,
-    targetMarginEW,
+    targetMarginSouth,
+    targetMarginNorth,
     "EW_direction (North/South gaps)"
   );
 
@@ -169,10 +155,10 @@ export function calcAll(
   tie_column: boolean, railing_count: number,
   use_355_NS: number = 0, use_300_NS: number = 0, use_150_NS: number = 0,
   use_355_EW: number = 0, use_300_EW: number = 0, use_150_EW: number = 0,
-  target_margin_N: number | null = SCAFFOLD_CONSTANTS.DEFAULT_TARGET_MARGIN,
-  target_margin_E: number | null = SCAFFOLD_CONSTANTS.DEFAULT_TARGET_MARGIN,
-  target_margin_S: number | null = SCAFFOLD_CONSTANTS.DEFAULT_TARGET_MARGIN,
-  target_margin_W: number | null = SCAFFOLD_CONSTANTS.DEFAULT_TARGET_MARGIN
+  target_margin_N: number | null = null,
+  target_margin_E: number | null = null,
+  target_margin_S: number | null = null,
+  target_margin_W: number | null = null
 ): ScaffoldCalculationResult {
   return calculateAll({
     width_NS, width_EW,

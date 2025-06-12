@@ -330,11 +330,11 @@ def calculate_face_dimensions(
         candidates = [150, 300, 355, 600, 900]
         if original_left_margin < threshold_left:
             for p_corr in candidates:
-                if original_left_margin + p_corr > threshold_left: corr_val_for_left_note_str = p_corr; break
+                if original_left_margin + p_corr >= threshold_left: corr_val_for_left_note_str = p_corr; break
             if corr_val_for_left_note_str is None and candidates: corr_val_for_left_note_str = candidates[-1]
         if original_right_margin < threshold_right:
             for p_corr in candidates:
-                if original_right_margin + p_corr > threshold_right: corr_val_for_right_note_str = p_corr; break
+                if original_right_margin + p_corr >= threshold_right: corr_val_for_right_note_str = p_corr; break
             if corr_val_for_right_note_str is None and candidates: corr_val_for_right_note_str = candidates[-1]
         if corr_val_for_left_note_str and corr_val_for_right_note_str: correction_part_val = max(corr_val_for_left_note_str, corr_val_for_right_note_str)
         elif corr_val_for_left_note_str: correction_part_val = corr_val_for_left_note_str

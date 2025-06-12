@@ -236,13 +236,16 @@ type ScaffoldContextType = {
     value: any
   ) => void;
   resetInputData: () => void;
+  setCalculationResult: (result: CalculationResult | null) => void;
+  isFromHistory: boolean;
+  setIsFromHistory: (value: boolean) => void;
   calculationResult: CalculationResult | null;
   isLoading: boolean;
   error: string | null;
   calculateScaffold: () => Promise<void>;
   testAPICall: () => Promise<void>; // テスト用のシンプルなAPI呼び出し
-  saveToLocal: () => Promise<void>; // ローカル保存専用
-  saveToCloud: () => Promise<void>; // クラウド保存専用
+  saveToLocal: (title?: string) => Promise<void>; // ローカル保存専用
+  saveToCloud: (title?: string) => Promise<void>; // クラウド保存専用
   saveCalculationToHistory: (title?: string) => Promise<void>; // 後方互換性のため追加
 };
 
@@ -260,6 +263,7 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
     useState<CalculationResult | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [isFromHistory, setIsFromHistory] = useState<boolean>(false);
   const router = useRouter();
   const { user } = useAuthContext();
 
@@ -328,6 +332,17 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
     setInputData(defaultInputData);
     setCalculationResult(null);
     setError(null);
+  }, []);
+
+  // 計算結果の設定
+  const setCalculationResultValue = useCallback((result: CalculationResult | null) => {
+    setCalculationResult(result);
+    setIsFromHistory(!!result); // 結果が設定された場合は履歴から来たことを示す
+  }, []);
+
+  // 履歴フラグの設定
+  const setIsFromHistoryValue = useCallback((value: boolean) => {
+    setIsFromHistory(value);
   }, []);
 
   // テスト用のローカル計算テスト
@@ -408,6 +423,9 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
       
       // 自動保存は無効化 - ユーザーが手動で保存する必要がある
       console.log('ℹ️ Auto-save disabled - user must manually save');
+      
+      // 計算実行時は履歴からではないことを明示
+      setIsFromHistory(false);
 
     } catch (err) {
       console.error('Local calculation failed:', err);
@@ -485,7 +503,7 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [user]);
 
   // ローカル保存専用関数
-  const saveToLocal = useCallback(async () => {
+  const saveToLocal = useCallback(async (title?: string) => {
     if (!calculationResult) {
       Alert.alert('エラー', '保存する計算結果がありません');
       return;
@@ -497,19 +515,19 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
         createdAt: new Date().toISOString(),
         inputData: inputData,
         result: calculationResult,
+        title: title,
       };
 
       console.log('💾 Saving to local storage only...');
       await HistoryStorage.saveCalculation(historyItem);
-      Alert.alert('保存完了', 'ローカルに保存しました');
     } catch (error) {
       console.error('Failed to save to local:', error);
-      Alert.alert('保存エラー', 'ローカル保存に失敗しました');
+      throw error; // エラーを上位に投げる
     }
   }, [calculationResult, inputData]);
 
   // クラウド保存専用関数
-  const saveToCloud = useCallback(async () => {
+  const saveToCloud = useCallback(async (title?: string) => {
     if (!calculationResult) {
       Alert.alert('エラー', '保存する計算結果がありません');
       return;
@@ -526,6 +544,7 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
         createdAt: new Date().toISOString(),
         inputData: inputData,
         result: calculationResult,
+        title: title,
       };
 
       console.log('☁️ Saving to cloud only...');
@@ -550,7 +569,7 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
         .from('scaffold_calculations')
         .insert({
           user_id: user.id,
-          title: `計算結果 ${new Date().toLocaleDateString('ja-JP')}`,
+          title: title || `計算結果 ${new Date().toLocaleDateString('ja-JP')}`,
           // 入力データをJSONとして保存
           input_data: JSON.stringify(inputData),
           // 計算結果をJSONとして保存
@@ -559,14 +578,13 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (supabaseError) {
         console.error('Failed to save to Supabase:', supabaseError);
-        Alert.alert('エラー', `クラウド保存に失敗しました: ${supabaseError.message}`);
+        throw new Error(`クラウド保存に失敗しました: ${supabaseError.message}`);
       } else {
         console.log('✅ Successfully saved to cloud');
-        Alert.alert('✅ クラウド保存完了', '計算結果をクラウドに保存しました');
       }
     } catch (error) {
       console.error('Cloud save error:', error);
-      Alert.alert('エラー', 'クラウド保存でエラーが発生しました');
+      throw error; // エラーを上位に投げる
     }
   }, [calculationResult, inputData, user]);
 
@@ -662,6 +680,9 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
         inputData,
         setInputValue,
         resetInputData,
+        setCalculationResult: setCalculationResultValue,
+        isFromHistory,
+        setIsFromHistory: setIsFromHistoryValue,
         calculationResult,
         isLoading,
         error,

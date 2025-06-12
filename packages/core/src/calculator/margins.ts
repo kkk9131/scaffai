@@ -13,14 +13,15 @@ export function calculateInitialMargins(
   width: number,
   leftBoundaryVal: number | null,
   rightBoundaryVal: number | null,
-  targetMarginVal: number = DEFAULT_TARGET_MARGIN,
+  targetMarginLeftVal: number = DEFAULT_TARGET_MARGIN,
+  targetMarginRightVal: number = DEFAULT_TARGET_MARGIN,
   eavesLeftForThreshold: number = 0,
   eavesRightForThreshold: number = 0,
   debugPrints: boolean = false
 ): [number, number] {
   
   if (debugPrints) {
-    console.log(`[DEBUG] calculateInitialMargins: total_span=${currentTotalSpan}, width=${width}, L_b=${leftBoundaryVal}, R_b=${rightBoundaryVal}, target=${targetMarginVal}`);
+    console.log(`[DEBUG] calculateInitialMargins: total_span=${currentTotalSpan}, width=${width}, L_b=${leftBoundaryVal}, R_b=${rightBoundaryVal}, target_L=${targetMarginLeftVal}, target_R=${targetMarginRightVal}`);
   }
   
   let availableMarginTotal = currentTotalSpan - width;
@@ -39,17 +40,26 @@ export function calculateInitialMargins(
   
   // 境界線がない場合の処理
   if (leftBoundaryVal === null && rightBoundaryVal === null) {
-    const baseMarginHalf = Math.floor(availableMarginTotal / 2);
+    // 左右で異なる目標離れを考慮
+    const totalTargetMargin = targetMarginLeftVal + targetMarginRightVal;
     
-    if (baseMarginHalf <= targetMarginVal) {
-      leftGap = rightGap = baseMarginHalf;
+    if (availableMarginTotal <= totalTargetMargin) {
+      // 利用可能な余裕が目標離れの合計以下の場合、比例配分
+      const ratio = availableMarginTotal / totalTargetMargin;
+      leftGap = Math.floor(targetMarginLeftVal * ratio);
+      rightGap = availableMarginTotal - leftGap;
     } else {
-      leftGap = rightGap = targetMarginVal;
-      const surplus = availableMarginTotal - (targetMarginVal * 2);
+      // 余裕が十分にある場合、目標離れを満たしてから余剰を配分
+      leftGap = targetMarginLeftVal;
+      rightGap = targetMarginRightVal;
+      const surplus = availableMarginTotal - totalTargetMargin;
       
       if (surplus > 0) {
-        leftGap += Math.floor(surplus / 2);
-        rightGap += surplus - Math.floor(surplus / 2);
+        // 余剰を目標離れの比率で配分
+        const leftRatio = targetMarginLeftVal / totalTargetMargin;
+        const additionalLeft = Math.floor(surplus * leftRatio);
+        leftGap += additionalLeft;
+        rightGap += surplus - additionalLeft;
       }
     }
     

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,10 +6,13 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { AppHeader } from '../../components/AppHeader';
 import { StatusBar } from 'expo-status-bar';
 import { ResultCard } from '../../components/ResultCard';
+import { ProjectNameDialog } from '../../components/ProjectNameDialog';
+import { SaveCompletionDialog } from '../../components/SaveCompletionDialog';
 import { colors as baseColors } from '../../constants/colors';
 import { useTheme } from '../../context/ThemeContext';
 import { ja } from '../../constants/translations';
@@ -20,12 +23,62 @@ import { useAuthContext } from '../../context/AuthContext';
 
 export default function ResultScreen() {
   const { colors, isDark } = useTheme();
-  const { isLoading, error, calculationResult, saveToLocal, saveToCloud } = useScaffold();
+  const { isLoading, error, calculationResult, saveToLocal, saveToCloud, isFromHistory } = useScaffold();
   const { user } = useAuthContext();
   const router = useRouter();
+  
+  const [showProjectNameDialog, setShowProjectNameDialog] = useState(false);
+  const [showCompletionDialog, setShowCompletionDialog] = useState(false);
+  const [saveMode, setSaveMode] = useState<'local' | 'cloud'>('local');
+  const [savedProjectName, setSavedProjectName] = useState('');
 
   // Debug logging
   console.log('ResultScreen render - isLoading:', isLoading, 'error:', error, 'hasResult:', !!calculationResult);
+
+  // 保存処理関数
+  const handleSaveWithProjectName = async (projectName: string) => {
+    console.log('🚀 handleSaveWithProjectName called with:', { projectName, saveMode });
+    try {
+      if (saveMode === 'local') {
+        console.log('💾 Starting local save...');
+        await saveToLocal(projectName);
+        console.log('✅ Local save completed, showing completion dialog...');
+      } else {
+        console.log('☁️ Starting cloud save...');
+        await saveToCloud(projectName);
+        console.log('✅ Cloud save completed, showing completion dialog...');
+      }
+      
+      // 保存成功時はカスタムダイアログを表示
+      setSavedProjectName(projectName);
+      setShowCompletionDialog(true);
+      
+    } catch (error) {
+      console.error('Save error:', error);
+      Alert.alert(
+        '❌ 保存エラー', 
+        `保存に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`,
+        [{ text: 'OK' }]
+      );
+    }
+  };
+
+  // ローカル保存ボタンの処理
+  const handleLocalSave = () => {
+    setSaveMode('local');
+    setShowProjectNameDialog(true);
+  };
+
+  // クラウド保存ボタンの処理
+  const handleCloudSave = () => {
+    setSaveMode('cloud');
+    setShowProjectNameDialog(true);
+  };
+
+  // キャンセル処理
+  const handleSaveCancel = () => {
+    // 元の画面に戻る（何もしない）
+  };
 
   // 動的スタイル
   const dynamicStyles = StyleSheet.create({
@@ -212,15 +265,25 @@ export default function ResultScreen() {
             suffix={ja.common.mm}
             delay={1100}
           />
+          <ResultCard
+            title="根がらみ支柱の有無"
+            value={
+              calculationResult.tie_column_used 
+                ? (calculationResult.tie_ok ? "設置可能" : "設置不可") 
+                : "使用しない"
+            }
+            isWarning={calculationResult.tie_column_used && !calculationResult.tie_ok}
+            delay={1200}
+          />
         </View>
       </ScrollView>
 
-      {user ? (
-        // ログイン済みユーザー：3つのボタン
+      {!isFromHistory && user ? (
+        // ログイン済みユーザー：3つのボタン（履歴から来た場合は非表示）
         <View style={styles.buttonContainer}>
           <TouchableOpacity
             style={[styles.actionButton, dynamicStyles.localSaveButton]}
-            onPress={saveToLocal}
+            onPress={handleLocalSave}
           >
             <Ionicons name="save" color="#FFFFFF" size={20} />
             <Text style={[styles.actionButtonText, dynamicStyles.localSaveButtonText]}>
@@ -230,7 +293,7 @@ export default function ResultScreen() {
           
           <TouchableOpacity
             style={[styles.actionButton, dynamicStyles.cloudSaveButton]}
-            onPress={saveToCloud}
+            onPress={handleCloudSave}
           >
             <Ionicons name="cloud-upload" color="#FFFFFF" size={20} />
             <Text style={[styles.actionButtonText, dynamicStyles.cloudSaveButtonText]}>
@@ -248,8 +311,8 @@ export default function ResultScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-      ) : (
-        // 未ログインユーザー：保存不可メッセージと再計算ボタンのみ
+      ) : !isFromHistory ? (
+        // 未ログインユーザー：保存不可メッセージと再計算ボタンのみ（履歴から来た場合は非表示）
         <View style={styles.buttonContainer}>
           <View style={[styles.noSaveMessage, dynamicStyles.noSaveMessage]}>
             <Ionicons name="lock-closed" color={colors.text.secondary} size={20} />
@@ -268,7 +331,43 @@ export default function ResultScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+      ) : null}
+
+      {/* 履歴から来た場合は戻るボタンのみ表示 */}
+      {isFromHistory && (
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[styles.recalculateButton, dynamicStyles.recalculateButton]}
+            onPress={() => router.push('/(drawer)/history')}
+          >
+            <Ionicons name="arrow-back" color="#FFFFFF" size={20} />
+            <Text style={[styles.recalculateButtonText, dynamicStyles.recalculateButtonText]}>
+              履歴に戻る
+            </Text>
+          </TouchableOpacity>
+        </View>
       )}
+
+      {/* プロジェクト名入力ダイアログ */}
+      <ProjectNameDialog
+        visible={showProjectNameDialog}
+        onClose={() => setShowProjectNameDialog(false)}
+        onSave={handleSaveWithProjectName}
+        onCancel={handleSaveCancel}
+        title={saveMode === 'local' ? 'ローカル保存' : 'クラウド保存'}
+      />
+
+      {/* 保存完了ダイアログ */}
+      <SaveCompletionDialog
+        visible={showCompletionDialog}
+        onClose={() => setShowCompletionDialog(false)}
+        onViewHistory={() => {
+          setShowCompletionDialog(false);
+          router.push('/(drawer)/history');
+        }}
+        projectName={savedProjectName}
+        saveMode={saveMode}
+      />
     </View>
   );
 }

@@ -9,6 +9,7 @@ type ResultCardProps = {
   value: string | number;
   suffix?: string;
   delay?: number;
+  isWarning?: boolean;
 };
 
 export const ResultCard: React.FC<ResultCardProps> = ({
@@ -16,19 +17,20 @@ export const ResultCard: React.FC<ResultCardProps> = ({
   value,
   suffix,
   delay = 0,
+  isWarning = false,
 }) => {
   const { colors } = useTheme();
   
   const dynamicStyles = StyleSheet.create({
     container: {
       backgroundColor: colors.background.paper,
-      borderLeftColor: baseColors.primary.main,
+      borderLeftColor: isWarning ? baseColors.error : baseColors.primary.main,
     },
     title: {
       color: colors.text.primary,
     },
     value: {
-      color: colors.text.primary,
+      color: isWarning ? baseColors.error : colors.text.primary,
     },
     suffix: {
       color: colors.text.secondary,
