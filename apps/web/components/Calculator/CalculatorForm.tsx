@@ -4,6 +4,7 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useCalculatorStore, MobileScaffoldInputData } from '../../lib/stores/calculatorStore';
 import { Building2, ArrowRight, Ruler, Settings, Wrench, MapPin, Target, Edit3 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/Select';
 
 export default function CalculatorForm() {
   const { inputData, updateInput, calculate, isCalculating, error } = useCalculatorStore();
@@ -380,67 +381,76 @@ export default function CalculatorForm() {
           <h3 className="text-sm font-medium mb-3 text-slate-600 dark:text-slate-400">南北方向</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">355mm</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  value={inputData.specialMaterial.northSouth.material355}
-                  onChange={(e) => handleInputChange({
-                    specialMaterial: {
-                      ...inputData.specialMaterial,
-                      northSouth: {
-                        ...inputData.specialMaterial.northSouth,
-                        material355: parseInt(e.target.value) || 0
-                      }
+              <label className="block text-sm font-medium mb-2">355mm</label>
+              <Select
+                value={inputData.specialMaterial.northSouth.material355.toString()}
+                onValueChange={(value) => handleInputChange({
+                  specialMaterial: {
+                    ...inputData.specialMaterial,
+                    northSouth: {
+                      ...inputData.specialMaterial.northSouth,
+                      material355: parseInt(value)
                     }
-                  })}
-                  placeholder="0"
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
-                />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">本</span>
-              </div>
+                  }
+                })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">なし</SelectItem>
+                  <SelectItem value="1">1本</SelectItem>
+                  <SelectItem value="2">2本</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">300mm</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  value={inputData.specialMaterial.northSouth.material300}
-                  onChange={(e) => handleInputChange({
-                    specialMaterial: {
-                      ...inputData.specialMaterial,
-                      northSouth: {
-                        ...inputData.specialMaterial.northSouth,
-                        material300: parseInt(e.target.value) || 0
-                      }
+              <label className="block text-sm font-medium mb-2">300mm</label>
+              <Select
+                value={inputData.specialMaterial.northSouth.material300.toString()}
+                onValueChange={(value) => handleInputChange({
+                  specialMaterial: {
+                    ...inputData.specialMaterial,
+                    northSouth: {
+                      ...inputData.specialMaterial.northSouth,
+                      material300: parseInt(value)
                     }
-                  })}
-                  placeholder="0"
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
-                />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">本</span>
-              </div>
+                  }
+                })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">なし</SelectItem>
+                  <SelectItem value="1">1本</SelectItem>
+                  <SelectItem value="2">2本</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">150mm</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  value={inputData.specialMaterial.northSouth.material150}
-                  onChange={(e) => handleInputChange({
-                    specialMaterial: {
-                      ...inputData.specialMaterial,
-                      northSouth: {
-                        ...inputData.specialMaterial.northSouth,
-                        material150: parseInt(e.target.value) || 0
-                      }
+              <label className="block text-sm font-medium mb-2">150mm</label>
+              <Select
+                value={inputData.specialMaterial.northSouth.material150.toString()}
+                onValueChange={(value) => handleInputChange({
+                  specialMaterial: {
+                    ...inputData.specialMaterial,
+                    northSouth: {
+                      ...inputData.specialMaterial.northSouth,
+                      material150: parseInt(value)
                     }
-                  })}
-                  placeholder="0"
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
-                />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">本</span>
-              </div>
+                  }
+                })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">なし</SelectItem>
+                  <SelectItem value="1">1本</SelectItem>
+                  <SelectItem value="2">2本</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>
@@ -450,67 +460,76 @@ export default function CalculatorForm() {
           <h3 className="text-sm font-medium mb-3 text-slate-600 dark:text-slate-400">東西方向</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">355mm</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  value={inputData.specialMaterial.eastWest.material355}
-                  onChange={(e) => handleInputChange({
-                    specialMaterial: {
-                      ...inputData.specialMaterial,
-                      eastWest: {
-                        ...inputData.specialMaterial.eastWest,
-                        material355: parseInt(e.target.value) || 0
-                      }
+              <label className="block text-sm font-medium mb-2">355mm</label>
+              <Select
+                value={inputData.specialMaterial.eastWest.material355.toString()}
+                onValueChange={(value) => handleInputChange({
+                  specialMaterial: {
+                    ...inputData.specialMaterial,
+                    eastWest: {
+                      ...inputData.specialMaterial.eastWest,
+                      material355: parseInt(value)
                     }
-                  })}
-                  placeholder="0"
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
-                />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">本</span>
-              </div>
+                  }
+                })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">なし</SelectItem>
+                  <SelectItem value="1">1本</SelectItem>
+                  <SelectItem value="2">2本</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">300mm</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  value={inputData.specialMaterial.eastWest.material300}
-                  onChange={(e) => handleInputChange({
-                    specialMaterial: {
-                      ...inputData.specialMaterial,
-                      eastWest: {
-                        ...inputData.specialMaterial.eastWest,
-                        material300: parseInt(e.target.value) || 0
-                      }
+              <label className="block text-sm font-medium mb-2">300mm</label>
+              <Select
+                value={inputData.specialMaterial.eastWest.material300.toString()}
+                onValueChange={(value) => handleInputChange({
+                  specialMaterial: {
+                    ...inputData.specialMaterial,
+                    eastWest: {
+                      ...inputData.specialMaterial.eastWest,
+                      material300: parseInt(value)
                     }
-                  })}
-                  placeholder="0"
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
-                />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">本</span>
-              </div>
+                  }
+                })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">なし</SelectItem>
+                  <SelectItem value="1">1本</SelectItem>
+                  <SelectItem value="2">2本</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">150mm</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  value={inputData.specialMaterial.eastWest.material150}
-                  onChange={(e) => handleInputChange({
-                    specialMaterial: {
-                      ...inputData.specialMaterial,
-                      eastWest: {
-                        ...inputData.specialMaterial.eastWest,
-                        material150: parseInt(e.target.value) || 0
-                      }
+              <label className="block text-sm font-medium mb-2">150mm</label>
+              <Select
+                value={inputData.specialMaterial.eastWest.material150.toString()}
+                onValueChange={(value) => handleInputChange({
+                  specialMaterial: {
+                    ...inputData.specialMaterial,
+                    eastWest: {
+                      ...inputData.specialMaterial.eastWest,
+                      material150: parseInt(value)
                     }
-                  })}
-                  placeholder="0"
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
-                />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">本</span>
-              </div>
+                  }
+                })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">なし</SelectItem>
+                  <SelectItem value="1">1本</SelectItem>
+                  <SelectItem value="2">2本</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>
