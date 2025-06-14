@@ -22,6 +22,7 @@ import { AppHeader } from '../../components/AppHeader';
 import { HistoryStorage, CalculationStatsStorage } from '../../utils/storage';
 import { CalculationHistory } from '../../types/history';
 import { useAuthContext } from '../../context/AuthContext';
+import { useScaffold } from '../../context/ScaffoldContext';
 import { supabase } from '../../lib/supabase';
 import { Alert } from 'react-native';
 
@@ -32,6 +33,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { colors, isDark } = useTheme();
   const { user, signOut } = useAuthContext();
+  const { resetInputData } = useScaffold();
   console.log('🏠 [HOME] HomeScreen initialized with user:', !!user);
 
   
@@ -171,7 +173,10 @@ export default function HomeScreen() {
       subtitle: '足場の計算を開始',
       icon: 'calculator',
       color: baseColors.primary.main,
-      onPress: () => router.push('/(drawer)/input'),
+      onPress: () => {
+        resetInputData(); // 入力データをリセット
+        router.push('/(drawer)/input');
+      },
     },
     {
       id: 'history',
