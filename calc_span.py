@@ -4,6 +4,10 @@ from itertools import product
 from collections import Counter
 import math # float('inf') を使うため
 
+def round_to_nearest_5mm(value):
+    """5mm単位で丸める関数"""
+    return round(value / 5) * 5
+
 # --- 定数定義 ---
 BOUNDARY_OFFSET = 60
 EAVES_MARGIN_THRESHOLD_ADDITION = 80
@@ -323,7 +327,8 @@ def calculate_face_dimensions(
         needs_correction_flag = True
         if debug_prints: print(f"[DEBUG {face_name}] Final check: At least one threshold NOT met. needs_correction=True. (L_actual:{left_margin} vs L_thresh:{threshold_left}, R_actual:{right_margin} vs R_thresh:{threshold_right})")
 
-    original_left_margin, original_right_margin = left_margin, right_margin
+    # 離れを5mm単位に丸める
+    original_left_margin, original_right_margin = round_to_nearest_5mm(left_margin), round_to_nearest_5mm(right_margin)
     correction_part_val = None; corr_val_for_left_note_str = None; corr_val_for_right_note_str = None
 
     if needs_correction_flag:

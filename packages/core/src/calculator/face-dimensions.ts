@@ -3,6 +3,13 @@ import { calculateSpanWithBoundaries } from './span-boundaries';
 import { calculateInitialMargins } from './margins';
 import { formatSpanParts } from './utils';
 
+/**
+ * 5mm単位で丸める関数（離れ専用）
+ */
+function roundToNearest5mm(value: number): number {
+  return Math.round(value / 5) * 5;
+}
+
 const { 
   BOUNDARY_OFFSET, 
   EAVES_MARGIN_THRESHOLD_ADDITION, 
@@ -279,8 +286,9 @@ export function calculateFaceDimensions(
     console.log(`[DEBUG ${faceName}] Final check: ${needsCorrectionFlag ? 'At least one threshold NOT met' : 'Both thresholds met'}. needs_correction=${needsCorrectionFlag}`);
   }
   
-  const originalLeftMargin = leftMargin;
-  const originalRightMargin = rightMargin;
+  // 離れを5mm単位に丸める
+  const originalLeftMargin = roundToNearest5mm(leftMargin);
+  const originalRightMargin = roundToNearest5mm(rightMargin);
   
   // 補正部材の計算
   let correctionPartVal: number | null = null;

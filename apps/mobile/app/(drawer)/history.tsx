@@ -663,7 +663,10 @@ export default function HistoryScreen() {
           </Text>
           <TouchableOpacity
             style={[styles.startButton, dynamicStyles.emptyButton]}
-            onPress={() => router.push('/(drawer)/input')}
+            onPress={() => {
+              resetInputData(); // 入力データをリセット
+              router.push('/(drawer)/input');
+            }}
           >
             <Text style={[styles.startButtonText, dynamicStyles.emptyButtonText]}>計算を始める</Text>
           </TouchableOpacity>

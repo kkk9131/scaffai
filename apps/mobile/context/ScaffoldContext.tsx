@@ -239,6 +239,7 @@ type ScaffoldContextType = {
   setCalculationResult: (result: CalculationResult | null) => void;
   isFromHistory: boolean;
   setIsFromHistory: (value: boolean) => void;
+  adjustGap: (direction: 'north' | 'south' | 'east' | 'west', amount: number) => void;
   calculationResult: CalculationResult | null;
   isLoading: boolean;
   error: string | null;
@@ -344,6 +345,69 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
   const setIsFromHistoryValue = useCallback((value: boolean) => {
     setIsFromHistory(value);
   }, []);
+
+  // 離れの値を数値として抽出（"123 mm" -> 123）
+  const extractGapValue = (gapString: string): number => {
+    const match = gapString.match(/^(\d+)/);
+    return match ? parseInt(match[1], 10) : 0;
+  };
+
+  // 離れの値を文字列として再構築（123 -> "123 mm"、補正がある場合は維持）
+  const formatGapValue = (value: number, originalString: string): string => {
+    const correctionMatch = originalString.match(/\(\+\d+\)$/);
+    return correctionMatch ? `${value} mm${correctionMatch[0]}` : `${value} mm`;
+  };
+
+  // 離れ調整機能
+  const adjustGap = useCallback((direction: 'north' | 'south' | 'east' | 'west', amount: number) => {
+    if (!calculationResult) return;
+
+    const oppositeDirection = {
+      north: 'south',
+      south: 'north',
+      east: 'west',
+      west: 'east'
+    } as const;
+
+    const opposite = oppositeDirection[direction];
+    
+    // 軒の出の値を取得（方向ごとに対応）
+    const getEavesValue = (dir: string) => {
+      switch (dir) {
+        case 'north': return inputData.eaveOverhang.north || 0;
+        case 'south': return inputData.eaveOverhang.south || 0;
+        case 'east': return inputData.eaveOverhang.east || 0;
+        case 'west': return inputData.eaveOverhang.west || 0;
+        default: return 0;
+      }
+    };
+    
+    // 最小値を計算（軒の出 + 80mm以上）
+    const minValueForDirection = getEavesValue(direction) + 80;
+    const minValueForOpposite = getEavesValue(opposite) + 80;
+    
+    // 現在の値を取得
+    const currentValue = extractGapValue(calculationResult[`${direction}_gap`]);
+    const oppositeValue = extractGapValue(calculationResult[`${opposite}_gap`]);
+    
+    // 5mm単位で調整（最小値制限を適用）
+    const newValue = Math.max(minValueForDirection, currentValue + amount);
+    const newOppositeValue = Math.max(minValueForOpposite, oppositeValue - amount);
+    
+    // 調整が最小値制限により制限される場合は何もしない
+    if ((amount > 0 && newValue === currentValue) || 
+        (amount < 0 && newOppositeValue === oppositeValue)) {
+      console.log(`調整制限: ${direction}の最小値${minValueForDirection}mm または${opposite}の最小値${minValueForOpposite}mmに達しています`);
+      return;
+    }
+    
+    // 結果を更新
+    setCalculationResult({
+      ...calculationResult,
+      [`${direction}_gap`]: formatGapValue(newValue, calculationResult[`${direction}_gap`]),
+      [`${opposite}_gap`]: formatGapValue(newOppositeValue, calculationResult[`${opposite}_gap`]),
+    });
+  }, [calculationResult, inputData]);
 
   // テスト用のローカル計算テスト
   const testAPICall = useCallback(async () => {
@@ -683,6 +747,7 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
         setCalculationResult: setCalculationResultValue,
         isFromHistory,
         setIsFromHistory: setIsFromHistoryValue,
+        adjustGap,
         calculationResult,
         isLoading,
         error,

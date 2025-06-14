@@ -13,6 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ResultCard } from '../../components/ResultCard';
 import { ProjectNameDialog } from '../../components/ProjectNameDialog';
 import { SaveCompletionDialog } from '../../components/SaveCompletionDialog';
+import { GapAdjustmentControl } from '../../components/GapAdjustmentControl';
 import { colors as baseColors } from '../../constants/colors';
 import { useTheme } from '../../context/ThemeContext';
 import { ja } from '../../constants/translations';
@@ -23,7 +24,7 @@ import { useAuthContext } from '../../context/AuthContext';
 
 export default function ResultScreen() {
   const { colors, isDark } = useTheme();
-  const { isLoading, error, calculationResult, saveToLocal, saveToCloud, isFromHistory } = useScaffold();
+  const { isLoading, error, calculationResult, saveToLocal, saveToCloud, isFromHistory, adjustGap, inputData } = useScaffold();
   const { user } = useAuthContext();
   const router = useRouter();
   
@@ -31,6 +32,7 @@ export default function ResultScreen() {
   const [showCompletionDialog, setShowCompletionDialog] = useState(false);
   const [saveMode, setSaveMode] = useState<'local' | 'cloud'>('local');
   const [savedProjectName, setSavedProjectName] = useState('');
+  const [adjustmentMode, setAdjustmentMode] = useState(false);
 
   // Debug logging
   console.log('ResultScreen render - isLoading:', isLoading, 'error:', error, 'hasResult:', !!calculationResult);
@@ -78,6 +80,29 @@ export default function ResultScreen() {
   // キャンセル処理
   const handleSaveCancel = () => {
     // 元の画面に戻る（何もしない）
+  };
+
+  // 離れの値を数値として抽出
+  const extractGapValue = (gapString: string): number => {
+    const match = gapString.match(/^(\d+)/);
+    return match ? parseInt(match[1], 10) : 0;
+  };
+
+  // 軒の出の値を取得（方向ごとに対応）
+  const getEavesValue = (direction: string) => {
+    switch (direction) {
+      case 'north': return inputData.eaveOverhang.north || 0;
+      case 'south': return inputData.eaveOverhang.south || 0;
+      case 'east': return inputData.eaveOverhang.east || 0;
+      case 'west': return inputData.eaveOverhang.west || 0;
+      default: return 0;
+    }
+  };
+
+  // 最小値チェック（軒の出 + 80mm以上が必要）
+  const isAtMinimum = (direction: string, currentValue: number): boolean => {
+    const minValue = getEavesValue(direction) + 80;
+    return currentValue <= minValue;
   };
 
   // 動的スタイル
@@ -142,6 +167,19 @@ export default function ResultScreen() {
     },
     noSaveText: {
       color: colors.text.secondary,
+    },
+    adjustmentButton: {
+      backgroundColor: adjustmentMode ? baseColors.accent.orange : baseColors.secondary.main,
+    },
+    adjustmentButtonText: {
+      color: '#FFFFFF',
+    },
+    adjustmentSection: {
+      backgroundColor: colors.background.secondary,
+      borderColor: colors.border.main,
+    },
+    adjustmentTitle: {
+      color: colors.text.primary,
     },
   });
 
@@ -275,6 +313,66 @@ export default function ResultScreen() {
             isWarning={calculationResult.tie_column_used && !calculationResult.tie_ok}
             delay={1200}
           />
+
+          {/* 離れ調整セクション */}
+          <View style={styles.adjustmentToggleContainer}>
+            <TouchableOpacity
+              style={[styles.adjustmentToggle, dynamicStyles.adjustmentButton]}
+              onPress={() => setAdjustmentMode(!adjustmentMode)}
+            >
+              <Ionicons 
+                name={adjustmentMode ? "settings" : "construct"} 
+                color="#FFFFFF" 
+                size={20} 
+              />
+              <Text style={[styles.adjustmentToggleText, dynamicStyles.adjustmentButtonText]}>
+                {adjustmentMode ? '調整を終了' : '離れを調整'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {adjustmentMode && calculationResult && (
+            <View style={[styles.adjustmentSection, dynamicStyles.adjustmentSection]}>
+              <Text style={[styles.adjustmentTitle, dynamicStyles.adjustmentTitle]}>
+                離れの手動調整（5mm単位）
+              </Text>
+              <Text style={[styles.adjustmentNote, dynamicStyles.adjustmentTitle]}>
+                ※ 一方を増やすと対面が同じ分だけ減ります
+              </Text>
+              
+              <GapAdjustmentControl
+                label="北面の離れ"
+                value={extractGapValue(calculationResult.north_gap)}
+                onIncrease={() => adjustGap('north', 5)}
+                onDecrease={() => adjustGap('north', -5)}
+                isDecreaseDisabled={isAtMinimum('north', extractGapValue(calculationResult.north_gap))}
+              />
+              
+              <GapAdjustmentControl
+                label="南面の離れ"
+                value={extractGapValue(calculationResult.south_gap)}
+                onIncrease={() => adjustGap('south', 5)}
+                onDecrease={() => adjustGap('south', -5)}
+                isDecreaseDisabled={isAtMinimum('south', extractGapValue(calculationResult.south_gap))}
+              />
+              
+              <GapAdjustmentControl
+                label="東面の離れ"
+                value={extractGapValue(calculationResult.east_gap)}
+                onIncrease={() => adjustGap('east', 5)}
+                onDecrease={() => adjustGap('east', -5)}
+                isDecreaseDisabled={isAtMinimum('east', extractGapValue(calculationResult.east_gap))}
+              />
+              
+              <GapAdjustmentControl
+                label="西面の離れ"
+                value={extractGapValue(calculationResult.west_gap)}
+                onIncrease={() => adjustGap('west', 5)}
+                onDecrease={() => adjustGap('west', -5)}
+                isDecreaseDisabled={isAtMinimum('west', extractGapValue(calculationResult.west_gap))}
+              />
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -478,5 +576,37 @@ const styles = StyleSheet.create({
   emptyButtonText: {
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  adjustmentToggleContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  adjustmentToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  adjustmentToggleText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  adjustmentSection: {
+    margin: 20,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  adjustmentTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  adjustmentNote: {
+    fontSize: 12,
+    marginBottom: 16,
+    fontStyle: 'italic',
   },
 });

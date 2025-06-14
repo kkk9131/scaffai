@@ -21,6 +21,7 @@ import { ja } from '../../constants/translations';
 import { HistoryStorage } from '../../utils/storage';
 import { CalculationHistory } from '../../types/history';
 import { useAuthContext } from '../../context/AuthContext';
+import { useScaffold } from '../../context/ScaffoldContext';
 import { supabase } from '../../lib/supabase';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -30,6 +31,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { colors, isDark } = useTheme();
   const { user } = useAuthContext();
+  const { resetInputData } = useScaffold();
   console.log('🏠 [DASHBOARD] HomeScreen initialized with user:', !!user);
   
   // 統計データの状態
@@ -138,7 +140,10 @@ export default function HomeScreen() {
       subtitle: '足場の計算を開始',
       icon: 'calculator',
       color: baseColors.primary.main,
-      onPress: () => router.push('/(drawer)/input'),
+      onPress: () => {
+        resetInputData(); // 入力データをリセット
+        router.push('/(drawer)/input');
+      },
     },
     {
       id: 'history',
