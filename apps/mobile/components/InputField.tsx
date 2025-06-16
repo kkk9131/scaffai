@@ -95,6 +95,9 @@ export const InputField: React.FC<InputFieldProps> = ({
           multiline={multiline}
           numberOfLines={Platform.OS === 'ios' ? undefined : numberOfLines}
           maxLength={maxLength}
+          autoCorrect={false}
+          autoCapitalize="none"
+          selectTextOnFocus={false}
         />
         {suffix && <Text style={[styles.suffix, dynamicStyles.suffix]}>{suffix}</Text>}
       </View>
@@ -123,6 +126,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     paddingVertical: 12,
+    outlineWidth: 0, // Web用: focus時のoutlineを無効化
   },
   multilineInput: {
     minHeight: 100,

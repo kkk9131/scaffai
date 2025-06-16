@@ -17,6 +17,7 @@ interface HistoryCardProps {
   item: CalculationHistory | any;
   onLoad: (item: CalculationHistory | any) => void;
   onDelete: (id: string, item?: any) => void;
+  onShowResult: (item: CalculationHistory | any) => void;
   isCloudItem?: boolean;
 }
 
@@ -24,6 +25,7 @@ export const HistoryCard: React.FC<HistoryCardProps> = ({
   item,
   onLoad,
   onDelete,
+  onShowResult,
   isCloudItem = false,
 }) => {
   const { colors } = useTheme();
@@ -53,9 +55,15 @@ export const HistoryCard: React.FC<HistoryCardProps> = ({
       color: colors.text.primary,
     },
     loadButton: {
-      backgroundColor: baseColors.primary.main,
+      backgroundColor: baseColors.secondary.main,
     },
     loadButtonText: {
+      color: '#FFFFFF',
+    },
+    showResultButton: {
+      backgroundColor: baseColors.primary.main,
+    },
+    showResultButtonText: {
       color: '#FFFFFF',
     },
   });
@@ -117,12 +125,19 @@ export const HistoryCard: React.FC<HistoryCardProps> = ({
     return isCloudItem ? item.title : (item.title || formatDate(getCreatedAt()));
   };
 
+  const getProjectName = () => {
+    const title = isCloudItem ? item.title : item.title;
+    return title || `プロジェクト ${formatDate(getCreatedAt())}`;
+  };
+
   return (
     <View style={[styles.container, dynamicStyles.container]}>
       <View style={styles.header}>
         <View style={styles.titleContainer}>
           <View style={styles.titleRow}>
-            <Text style={[styles.title, dynamicStyles.title]}>{getTitle()}</Text>
+            <View style={styles.projectNameContainer}>
+              <Text style={[styles.projectName]}>{getProjectName()}</Text>
+            </View>
             {isCloudItem && (
               <View style={[styles.cloudBadge, dynamicStyles.cloudBadge]}>
                 <Ionicons name="cloud" size={12} color={colors.text.primary} />
@@ -142,28 +157,21 @@ export const HistoryCard: React.FC<HistoryCardProps> = ({
         </TouchableOpacity>
       </View>
 
-      <View style={styles.details}>
-        <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, dynamicStyles.detailLabel]}>{ja.history.frameSize}:</Text>
-          <Text style={[styles.detailValue, dynamicStyles.detailValue]}>{getFrameSize()} mm</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, dynamicStyles.detailLabel]}>{ja.history.totalSpan}:</Text>
-          <Text style={[styles.detailValue, dynamicStyles.detailValue]}>{getTotalSpan()} mm</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <Text style={[styles.detailLabel, dynamicStyles.detailLabel]}>屋根形状:</Text>
-          <Text style={[styles.detailValue, dynamicStyles.detailValue]}>{getRoofShape()}</Text>
-        </View>
-      </View>
-
       <View style={styles.actions}>
         <TouchableOpacity
           style={[styles.loadButton, dynamicStyles.loadButton]}
           onPress={() => onLoad(item)}
         >
           <Ionicons name="download-outline" size={16} color="#FFFFFF" />
-          <Text style={[styles.loadButtonText, dynamicStyles.loadButtonText]}>{ja.history.loadButton}</Text>
+          <Text style={[styles.loadButtonText, dynamicStyles.loadButtonText]}>入力読み込み</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[styles.showResultButton, dynamicStyles.showResultButton]}
+          onPress={() => onShowResult(item)}
+        >
+          <Ionicons name="bar-chart-outline" size={16} color="#FFFFFF" />
+          <Text style={[styles.showResultButtonText, dynamicStyles.showResultButtonText]}>結果を表示</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -191,6 +199,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 4,
+  },
+  projectNameContainer: {
+    flex: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(0, 123, 255, 0.1)',
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  projectName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#007BFF',
   },
   title: {
     fontSize: 16,
@@ -241,18 +262,34 @@ const styles = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    gap: 8,
   },
   loadButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderRadius: 6,
-    gap: 6,
+    gap: 4,
   },
   loadButtonText: {
-    fontSize: 14,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  showResultButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    gap: 4,
+  },
+  showResultButtonText: {
+    fontSize: 12,
     fontWeight: '500',
   },
 });

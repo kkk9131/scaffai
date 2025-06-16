@@ -21,6 +21,7 @@ import { ja } from '../../constants/translations';
 import { CalculationHistory, HistoryFilter } from '../../types/history';
 import { HistoryStorage } from '../../utils/storage';
 import { HistoryCard } from '../../components/HistoryCard';
+import { LoadCompletionDialog } from '../../components/LoadCompletionDialog';
 import { useScaffold } from '../../context/ScaffoldContext';
 import { supabase } from '../../lib/supabase';
 import { useAuthContext } from '../../context/AuthContext';
@@ -33,6 +34,7 @@ export default function HistoryScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showCloudHistory, setShowCloudHistory] = useState(false);
+  const [showLoadCompletionDialog, setShowLoadCompletionDialog] = useState(false);
   const [filter, setFilter] = useState<HistoryFilter>({
     searchTerm: '',
     sortBy: 'date',
@@ -40,7 +42,7 @@ export default function HistoryScreen() {
   });
 
   const router = useRouter();
-  const { setInputValue, resetInputData } = useScaffold();
+  const { setInputValue, resetInputData, setCalculationResult } = useScaffold();
   const { user } = useAuthContext();
 
   // 動的スタイル
@@ -439,25 +441,35 @@ export default function HistoryScreen() {
       setInputValue('hasTieColumns', '', inputData.hasTieColumns);
       setInputValue('eavesHandrails', '', inputData.eavesHandrails);
 
-      Alert.alert(
-        '履歴読み込み完了',
-        '入力データが復元されました。入力画面で確認できます。',
-        [
-          {
-            text: '入力画面へ',
-            onPress: () => router.push('/(drawer)/input'),
-          },
-          {
-            text: 'OK',
-            style: 'cancel',
-          },
-        ]
-      );
+      // カスタムダイアログを表示
+      setShowLoadCompletionDialog(true);
     } catch (error) {
       console.error('Failed to load history item:', error);
       Alert.alert(ja.common.error, '履歴の読み込みに失敗しました');
     }
   }, [resetInputData, setInputValue, router]);
+
+  // 計算結果を表示する
+  const handleShowResult = useCallback(async (item: CalculationHistory | any) => {
+    try {
+      // 計算結果を設定
+      const result = item.calculation_result || item.result;
+      
+      if (!result) {
+        Alert.alert('エラー', '計算結果が見つかりません');
+        return;
+      }
+
+      console.log('📊 Setting calculation result for display:', result);
+      setCalculationResult(result);
+      
+      // 直接結果画面に遷移（確認ダイアログなし）
+      router.push('/(drawer)/result');
+    } catch (error) {
+      console.error('Failed to show result:', error);
+      Alert.alert('エラー', '結果表示に失敗しました');
+    }
+  }, [setCalculationResult, router]);
 
   // 履歴アイテムを削除
   const handleDeleteHistory = useCallback(async (id: string, item?: any) => {
@@ -651,7 +663,10 @@ export default function HistoryScreen() {
           </Text>
           <TouchableOpacity
             style={[styles.startButton, dynamicStyles.emptyButton]}
-            onPress={() => router.push('/(drawer)/input')}
+            onPress={() => {
+              resetInputData(); // 入力データをリセット
+              router.push('/(drawer)/input');
+            }}
           >
             <Text style={[styles.startButtonText, dynamicStyles.emptyButtonText]}>計算を始める</Text>
           </TouchableOpacity>
@@ -665,6 +680,7 @@ export default function HistoryScreen() {
               item={item}
               onLoad={handleLoadHistory}
               onDelete={handleDeleteHistory}
+              onShowResult={handleShowResult}
               isCloudItem={showCloudHistory}
             />
           )}
@@ -680,6 +696,16 @@ export default function HistoryScreen() {
           showsVerticalScrollIndicator={false}
         />
       )}
+
+      {/* 履歴読み込み完了ダイアログ */}
+      <LoadCompletionDialog
+        visible={showLoadCompletionDialog}
+        onClose={() => setShowLoadCompletionDialog(false)}
+        onGoToInput={() => {
+          setShowLoadCompletionDialog(false);
+          router.push('/(drawer)/input');
+        }}
+      />
     </View>
   );
 }

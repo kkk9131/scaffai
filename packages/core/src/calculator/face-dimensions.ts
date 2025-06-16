@@ -3,6 +3,13 @@ import { calculateSpanWithBoundaries } from './span-boundaries';
 import { calculateInitialMargins } from './margins';
 import { formatSpanParts } from './utils';
 
+/**
+ * 5mm単位で丸める関数（離れ専用）
+ */
+function roundToNearest5mm(value: number): number {
+  return Math.round(value / 5) * 5;
+}
+
 const { 
   BOUNDARY_OFFSET, 
   EAVES_MARGIN_THRESHOLD_ADDITION, 
@@ -23,26 +30,31 @@ export function calculateFaceDimensions(
   use300Val: number,
   use355Val: number,
   partsMasterList: readonly number[],
-  targetMarginVal: number | null = DEFAULT_TARGET_MARGIN,
+  targetMarginLeftVal: number | null = DEFAULT_TARGET_MARGIN,
+  targetMarginRightVal: number | null = DEFAULT_TARGET_MARGIN,
   faceName: string = "UnknownFace"
 ): FaceDimensionResult {
   
-  const debugPrints = false; // デバッグ出力の制御
+  const debugPrints = true; // デバッグ出力の制御
   
   if (debugPrints) {
     console.log(`\n--- Calculating for ${faceName} ---`);
-    console.log(`[DEBUG ${faceName}] Inputs: width=${widthVal}, eaves_L=${eavesLeftVal}, eaves_R=${eavesRightVal}, bound_L=${boundaryLeftVal}, bound_R=${boundaryRightVal}, target_margin=${targetMarginVal}`);
+    console.log(`[DEBUG ${faceName}] Inputs: width=${widthVal}, eaves_L=${eavesLeftVal}, eaves_R=${eavesRightVal}, bound_L=${boundaryLeftVal}, bound_R=${boundaryRightVal}, target_margin_L=${targetMarginLeftVal}, target_margin_R=${targetMarginRightVal}`);
   }
   
   const eavesForSpanCalc = Math.max(eavesLeftVal, eavesRightVal);
   
-  // 目標離れの決定（nullの場合は軒の出+80の最小離れのみ）
-  const effectiveTargetMargin = targetMarginVal !== null 
-    ? targetMarginVal 
-    : Math.max(eavesLeftVal, eavesRightVal) + EAVES_MARGIN_THRESHOLD_ADDITION;
+  // 左右個別の目標離れの決定（nullの場合は軒の出+80の最小離れのみ）
+  const effectiveTargetMarginLeft = targetMarginLeftVal !== null 
+    ? targetMarginLeftVal 
+    : eavesLeftVal + EAVES_MARGIN_THRESHOLD_ADDITION;
+  
+  const effectiveTargetMarginRight = targetMarginRightVal !== null 
+    ? targetMarginRightVal 
+    : eavesRightVal + EAVES_MARGIN_THRESHOLD_ADDITION;
   
   if (debugPrints) {
-    console.log(`[DEBUG ${faceName}] Target margin: ${targetMarginVal} -> effective: ${effectiveTargetMargin} (null means eaves+80 minimum)`);
+    console.log(`[DEBUG ${faceName}] Target margins: L=${targetMarginLeftVal} -> effective: ${effectiveTargetMarginLeft}, R=${targetMarginRightVal} -> effective: ${effectiveTargetMarginRight}`);
   }
   
   // 1. ユーザー指定の必須特殊部材リストを作成
@@ -67,7 +79,8 @@ export function calculateFaceDimensions(
     partsMasterList,
     boundaryLeftVal,
     boundaryRightVal,
-    effectiveTargetMargin,
+    effectiveTargetMarginLeft,
+    effectiveTargetMarginRight,
     debugPrints
   );
   
@@ -81,7 +94,8 @@ export function calculateFaceDimensions(
     widthVal,
     boundaryLeftVal,
     boundaryRightVal,
-    effectiveTargetMargin,
+    effectiveTargetMarginLeft,
+    effectiveTargetMarginRight,
     eavesLeftVal,
     eavesRightVal,
     debugPrints
@@ -272,8 +286,9 @@ export function calculateFaceDimensions(
     console.log(`[DEBUG ${faceName}] Final check: ${needsCorrectionFlag ? 'At least one threshold NOT met' : 'Both thresholds met'}. needs_correction=${needsCorrectionFlag}`);
   }
   
-  const originalLeftMargin = leftMargin;
-  const originalRightMargin = rightMargin;
+  // 離れを5mm単位に丸める
+  const originalLeftMargin = roundToNearest5mm(leftMargin);
+  const originalRightMargin = roundToNearest5mm(rightMargin);
   
   // 補正部材の計算
   let correctionPartVal: number | null = null;
@@ -285,7 +300,7 @@ export function calculateFaceDimensions(
     
     if (originalLeftMargin < thresholdLeft) {
       for (const pCorr of candidates) {
-        if (originalLeftMargin + pCorr > thresholdLeft) {
+        if (originalLeftMargin + pCorr >= thresholdLeft) {
           corrValForLeftNoteStr = pCorr;
           break;
         }
@@ -297,7 +312,7 @@ export function calculateFaceDimensions(
     
     if (originalRightMargin < thresholdRight) {
       for (const pCorr of candidates) {
-        if (originalRightMargin + pCorr > thresholdRight) {
+        if (originalRightMargin + pCorr >= thresholdRight) {
           corrValForRightNoteStr = pCorr;
           break;
         }

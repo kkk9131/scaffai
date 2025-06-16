@@ -13,8 +13,8 @@ import {
 import { AppHeader } from '../../components/AppHeader';
 import { StatusBar } from 'expo-status-bar';
 import { InputField } from '../../components/InputField';
-import { SwitchField } from '../../components/SwitchField';
 import { RadioField } from '../../components/RadioField';
+import { SwitchField } from '../../components/SwitchField';
 import { colors as baseColors } from '../../constants/colors';
 import { useTheme } from '../../context/ThemeContext';
 import { ja } from '../../constants/translations';
@@ -312,56 +312,68 @@ export default function InputScreen() {
             <View style={styles.directionContainer}>
               <View style={[styles.directionColumn, dynamicStyles.directionColumn]}>
                 <Text style={[styles.directionTitle, dynamicStyles.directionTitle]}>{ja.input.northSouth}</Text>
-                <InputField
+                <RadioField
                   label={ja.input.material355}
-                  value={inputData.specialMaterial?.northSouth?.material355?.toString() || ''}
-                  onChangeText={(value) => handleNumberInput('specialMaterial', 'northSouth.material355', value)}
-                  placeholder="0"
-                  keyboardType="numeric"
-                  suffix={ja.common.items}
+                  options={[
+                    { label: 'なし', value: '0' },
+                    { label: '1本', value: '1' },
+                    { label: '2本', value: '2' }
+                  ]}
+                  selectedValue={inputData.specialMaterial?.northSouth?.material355?.toString() || '0'}
+                  onValueChange={(value) => handleNumberInput('specialMaterial', 'northSouth.material355', value)}
                 />
-                <InputField
+                <RadioField
                   label={ja.input.material300}
-                  value={inputData.specialMaterial?.northSouth?.material300?.toString() || ''}
-                  onChangeText={(value) => handleNumberInput('specialMaterial', 'northSouth.material300', value)}
-                  placeholder="0"
-                  keyboardType="numeric"
-                  suffix={ja.common.items}
+                  options={[
+                    { label: 'なし', value: '0' },
+                    { label: '1本', value: '1' },
+                    { label: '2本', value: '2' }
+                  ]}
+                  selectedValue={inputData.specialMaterial?.northSouth?.material300?.toString() || '0'}
+                  onValueChange={(value) => handleNumberInput('specialMaterial', 'northSouth.material300', value)}
                 />
-                <InputField
+                <RadioField
                   label={ja.input.material150}
-                  value={inputData.specialMaterial?.northSouth?.material150?.toString() || ''}
-                  onChangeText={(value) => handleNumberInput('specialMaterial', 'northSouth.material150', value)}
-                  placeholder="0"
-                  keyboardType="numeric"
-                  suffix={ja.common.items}
+                  options={[
+                    { label: 'なし', value: '0' },
+                    { label: '1本', value: '1' },
+                    { label: '2本', value: '2' }
+                  ]}
+                  selectedValue={inputData.specialMaterial?.northSouth?.material150?.toString() || '0'}
+                  onValueChange={(value) => handleNumberInput('specialMaterial', 'northSouth.material150', value)}
                 />
               </View>
               <View style={[styles.directionColumn, dynamicStyles.directionColumn]}>
                 <Text style={[styles.directionTitle, dynamicStyles.directionTitle]}>{ja.input.eastWest}</Text>
-                <InputField
+                <RadioField
                   label={ja.input.material355}
-                  value={inputData.specialMaterial?.eastWest?.material355?.toString() || ''}
-                  onChangeText={(value) => handleNumberInput('specialMaterial', 'eastWest.material355', value)}
-                  placeholder="0"
-                  keyboardType="numeric"
-                  suffix={ja.common.items}
+                  options={[
+                    { label: 'なし', value: '0' },
+                    { label: '1本', value: '1' },
+                    { label: '2本', value: '2' }
+                  ]}
+                  selectedValue={inputData.specialMaterial?.eastWest?.material355?.toString() || '0'}
+                  onValueChange={(value) => handleNumberInput('specialMaterial', 'eastWest.material355', value)}
                 />
-                <InputField
+                <RadioField
                   label={ja.input.material300}
-                  value={inputData.specialMaterial?.eastWest?.material300?.toString() || ''}
-                  onChangeText={(value) => handleNumberInput('specialMaterial', 'eastWest.material300', value)}
-                  placeholder="0"
-                  keyboardType="numeric"
-                  suffix={ja.common.items}
+                  options={[
+                    { label: 'なし', value: '0' },
+                    { label: '1本', value: '1' },
+                    { label: '2本', value: '2' }
+                  ]}
+                  selectedValue={inputData.specialMaterial?.eastWest?.material300?.toString() || '0'}
+                  onValueChange={(value) => handleNumberInput('specialMaterial', 'eastWest.material300', value)}
                 />
-                <InputField
+                <RadioField
                   label={ja.input.material150}
-                  value={inputData.specialMaterial?.eastWest?.material150?.toString() || ''}
-                  onChangeText={(value) => handleNumberInput('specialMaterial', 'eastWest.material150', value)}
-                  placeholder="0"
-                  keyboardType="numeric"
-                  suffix={ja.common.items}
+                  options={[
+                    { label: 'なし', value: '0' },
+                    { label: '1本', value: '1' },
+                    { label: '2本', value: '2' }
+                  ]}
+                  selectedValue={inputData.specialMaterial?.eastWest?.material150?.toString() || '0'}
+                  onValueChange={(value) => handleNumberInput('specialMaterial', 'eastWest.material150', value)}
                 />
               </View>
             </View>
