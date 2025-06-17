@@ -45,6 +45,12 @@ function CustomDrawerContent(props: any) {
       color: baseColors.primary.main,
     },
     {
+      label: '簡易割付',
+      icon: 'layers',
+      route: '/(drawer)/quick-allocation',
+      color: baseColors.primary.main,
+    },
+    {
       label: '結果',
       icon: 'clipboard',
       route: '/(drawer)/result',
@@ -146,6 +152,13 @@ export default function DrawerLayout() {
         options={{
           drawerLabel: '入力',
           drawerIcon: ({ color }) => <Ionicons name="calculator" size={20} color={color} />,
+        }}
+      />
+      <Drawer.Screen
+        name="quick-allocation"
+        options={{
+          drawerLabel: '簡易割付',
+          drawerIcon: ({ color }) => <Ionicons name="layers" size={20} color={color} />,
         }}
       />
       <Drawer.Screen
