@@ -33,6 +33,11 @@ export default function InputScreen() {
   
   // 入力検証のエラー状態
   const [errors, setErrors] = useState<Record<string, string | null>>({});
+  
+  // セクションの展開状態管理
+  const [isPropertyLineExpanded, setIsPropertyLineExpanded] = useState(false);
+  const [isSpecialMaterialExpanded, setIsSpecialMaterialExpanded] = useState(false);
+  const [isTargetOffsetExpanded, setIsTargetOffsetExpanded] = useState(false);
 
   // 動的スタイル
   const dynamicStyles = StyleSheet.create({
@@ -185,77 +190,89 @@ export default function InputScreen() {
 
           {/* 境界線設定 */}
           <View style={[styles.section, dynamicStyles.section]}>
-            <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>{ja.input.propertyLine}</Text>
-            <View style={styles.propertyLineContainer}>
-              <View style={[styles.propertyLineItem, dynamicStyles.propertyLineItem]}>
-                <SwitchField
-                  label={ja.input.north}
-                  value={inputData.propertyLine?.north || false}
-                  onValueChange={(value) => setInputValue('propertyLine', 'north', value)}
-                />
-                {inputData.propertyLine?.north && (
-                  <InputField
-                    label={`${ja.input.north}距離`}
-                    value={inputData.propertyLineDistance?.north?.toString() || ''}
-                    onChangeText={(value) => handleNumberInput('propertyLineDistance', 'north', value)}
-                    placeholder="1000"
-                    keyboardType="numeric"
-                    suffix={ja.common.mm}
+            <TouchableOpacity 
+              style={styles.sectionHeader}
+              onPress={() => setIsPropertyLineExpanded(!isPropertyLineExpanded)}
+            >
+              <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>{ja.input.propertyLine}</Text>
+              <Ionicons 
+                name={isPropertyLineExpanded ? "chevron-up" : "chevron-down"} 
+                size={20} 
+                color={colors.text.primary} 
+              />
+            </TouchableOpacity>
+            {isPropertyLineExpanded && (
+              <View style={styles.propertyLineContainer}>
+                <View style={[styles.propertyLineItem, dynamicStyles.propertyLineItem]}>
+                  <SwitchField
+                    label={ja.input.north}
+                    value={inputData.propertyLine?.north || false}
+                    onValueChange={(value) => setInputValue('propertyLine', 'north', value)}
                   />
-                )}
-              </View>
-              <View style={[styles.propertyLineItem, dynamicStyles.propertyLineItem]}>
-                <SwitchField
-                  label={ja.input.east}
-                  value={inputData.propertyLine?.east || false}
-                  onValueChange={(value) => setInputValue('propertyLine', 'east', value)}
-                />
-                {inputData.propertyLine?.east && (
-                  <InputField
-                    label={`${ja.input.east}距離`}
-                    value={inputData.propertyLineDistance?.east?.toString() || ''}
-                    onChangeText={(value) => handleNumberInput('propertyLineDistance', 'east', value)}
-                    placeholder="1000"
-                    keyboardType="numeric"
-                    suffix={ja.common.mm}
+                  {inputData.propertyLine?.north && (
+                    <InputField
+                      label={`${ja.input.north}距離`}
+                      value={inputData.propertyLineDistance?.north?.toString() || ''}
+                      onChangeText={(value) => handleNumberInput('propertyLineDistance', 'north', value)}
+                      placeholder="1000"
+                      keyboardType="numeric"
+                      suffix={ja.common.mm}
+                    />
+                  )}
+                </View>
+                <View style={[styles.propertyLineItem, dynamicStyles.propertyLineItem]}>
+                  <SwitchField
+                    label={ja.input.east}
+                    value={inputData.propertyLine?.east || false}
+                    onValueChange={(value) => setInputValue('propertyLine', 'east', value)}
                   />
-                )}
-              </View>
-              <View style={[styles.propertyLineItem, dynamicStyles.propertyLineItem]}>
-                <SwitchField
-                  label={ja.input.south}
-                  value={inputData.propertyLine?.south || false}
-                  onValueChange={(value) => setInputValue('propertyLine', 'south', value)}
-                />
-                {inputData.propertyLine?.south && (
-                  <InputField
-                    label={`${ja.input.south}距離`}
-                    value={inputData.propertyLineDistance?.south?.toString() || ''}
-                    onChangeText={(value) => handleNumberInput('propertyLineDistance', 'south', value)}
-                    placeholder="1000"
-                    keyboardType="numeric"
-                    suffix={ja.common.mm}
+                  {inputData.propertyLine?.east && (
+                    <InputField
+                      label={`${ja.input.east}距離`}
+                      value={inputData.propertyLineDistance?.east?.toString() || ''}
+                      onChangeText={(value) => handleNumberInput('propertyLineDistance', 'east', value)}
+                      placeholder="1000"
+                      keyboardType="numeric"
+                      suffix={ja.common.mm}
+                    />
+                  )}
+                </View>
+                <View style={[styles.propertyLineItem, dynamicStyles.propertyLineItem]}>
+                  <SwitchField
+                    label={ja.input.south}
+                    value={inputData.propertyLine?.south || false}
+                    onValueChange={(value) => setInputValue('propertyLine', 'south', value)}
                   />
-                )}
-              </View>
-              <View style={[styles.propertyLineItem, dynamicStyles.propertyLineItem]}>
-                <SwitchField
-                  label={ja.input.west}
-                  value={inputData.propertyLine?.west || false}
-                  onValueChange={(value) => setInputValue('propertyLine', 'west', value)}
-                />
-                {inputData.propertyLine?.west && (
-                  <InputField
-                    label={`${ja.input.west}距離`}
-                    value={inputData.propertyLineDistance?.west?.toString() || ''}
-                    onChangeText={(value) => handleNumberInput('propertyLineDistance', 'west', value)}
-                    placeholder="1000"
-                    keyboardType="numeric"
-                    suffix={ja.common.mm}
+                  {inputData.propertyLine?.south && (
+                    <InputField
+                      label={`${ja.input.south}距離`}
+                      value={inputData.propertyLineDistance?.south?.toString() || ''}
+                      onChangeText={(value) => handleNumberInput('propertyLineDistance', 'south', value)}
+                      placeholder="1000"
+                      keyboardType="numeric"
+                      suffix={ja.common.mm}
+                    />
+                  )}
+                </View>
+                <View style={[styles.propertyLineItem, dynamicStyles.propertyLineItem]}>
+                  <SwitchField
+                    label={ja.input.west}
+                    value={inputData.propertyLine?.west || false}
+                    onValueChange={(value) => setInputValue('propertyLine', 'west', value)}
                   />
-                )}
+                  {inputData.propertyLine?.west && (
+                    <InputField
+                      label={`${ja.input.west}距離`}
+                      value={inputData.propertyLineDistance?.west?.toString() || ''}
+                      onChangeText={(value) => handleNumberInput('propertyLineDistance', 'west', value)}
+                      placeholder="1000"
+                      keyboardType="numeric"
+                      suffix={ja.common.mm}
+                    />
+                  )}
+                </View>
               </View>
-            </View>
+            )}
           </View>
 
           {/* 基準高さ */}
@@ -308,7 +325,19 @@ export default function InputScreen() {
 
           {/* 特殊資材 */}
           <View style={[styles.section, dynamicStyles.section]}>
-            <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>{ja.input.specialMaterial}</Text>
+            <TouchableOpacity 
+              style={styles.sectionHeader}
+              onPress={() => setIsSpecialMaterialExpanded(!isSpecialMaterialExpanded)}
+            >
+              <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>{ja.input.specialMaterial}</Text>
+              <Ionicons 
+                name={isSpecialMaterialExpanded ? "chevron-up" : "chevron-down"} 
+                size={20} 
+                color={colors.text.primary} 
+              />
+            </TouchableOpacity>
+            
+            {isSpecialMaterialExpanded && (
             <View style={styles.directionContainer}>
               <View style={[styles.directionColumn, dynamicStyles.directionColumn]}>
                 <Text style={[styles.directionTitle, dynamicStyles.directionTitle]}>{ja.input.northSouth}</Text>
@@ -377,11 +406,25 @@ export default function InputScreen() {
                 />
               </View>
             </View>
+            )}
           </View>
 
           {/* 目標離れ（4面個別設定） */}
           <View style={[styles.section, dynamicStyles.section]}>
-            <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>{ja.input.targetOffset}</Text>
+            <TouchableOpacity 
+              style={styles.sectionHeader}
+              onPress={() => setIsTargetOffsetExpanded(!isTargetOffsetExpanded)}
+            >
+              <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>{ja.input.targetOffset}</Text>
+              <Ionicons 
+                name={isTargetOffsetExpanded ? "chevron-up" : "chevron-down"} 
+                size={20} 
+                color={colors.text.primary} 
+              />
+            </TouchableOpacity>
+            
+            {isTargetOffsetExpanded && (
+              <View>
             <Text style={[styles.sectionDescription, dynamicStyles.sectionTitle]}>{ja.input.targetOffsetDescription}</Text>
             
             {/* 北面 */}
@@ -452,6 +495,8 @@ export default function InputScreen() {
                 editable={inputData.targetOffset?.west?.enabled || false}
               />
             </View>
+              </View>
+            )}
           </View>
         </ScrollView>
 
@@ -506,6 +551,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 12,
   },
   propertyLineContainer: {

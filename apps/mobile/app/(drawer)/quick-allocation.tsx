@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AppHeader } from '../../components/AppHeader';
@@ -21,6 +21,8 @@ type SpecialMaterialUsage = {
 export default function QuickAllocation() {
   const router = useRouter();
   const { colors, isDark } = useTheme();
+  const scrollViewRef = useRef<ScrollView>(null);
+  const resultSectionRef = useRef<View>(null);
   
   // 入力値の状態管理
   const [cornerType, setCornerType] = useState<CornerType>('inside');
@@ -33,9 +35,14 @@ export default function QuickAllocation() {
     material300: false,
     material150: false,
   });
+  const [targetDistance, setTargetDistance] = useState<string>('');
 
   // 結果の状態管理
   const [result, setResult] = useState<QuickAllocationResult | null>(null);
+  
+  // セクションの展開状態
+  const [isSpecialMaterialsExpanded, setIsSpecialMaterialsExpanded] = useState(false);
+  const [isTargetDistanceExpanded, setIsTargetDistanceExpanded] = useState(false);
 
   // 動的スタイル
   const dynamicStyles = StyleSheet.create({
@@ -75,9 +82,9 @@ export default function QuickAllocation() {
     console.log('=== 計算開始 ===');
     
     // バリデーション
-    if (!currentDistance || !allocationDistance || !eaveOutput || !boundaryLine) {
+    if (!currentDistance || !allocationDistance || !eaveOutput) {
       console.log('バリデーションエラー: 必須項目未入力');
-      Alert.alert('エラー', 'すべての必要項目を入力してください');
+      Alert.alert('エラー', '現在の離れ、割付距離、軒の出を入力してください');
       return;
     }
 
@@ -85,20 +92,36 @@ export default function QuickAllocation() {
     const currentDistanceNum = parseFloat(currentDistance);
     const allocationDistanceNum = parseFloat(allocationDistance);
     const eaveOutputNum = parseFloat(eaveOutput);
-    const boundaryLineNum = parseFloat(boundaryLine);
+    const boundaryLineNum = boundaryLine ? parseFloat(boundaryLine) : undefined;
+    const targetDistanceNum = targetDistance ? parseFloat(targetDistance) : undefined;
 
     console.log('入力値:', {
       currentDistanceNum,
       allocationDistanceNum,
       eaveOutputNum,
       boundaryLineNum,
+      targetDistanceNum,
       cornerType,
       specialMaterials
     });
 
-    if (isNaN(currentDistanceNum) || isNaN(allocationDistanceNum) || isNaN(eaveOutputNum) || isNaN(boundaryLineNum)) {
+    if (isNaN(currentDistanceNum) || isNaN(allocationDistanceNum) || isNaN(eaveOutputNum)) {
       console.log('数値変換エラー');
       Alert.alert('エラー', '数値が正しく入力されていません');
+      return;
+    }
+
+    // 境界線の数値バリデーション（入力されている場合のみ）
+    if (boundaryLine && (isNaN(boundaryLineNum!) || boundaryLineNum! < 0)) {
+      console.log('境界線数値変換エラー');
+      Alert.alert('エラー', '境界線が正しく入力されていません');
+      return;
+    }
+
+    // 目標離れの数値バリデーション
+    if (targetDistance && (isNaN(targetDistanceNum!) || targetDistanceNum! < 0)) {
+      console.log('目標離れ数値変換エラー');
+      Alert.alert('エラー', '目標離れが正しく入力されていません');
       return;
     }
 
@@ -107,9 +130,10 @@ export default function QuickAllocation() {
       currentDistance: currentDistanceNum,
       allocationDistance: allocationDistanceNum,
       eaveOutput: eaveOutputNum,
-      boundaryLine: boundaryLineNum,
+      boundaryLine: boundaryLineNum || 0, // 境界線がない場合は0を設定（計算側で処理）
       cornerType,
-      specialMaterials
+      specialMaterials,
+      ...(targetDistanceNum && { targetDistance: targetDistanceNum })
     };
 
     console.log('計算実行中...');
@@ -125,6 +149,20 @@ export default function QuickAllocation() {
 
     console.log('計算成功、結果を設定');
     setResult(calculationResult);
+    
+    // 結果セクションまで自動スクロール
+    setTimeout(() => {
+      resultSectionRef.current?.measureLayout(
+        scrollViewRef.current?.getInnerViewNode(),
+        (x, y) => {
+          scrollViewRef.current?.scrollTo({
+            y: y - 20, // 少し余裕を持たせる
+            animated: true
+          });
+        },
+        () => {} // エラーハンドリング
+      );
+    }, 100); // 結果が描画されるまで少し待つ
   };
 
   const toggleSpecialMaterial = (material: keyof SpecialMaterialUsage) => {
@@ -134,6 +172,7 @@ export default function QuickAllocation() {
     }));
   };
 
+
   return (
     <View style={[styles.container, dynamicStyles.container]}>
       <AppHeader title="簡易割付" showBackButton onBackPress={() => router.back()} />
@@ -142,7 +181,11 @@ export default function QuickAllocation() {
         style={styles.keyboardAvoidingView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          ref={scrollViewRef}
+          style={styles.content} 
+          showsVerticalScrollIndicator={false}
+        >
         {/* 入隅・出隅選択 */}
         <View style={[styles.section, dynamicStyles.section]}>
           <RadioField
@@ -206,8 +249,21 @@ export default function QuickAllocation() {
 
         {/* 特殊部材の使用 */}
         <View style={[styles.section, dynamicStyles.section]}>
-          <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>特殊部材の使用</Text>
-          <View style={styles.checkboxGroup}>
+          <TouchableOpacity 
+            style={styles.sectionHeader}
+            onPress={() => setIsSpecialMaterialsExpanded(!isSpecialMaterialsExpanded)}
+          >
+            <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>特殊部材の使用</Text>
+            <Ionicons 
+              name={isSpecialMaterialsExpanded ? "chevron-up" : "chevron-down"} 
+              size={20} 
+              color={colors.text.primary} 
+            />
+          </TouchableOpacity>
+          
+          {isSpecialMaterialsExpanded && (
+            <View style={styles.expandedContent}>
+              <View style={styles.checkboxGroup}>
             {[
               { key: 'material355' as const, label: '355mm部材' },
               { key: 'material300' as const, label: '300mm部材' },
@@ -228,7 +284,37 @@ export default function QuickAllocation() {
                 <Text style={[styles.checkboxText, { color: colors.text.primary }]}>{item.label}</Text>
               </TouchableOpacity>
             ))}
-          </View>
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* 目標離れ */}
+        <View style={[styles.section, dynamicStyles.section]}>
+          <TouchableOpacity 
+            style={styles.sectionHeader}
+            onPress={() => setIsTargetDistanceExpanded(!isTargetDistanceExpanded)}
+          >
+            <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>目標離れ</Text>
+            <Ionicons 
+              name={isTargetDistanceExpanded ? "chevron-up" : "chevron-down"} 
+              size={20} 
+              color={colors.text.primary} 
+            />
+          </TouchableOpacity>
+          
+          {isTargetDistanceExpanded && (
+            <View style={styles.expandedContent}>
+              <InputField
+                label="目標離れ"
+                value={targetDistance}
+                onChangeText={setTargetDistance}
+                placeholder="900"
+                keyboardType="numeric"
+                suffix="mm"
+              />
+            </View>
+          )}
         </View>
 
         {/* 計算ボタン */}
@@ -239,7 +325,10 @@ export default function QuickAllocation() {
 
         {/* 結果表示 */}
         {result && (
-          <View style={[styles.resultSection, dynamicStyles.resultSection]}>
+          <View 
+            ref={resultSectionRef}
+            style={[styles.resultSection, dynamicStyles.resultSection]}
+          >
             <Text style={[styles.resultTitle, dynamicStyles.resultTitle]}>計算結果</Text>
             
             <View style={[styles.resultCard, dynamicStyles.resultCard]}>
@@ -327,6 +416,15 @@ const styles = StyleSheet.create({
   },
   checkboxText: {
     fontSize: 14,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  expandedContent: {
+    marginTop: 8,
   },
   calculateButton: {
     flexDirection: 'row',
