@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AppHeader } from '../../components/AppHeader';
 import { InputField } from '../../components/InputField';
 import { RadioField } from '../../components/RadioField';
 import { colors as baseColors } from '../../constants/colors';
 import { useTheme } from '../../context/ThemeContext';
+import { useScaffold } from '../../context/ScaffoldContext';
 import { Ionicons } from '@expo/vector-icons';
 import { calculateQuickAllocation, type QuickAllocationInput, type QuickAllocationResult } from '../../utils/quickAllocationCalculator';
 
@@ -21,6 +22,7 @@ type SpecialMaterialUsage = {
 export default function QuickAllocation() {
   const router = useRouter();
   const { colors, isDark } = useTheme();
+  const { calculationResult: inputCalculationResult } = useScaffold();
   const scrollViewRef = useRef<ScrollView>(null);
   const resultSectionRef = useRef<View>(null);
   
@@ -43,6 +45,18 @@ export default function QuickAllocation() {
   // セクションの展開状態
   const [isSpecialMaterialsExpanded, setIsSpecialMaterialsExpanded] = useState(false);
   const [isTargetDistanceExpanded, setIsTargetDistanceExpanded] = useState(false);
+  
+  // 電卓モードの状態管理
+  const [isCalculatorMode, setIsCalculatorMode] = useState(false);
+  
+  // 電卓の計算状態
+  const [totalSpan, setTotalSpan] = useState<number>(0);
+  const [currentSpan, setCurrentSpan] = useState<number>(0);
+  const [displayValue, setDisplayValue] = useState<string>('0');
+  const [operation, setOperation] = useState<string | null>(null);
+  const [waitingForOperand, setWaitingForOperand] = useState<boolean>(false);
+  const [history, setHistory] = useState<string[]>([]);
+  const [calculationMode, setCalculationMode] = useState<'none' | 'add' | 'subtract'>('none');
 
   // 動的スタイル
   const dynamicStyles = StyleSheet.create({
@@ -172,20 +186,338 @@ export default function QuickAllocation() {
     }));
   };
 
+  // 電卓モード切り替え関数
+  const toggleCalculatorMode = () => {
+    setIsCalculatorMode(!isCalculatorMode);
+  };
+
+  // 電卓の計算関数（加算・減算モード対応）
+  const handleMaterialPress = (value: number) => {
+    // 計算モードに応じた処理
+    if (calculationMode === 'add') {
+      // 加算モード
+      const currentValue = parseFloat(displayValue) || 0;
+      const newValue = currentValue + value;
+      setDisplayValue(String(newValue));
+      setCurrentSpan(newValue);
+      
+      // 履歴に記録
+      setHistory(prev => [...prev, `${currentValue} + ${value} = ${newValue}mm`]);
+      
+    } else if (calculationMode === 'subtract') {
+      // 減算モード
+      const currentValue = parseFloat(displayValue) || 0;
+      const newValue = currentValue - value;
+      setDisplayValue(String(newValue));
+      setCurrentSpan(newValue);
+      
+      // 履歴に記録
+      setHistory(prev => [...prev, `${currentValue} - ${value} = ${newValue}mm`]);
+      
+    } else {
+      // 通常モード
+      setDisplayValue(String(value));
+      setCurrentSpan(value);
+    }
+  };
+
+  const handleOperationPress = (nextOperation: string) => {
+    const inputValue = parseFloat(displayValue);
+
+    if (operation && !waitingForOperand) {
+      const newValue = calculate(currentSpan, inputValue, operation);
+      setCurrentSpan(newValue);
+      setDisplayValue(String(newValue));
+    } else {
+      setCurrentSpan(inputValue);
+    }
+
+    setWaitingForOperand(true);
+    setOperation(nextOperation);
+  };
+
+  const handleEqualsPress = () => {
+    if (operation && !waitingForOperand) {
+      const inputValue = parseFloat(displayValue);
+      const newValue = calculate(currentSpan, inputValue, operation);
+      setCurrentSpan(newValue);
+      setDisplayValue(String(newValue));
+      setOperation(null);
+      setWaitingForOperand(true);
+      
+      // 履歴に追加
+      setHistory(prev => [...prev, `${currentSpan} ${operation} ${inputValue} = ${newValue}`]);
+    }
+  };
+
+  const calculate = (firstOperand: number, secondOperand: number, operation: string): number => {
+    switch (operation) {
+      case '+':
+        return firstOperand + secondOperand;
+      case '-':
+        return firstOperand - secondOperand;
+      case '×':
+        return firstOperand * secondOperand;
+      case '÷':
+        return firstOperand / secondOperand;
+      default:
+        return secondOperand;
+    }
+  };
+
+  // 加算モード設定
+  const handleAddMode = () => {
+    setCalculationMode('add');
+  };
+
+  // 減算モード設定
+  const handleSubtractMode = () => {
+    setCalculationMode('subtract');
+  };
+
+  const handleClear = () => {
+    setDisplayValue('0');
+    setCurrentSpan(0);
+    setOperation(null);
+    setWaitingForOperand(false);
+    setCalculationMode('none');
+  };
+
+  // input画面の計算結果からスパン情報を取得する関数
+  const getSpanFromResult = (direction: 'northSouth' | 'eastWest') => {
+    if (!inputCalculationResult) {
+      Alert.alert('エラー', '計算結果がありません。先にinput画面で足場計算を実行してください。');
+      return;
+    }
+
+    // input画面の計算結果から南北・東西のスパン情報を取得
+    let totalSpanValue: number;
+    let spanStructure: string;
+    
+    if (direction === 'northSouth') {
+      totalSpanValue = inputCalculationResult.ns_total_span;
+      spanStructure = inputCalculationResult.ns_span_structure;
+    } else {
+      totalSpanValue = inputCalculationResult.ew_total_span;
+      spanStructure = inputCalculationResult.ew_span_structure;
+    }
+    
+    setTotalSpan(totalSpanValue);
+    setDisplayValue(String(totalSpanValue));
+    setCurrentSpan(totalSpanValue);
+    
+    const directionText = direction === 'northSouth' ? '南北' : '東西';
+    Alert.alert(
+      `${directionText}総スパン設定`, 
+      `${directionText}総スパン: ${totalSpanValue}mm\n構成: ${spanStructure}`
+    );
+    
+    // 履歴に記録
+    setHistory(prev => [...prev, `${directionText}総スパン設定: ${totalSpanValue}mm (${spanStructure})`]);
+  };
+
+  const handleNorthSouthSpan = () => {
+    getSpanFromResult('northSouth');
+  };
+
+  const handleEastWestSpan = () => {
+    getSpanFromResult('eastWest');
+  };
+
+  const getRemainingSpan = () => {
+    return totalSpan - currentSpan;
+  };
+
+
+  // 電卓モードのボタンスタイル
+  const calculatorStyles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background.primary,
+    },
+    modeToggleButton: {
+      padding: 12,
+      borderRadius: 8,
+      backgroundColor: baseColors.primary.main,
+    },
+    display: {
+      backgroundColor: colors.background.card,
+      margin: 16,
+      padding: 20,
+      borderRadius: 12,
+      minHeight: 120,
+      ...Platform.select({
+        ios: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+        },
+        android: {
+          elevation: 3,
+        },
+      }),
+    },
+    displayValue: {
+      fontSize: 32,
+      fontWeight: 'bold',
+      color: colors.text.primary,
+      textAlign: 'right',
+      marginBottom: 8,
+    },
+    spanInfo: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 8,
+    },
+    spanText: {
+      fontSize: 14,
+      color: colors.text.secondary,
+    },
+    buttonGrid: {
+      padding: 16,
+    },
+    buttonRow: {
+      flexDirection: 'row',
+      marginBottom: 12,
+      gap: 8,
+    },
+    materialButton: {
+      flex: 1,
+      paddingVertical: 16,
+      paddingHorizontal: 8,
+      backgroundColor: colors.background.card,
+      borderRadius: 8,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.input.border,
+      ...Platform.select({
+        ios: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.1,
+          shadowRadius: 2,
+        },
+        android: {
+          elevation: 2,
+        },
+      }),
+    },
+    operatorButton: {
+      flex: 1,
+      paddingVertical: 16,
+      backgroundColor: baseColors.primary.main,
+      borderRadius: 8,
+      alignItems: 'center',
+      ...Platform.select({
+        ios: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.15,
+          shadowRadius: 4,
+        },
+        android: {
+          elevation: 3,
+        },
+      }),
+    },
+    operatorButtonActive: {
+      backgroundColor: baseColors.primary.dark || '#1976D2',
+    },
+    specialButton: {
+      flex: 1,
+      paddingVertical: 16,
+      backgroundColor: colors.background.paper,
+      borderRadius: 8,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: baseColors.primary.main,
+      ...Platform.select({
+        ios: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.1,
+          shadowRadius: 2,
+        },
+        android: {
+          elevation: 2,
+        },
+      }),
+    },
+    clearButton: {
+      flex: 1,
+      paddingVertical: 16,
+      backgroundColor: colors.background.paper,
+      borderRadius: 8,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: '#E57373',
+      ...Platform.select({
+        ios: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.1,
+          shadowRadius: 2,
+        },
+        android: {
+          elevation: 2,
+        },
+      }),
+    },
+    buttonText: {
+      color: colors.text.primary,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    operatorText: {
+      color: '#FFFFFF',
+      fontSize: 18,
+      fontWeight: '600',
+    },
+    specialButtonText: {
+      color: baseColors.primary.main,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    clearButtonText: {
+      color: '#E57373',
+      fontSize: 14,
+      fontWeight: '600',
+    },
+  });
 
   return (
     <View style={[styles.container, dynamicStyles.container]}>
-      <AppHeader title="簡易割付" showBackButton onBackPress={() => router.back()} />
+      <AppHeader 
+        title="簡易割付" 
+        showBackButton 
+        onBackPress={() => router.back()} 
+        rightAction={
+          <TouchableOpacity
+            style={calculatorStyles.modeToggleButton}
+            onPress={toggleCalculatorMode}
+          >
+            <Ionicons 
+              name={isCalculatorMode ? "calculator-outline" : "calculator"} 
+              size={20} 
+              color="#FFFFFF" 
+            />
+          </TouchableOpacity>
+        }
+      />
       
       <KeyboardAvoidingView 
         style={styles.keyboardAvoidingView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <ScrollView 
-          ref={scrollViewRef}
-          style={styles.content} 
-          showsVerticalScrollIndicator={false}
-        >
+        {!isCalculatorMode ? (
+          /* 通常モード */
+          <ScrollView 
+            ref={scrollViewRef}
+            style={styles.content} 
+            showsVerticalScrollIndicator={false}
+          >
+        ) : null}
         {/* 入隅・出隅選択 */}
         <View style={[styles.section, dynamicStyles.section]}>
           <RadioField
@@ -354,8 +686,151 @@ export default function QuickAllocation() {
           </View>
         )}
 
-        <View style={styles.bottomSpacer} />
-      </ScrollView>
+            <View style={styles.bottomSpacer} />
+          </ScrollView>
+        ) : (
+          /* 電卓モード */
+          <View style={calculatorStyles.container}>
+            {/* 電卓ディスプレイ */}
+            <View style={calculatorStyles.display}>
+              <Text style={calculatorStyles.displayValue}>{displayValue}</Text>
+              <View style={calculatorStyles.spanInfo}>
+                <Text style={calculatorStyles.spanText}>
+                  総スパン: {totalSpan}mm
+                </Text>
+                <Text style={calculatorStyles.spanText}>
+                  現在: {currentSpan}mm
+                </Text>
+                <Text style={calculatorStyles.spanText}>
+                  残り: {getRemainingSpan()}mm
+                </Text>
+              </View>
+            </View>
+
+            <ScrollView style={calculatorStyles.buttonGrid}>
+              {/* 現在のモード表示 */}
+              <View style={[calculatorStyles.display, { marginBottom: 16, minHeight: 60 }]}>
+                <Text style={[calculatorStyles.spanText, { textAlign: 'center', fontSize: 16 }]}>
+                  {calculationMode === 'add' ? '加算モード (+)' : 
+                   calculationMode === 'subtract' ? '減算モード (−)' : 
+                   '通常モード'}
+                </Text>
+              </View>
+              
+              {/* 足場部材ボタン第1行 */}
+              <View style={calculatorStyles.buttonRow}>
+                <TouchableOpacity 
+                  style={calculatorStyles.materialButton}
+                  onPress={() => handleMaterialPress(150)}
+                >
+                  <Text style={calculatorStyles.buttonText}>150mm</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={calculatorStyles.materialButton}
+                  onPress={() => handleMaterialPress(300)}
+                >
+                  <Text style={calculatorStyles.buttonText}>300mm</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={calculatorStyles.materialButton}
+                  onPress={() => handleMaterialPress(355)}
+                >
+                  <Text style={calculatorStyles.buttonText}>355mm</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={calculatorStyles.materialButton}
+                  onPress={() => handleMaterialPress(600)}
+                >
+                  <Text style={calculatorStyles.buttonText}>600mm</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* 足場部材ボタン第2行 */}
+              <View style={calculatorStyles.buttonRow}>
+                <TouchableOpacity 
+                  style={calculatorStyles.materialButton}
+                  onPress={() => handleMaterialPress(900)}
+                >
+                  <Text style={calculatorStyles.buttonText}>900mm</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={calculatorStyles.materialButton}
+                  onPress={() => handleMaterialPress(1200)}
+                >
+                  <Text style={calculatorStyles.buttonText}>1200mm</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={calculatorStyles.materialButton}
+                  onPress={() => handleMaterialPress(1500)}
+                >
+                  <Text style={calculatorStyles.buttonText}>1500mm</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={calculatorStyles.materialButton}
+                  onPress={() => handleMaterialPress(1800)}
+                >
+                  <Text style={calculatorStyles.buttonText}>1800mm</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* 演算子・機能ボタン第1行 */}
+              <View style={calculatorStyles.buttonRow}>
+                <TouchableOpacity 
+                  style={[
+                    calculatorStyles.operatorButton,
+                    calculationMode === 'add' && calculatorStyles.operatorButtonActive
+                  ]}
+                  onPress={handleAddMode}
+                >
+                  <Text style={calculatorStyles.operatorText}>+</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[
+                    calculatorStyles.operatorButton,
+                    calculationMode === 'subtract' && calculatorStyles.operatorButtonActive
+                  ]}
+                  onPress={handleSubtractMode}
+                >
+                  <Text style={calculatorStyles.operatorText}>−</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={calculatorStyles.clearButton}
+                  onPress={handleClear}
+                >
+                  <Text style={calculatorStyles.clearButtonText}>C</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* 総スパンボタン第2行 */}
+              <View style={calculatorStyles.buttonRow}>
+                <TouchableOpacity 
+                  style={calculatorStyles.specialButton}
+                  onPress={handleNorthSouthSpan}
+                >
+                  <Text style={calculatorStyles.specialButtonText}>南北総スパン</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={calculatorStyles.specialButton}
+                  onPress={handleEastWestSpan}
+                >
+                  <Text style={calculatorStyles.specialButtonText}>東西総スパン</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* 履歴表示 */}
+              {history.length > 0 && (
+                <View style={[calculatorStyles.display, { marginTop: 16 }]}>
+                  <Text style={[calculatorStyles.spanText, { marginBottom: 8 }]}>計算履歴:</Text>
+                  {history.slice(-3).map((item, index) => (
+                    <Text key={index} style={calculatorStyles.spanText}>
+                      {item}
+                    </Text>
+                  ))}
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        )}
       </KeyboardAvoidingView>
     </View>
   );

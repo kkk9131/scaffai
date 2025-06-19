@@ -80,3 +80,6 @@ coverage/
 
 # docs
 /docs/
+
+# YoYo AI version control directory
+.yoyo/
