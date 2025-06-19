@@ -22,7 +22,7 @@ type SpecialMaterialUsage = {
 export default function QuickAllocation() {
   const router = useRouter();
   const { colors, isDark } = useTheme();
-  const { calculationResult: inputCalculationResult } = useScaffold();
+  const { calculationResult: inputCalculationResult, inputData } = useScaffold();
   const scrollViewRef = useRef<ScrollView>(null);
   const resultSectionRef = useRef<View>(null);
   
@@ -48,6 +48,7 @@ export default function QuickAllocation() {
   
   // 電卓モードの状態管理
   const [isCalculatorMode, setIsCalculatorMode] = useState(false);
+  const [calculatorType, setCalculatorType] = useState<'plan' | 'elevation'>('plan'); // 平面/立面切り替え
   
   // 電卓の計算状態
   const [totalSpan, setTotalSpan] = useState<number>(0);
@@ -57,6 +58,12 @@ export default function QuickAllocation() {
   const [waitingForOperand, setWaitingForOperand] = useState<boolean>(false);
   const [history, setHistory] = useState<string[]>([]);
   const [calculationMode, setCalculationMode] = useState<'none' | 'add' | 'subtract'>('none');
+  
+  // 立面モード用の状態
+  const [maxBeamHeight, setMaxBeamHeight] = useState<string>('');
+  const [jackUpHeight, setJackUpHeight] = useState<string>('');
+  const [isMaxBeamHeightSet, setIsMaxBeamHeightSet] = useState<boolean>(false);
+  const [calculationMethod, setCalculationMethod] = useState<'maxBeam' | 'jackUp'>('maxBeam');
 
   // 動的スタイル
   const dynamicStyles = StyleSheet.create({
@@ -281,6 +288,11 @@ export default function QuickAllocation() {
     setOperation(null);
     setWaitingForOperand(false);
     setCalculationMode('none');
+    if (calculatorType === 'elevation') {
+      setMaxBeamHeight('');
+      setJackUpHeight('');
+      setIsMaxBeamHeightSet(false);
+    }
   };
 
   // input画面の計算結果からスパン情報を取得する関数
@@ -325,7 +337,95 @@ export default function QuickAllocation() {
   };
 
   const getRemainingSpan = () => {
+    if (calculatorType === 'elevation' && calculationMethod === 'jackUp' && isMaxBeamHeightSet) {
+      // ジャッキアップモードでは基準高さまでの残り距離を表示
+      return totalSpan - currentSpan;
+    }
     return totalSpan - currentSpan;
+  };
+
+  // 平面/立面モード切り替え
+  const toggleCalculatorType = () => {
+    setCalculatorType(prev => prev === 'plan' ? 'elevation' : 'plan');
+    handleClear(); // モード切り替え時はクリア
+  };
+
+  // 基準高さ取得（立面モード用）
+  const getReferenceHeight = () => {
+    if (!inputCalculationResult) {
+      Alert.alert('エラー', '計算結果がありません。先にinput画面で足場計算を実行してください。');
+      return;
+    }
+
+    // input画面の基準高さを取得（仮にreferenceHeightフィールドがあると仮定）
+    // 実際のデータ構造に合わせて調整が必要
+    const referenceHeight = inputData.referenceHeight || 2400; // デフォルト値
+    
+    setDisplayValue(String(referenceHeight));
+    setCurrentSpan(referenceHeight);
+    
+    Alert.alert(
+      '基準高さ設定', 
+      `基準高さ: ${referenceHeight}mm`
+    );
+    
+    // 履歴に記録
+    setHistory(prev => [...prev, `基準高さ設定: ${referenceHeight}mm`]);
+  };
+
+  // 高さ計算を実行（最高アンチ高またはジャッキアップ）
+  const setHeightForCalculation = () => {
+    const referenceHeight = inputData.referenceHeight || 2400;
+    let calculationResult = 0;
+    let calculationDescription = '';
+    
+    if (calculationMethod === 'maxBeam') {
+      const heightValue = parseFloat(maxBeamHeight);
+      if (isNaN(heightValue) || heightValue <= 0) {
+        Alert.alert('エラー', '有効な最高アンチ高を入力してください');
+        return;
+      }
+      
+      // 基準高さから最高アンチ高を引く計算
+      calculationResult = referenceHeight - heightValue;
+      
+      if (calculationResult < 0) {
+        Alert.alert('エラー', `最高アンチ高(${heightValue}mm)が基準高さ(${referenceHeight}mm)を超えています`);
+        return;
+      }
+      
+      calculationDescription = `基準高さ: ${referenceHeight}mm\n最高アンチ高: ${heightValue}mm\n計算結果: ${calculationResult}mm`;
+      setHistory(prev => [...prev, `${referenceHeight}mm - ${heightValue}mm = ${calculationResult}mm (最高アンチ高)`]);
+      
+    } else {
+      const jackUpValue = parseFloat(jackUpHeight);
+      if (isNaN(jackUpValue) || jackUpValue < 0) {
+        Alert.alert('エラー', '有効なジャッキアップ高さを入力してください');
+        return;
+      }
+      
+      // ジャッキアップモードでは、ジャッキアップの値を起点として設定
+      calculationResult = jackUpValue;
+      setTotalSpan(referenceHeight); // 基準高さを目標値として設定
+      
+      calculationDescription = `ジャッキアップ起点: ${jackUpValue}mm\n基準高さ目標: ${referenceHeight}mm\n基準高さまであと: ${referenceHeight - jackUpValue}mm`;
+      setHistory(prev => [...prev, `ジャッキアップ${jackUpValue}mm設定、基準高さ${referenceHeight}mmまであと${referenceHeight - jackUpValue}mm`]);
+    }
+    
+    // 計算結果を電卓の表示値として設定
+    setDisplayValue(String(calculationResult));
+    setCurrentSpan(calculationResult);
+    
+    if (calculationMethod === 'maxBeam') {
+      setTotalSpan(0); // 最高アンチ高モードでは総スパンの概念をリセット
+    }
+    
+    setIsMaxBeamHeightSet(true);
+    
+    Alert.alert(
+      '高さ計算完了', 
+      `${calculationDescription}\n\nこの値から立面計算を開始できます`
+    );
   };
 
 
@@ -695,85 +795,273 @@ export default function QuickAllocation() {
             <View style={calculatorStyles.display}>
               <Text style={calculatorStyles.displayValue}>{displayValue}</Text>
               <View style={calculatorStyles.spanInfo}>
-                <Text style={calculatorStyles.spanText}>
-                  総スパン: {totalSpan}mm
-                </Text>
-                <Text style={calculatorStyles.spanText}>
-                  現在: {currentSpan}mm
-                </Text>
-                <Text style={calculatorStyles.spanText}>
-                  残り: {getRemainingSpan()}mm
-                </Text>
+                {calculatorType === 'plan' ? (
+                  <>
+                    <Text style={calculatorStyles.spanText}>
+                      総スパン: {totalSpan}mm
+                    </Text>
+                    <Text style={calculatorStyles.spanText}>
+                      現在: {currentSpan}mm
+                    </Text>
+                    <Text style={calculatorStyles.spanText}>
+                      残り: {getRemainingSpan()}mm
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={calculatorStyles.spanText}>
+                      基準高さ: {inputData.referenceHeight || 2400}mm
+                    </Text>
+                    <Text style={calculatorStyles.spanText}>
+                      {calculationMethod === 'maxBeam' ? '最高アンチ高' : 'ジャッキアップ'}: 
+                      {(calculationMethod === 'maxBeam' ? maxBeamHeight : jackUpHeight) || '未入力'}mm 
+                      {isMaxBeamHeightSet ? '(計算済み)' : ''}
+                    </Text>
+                    <Text style={calculatorStyles.spanText}>
+                      現在値: {currentSpan}mm
+                    </Text>
+                    {isMaxBeamHeightSet && calculationMethod === 'jackUp' && (
+                      <Text style={calculatorStyles.spanText}>
+                        基準高さまであと: {getRemainingSpan()}mm
+                      </Text>
+                    )}
+                    {isMaxBeamHeightSet && calculationMethod === 'maxBeam' && (
+                      <Text style={calculatorStyles.spanText}>
+                        ※基準高さ - 最高アンチ高の計算結果を表示中
+                      </Text>
+                    )}
+                  </>
+                )}
               </View>
             </View>
 
             <ScrollView style={calculatorStyles.buttonGrid}>
+              {/* 平面/立面切り替えボタン */}
+              <View style={calculatorStyles.buttonRow}>
+                <TouchableOpacity 
+                  style={[
+                    calculatorStyles.specialButton,
+                    calculatorType === 'plan' && calculatorStyles.operatorButtonActive
+                  ]}
+                  onPress={toggleCalculatorType}
+                >
+                  <Text style={[
+                    calculatorStyles.specialButtonText,
+                    calculatorType === 'plan' && { color: '#FFFFFF' }
+                  ]}>平面モード</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[
+                    calculatorStyles.specialButton,
+                    calculatorType === 'elevation' && calculatorStyles.operatorButtonActive
+                  ]}
+                  onPress={toggleCalculatorType}
+                >
+                  <Text style={[
+                    calculatorStyles.specialButtonText,
+                    calculatorType === 'elevation' && { color: '#FFFFFF' }
+                  ]}>立面モード</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* 高さ計算入力フォーム（立面モードのみ） */}
+              {calculatorType === 'elevation' && (
+                <View style={[calculatorStyles.display, { marginBottom: 16 }]}>
+                  {/* 計算方法選択ボタン */}
+                  <View style={calculatorStyles.buttonRow}>
+                    <TouchableOpacity 
+                      style={[
+                        calculatorStyles.specialButton,
+                        calculationMethod === 'maxBeam' && calculatorStyles.operatorButtonActive
+                      ]}
+                      onPress={() => setCalculationMethod('maxBeam')}
+                    >
+                      <Text style={[
+                        calculatorStyles.specialButtonText,
+                        calculationMethod === 'maxBeam' && { color: '#FFFFFF' }
+                      ]}>最高アンチ高</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={[
+                        calculatorStyles.specialButton,
+                        calculationMethod === 'jackUp' && calculatorStyles.operatorButtonActive
+                      ]}
+                      onPress={() => setCalculationMethod('jackUp')}
+                    >
+                      <Text style={[
+                        calculatorStyles.specialButtonText,
+                        calculationMethod === 'jackUp' && { color: '#FFFFFF' }
+                      ]}>ジャッキアップ</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* 入力フォーム */}
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[calculatorStyles.spanText, { marginBottom: 4 }]}>
+                        {calculationMethod === 'maxBeam' ? '最高アンチ高 (mm)' : 'ジャッキアップ (mm)'}
+                      </Text>
+                      <View style={styles.section}>
+                        <InputField
+                          label=""
+                          value={calculationMethod === 'maxBeam' ? maxBeamHeight : jackUpHeight}
+                          onChangeText={calculationMethod === 'maxBeam' ? setMaxBeamHeight : setJackUpHeight}
+                          placeholder={calculationMethod === 'maxBeam' ? "1800" : "200"}
+                          keyboardType="numeric"
+                          suffix="mm"
+                        />
+                      </View>
+                    </View>
+                    <TouchableOpacity 
+                      style={[calculatorStyles.specialButton, { alignSelf: 'flex-end', paddingHorizontal: 16 }]}
+                      onPress={setHeightForCalculation}
+                    >
+                      <Text style={calculatorStyles.specialButtonText}>設定</Text>
+                    </TouchableOpacity>
+                  </View>
+                  
+                  <Text style={[calculatorStyles.spanText, { fontSize: 12, marginTop: 4, fontStyle: 'italic' }]}>
+                    {calculationMethod === 'maxBeam' 
+                      ? '※基準高さ - 最高アンチ高を計算' 
+                      : '※基準高さ + ジャッキアップを計算'}
+                  </Text>
+                </View>
+              )}
+
               {/* 現在のモード表示 */}
               <View style={[calculatorStyles.display, { marginBottom: 16, minHeight: 60 }]}>
                 <Text style={[calculatorStyles.spanText, { textAlign: 'center', fontSize: 16 }]}>
-                  {calculationMode === 'add' ? '加算モード (+)' : 
-                   calculationMode === 'subtract' ? '減算モード (−)' : 
-                   '通常モード'}
+                  {calculatorType === 'plan' ? '平面モード' : '立面モード'} - {
+                    calculationMode === 'add' ? '加算モード (+)' : 
+                    calculationMode === 'subtract' ? '減算モード (−)' : 
+                    '通常モード'
+                  }
                 </Text>
               </View>
               
-              {/* 足場部材ボタン第1行 */}
-              <View style={calculatorStyles.buttonRow}>
-                <TouchableOpacity 
-                  style={calculatorStyles.materialButton}
-                  onPress={() => handleMaterialPress(150)}
-                >
-                  <Text style={calculatorStyles.buttonText}>150mm</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={calculatorStyles.materialButton}
-                  onPress={() => handleMaterialPress(300)}
-                >
-                  <Text style={calculatorStyles.buttonText}>300mm</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={calculatorStyles.materialButton}
-                  onPress={() => handleMaterialPress(355)}
-                >
-                  <Text style={calculatorStyles.buttonText}>355mm</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={calculatorStyles.materialButton}
-                  onPress={() => handleMaterialPress(600)}
-                >
-                  <Text style={calculatorStyles.buttonText}>600mm</Text>
-                </TouchableOpacity>
-              </View>
+              {/* 数値ボタン - 平面モード */}
+              {calculatorType === 'plan' && (
+                <>
+                  {/* 足場部材ボタン第1行 */}
+                  <View style={calculatorStyles.buttonRow}>
+                    <TouchableOpacity 
+                      style={calculatorStyles.materialButton}
+                      onPress={() => handleMaterialPress(150)}
+                    >
+                      <Text style={calculatorStyles.buttonText}>150mm</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={calculatorStyles.materialButton}
+                      onPress={() => handleMaterialPress(300)}
+                    >
+                      <Text style={calculatorStyles.buttonText}>300mm</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={calculatorStyles.materialButton}
+                      onPress={() => handleMaterialPress(355)}
+                    >
+                      <Text style={calculatorStyles.buttonText}>355mm</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={calculatorStyles.materialButton}
+                      onPress={() => handleMaterialPress(600)}
+                    >
+                      <Text style={calculatorStyles.buttonText}>600mm</Text>
+                    </TouchableOpacity>
+                  </View>
 
-              {/* 足場部材ボタン第2行 */}
-              <View style={calculatorStyles.buttonRow}>
-                <TouchableOpacity 
-                  style={calculatorStyles.materialButton}
-                  onPress={() => handleMaterialPress(900)}
-                >
-                  <Text style={calculatorStyles.buttonText}>900mm</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={calculatorStyles.materialButton}
-                  onPress={() => handleMaterialPress(1200)}
-                >
-                  <Text style={calculatorStyles.buttonText}>1200mm</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={calculatorStyles.materialButton}
-                  onPress={() => handleMaterialPress(1500)}
-                >
-                  <Text style={calculatorStyles.buttonText}>1500mm</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={calculatorStyles.materialButton}
-                  onPress={() => handleMaterialPress(1800)}
-                >
-                  <Text style={calculatorStyles.buttonText}>1800mm</Text>
-                </TouchableOpacity>
-              </View>
+                  {/* 足場部材ボタン第2行 */}
+                  <View style={calculatorStyles.buttonRow}>
+                    <TouchableOpacity 
+                      style={calculatorStyles.materialButton}
+                      onPress={() => handleMaterialPress(900)}
+                    >
+                      <Text style={calculatorStyles.buttonText}>900mm</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={calculatorStyles.materialButton}
+                      onPress={() => handleMaterialPress(1200)}
+                    >
+                      <Text style={calculatorStyles.buttonText}>1200mm</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={calculatorStyles.materialButton}
+                      onPress={() => handleMaterialPress(1500)}
+                    >
+                      <Text style={calculatorStyles.buttonText}>1500mm</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={calculatorStyles.materialButton}
+                      onPress={() => handleMaterialPress(1800)}
+                    >
+                      <Text style={calculatorStyles.buttonText}>1800mm</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
 
-              {/* 演算子・機能ボタン第1行 */}
+              {/* 数値ボタン - 立面モード */}
+              {calculatorType === 'elevation' && (
+                <>
+                  {/* 立面部材ボタン第1行 */}
+                  <View style={calculatorStyles.buttonRow}>
+                    <TouchableOpacity 
+                      style={calculatorStyles.materialButton}
+                      onPress={() => handleMaterialPress(3800)}
+                    >
+                      <Text style={calculatorStyles.buttonText}>3800mm</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={calculatorStyles.materialButton}
+                      onPress={() => handleMaterialPress(1900)}
+                    >
+                      <Text style={calculatorStyles.buttonText}>1900mm</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={calculatorStyles.materialButton}
+                      onPress={() => handleMaterialPress(1425)}
+                    >
+                      <Text style={calculatorStyles.buttonText}>1425mm</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={calculatorStyles.materialButton}
+                      onPress={() => handleMaterialPress(1230)}
+                    >
+                      <Text style={calculatorStyles.buttonText}>1230mm</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* 立面部材ボタン第2行 */}
+                  <View style={calculatorStyles.buttonRow}>
+                    <TouchableOpacity 
+                      style={calculatorStyles.materialButton}
+                      onPress={() => handleMaterialPress(950)}
+                    >
+                      <Text style={calculatorStyles.buttonText}>950mm</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={calculatorStyles.materialButton}
+                      onPress={() => handleMaterialPress(475)}
+                    >
+                      <Text style={calculatorStyles.buttonText}>475mm</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={calculatorStyles.materialButton}
+                      onPress={() => handleMaterialPress(130)}
+                    >
+                      <Text style={calculatorStyles.buttonText}>130mm</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={calculatorStyles.clearButton}
+                      onPress={handleClear}
+                    >
+                      <Text style={calculatorStyles.clearButtonText}>C</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+
+              {/* 演算子・機能ボタン */}
               <View style={calculatorStyles.buttonRow}>
                 <TouchableOpacity 
                   style={[
@@ -793,29 +1081,45 @@ export default function QuickAllocation() {
                 >
                   <Text style={calculatorStyles.operatorText}>−</Text>
                 </TouchableOpacity>
-                <TouchableOpacity 
-                  style={calculatorStyles.clearButton}
-                  onPress={handleClear}
-                >
-                  <Text style={calculatorStyles.clearButtonText}>C</Text>
-                </TouchableOpacity>
+                {calculatorType === 'plan' && (
+                  <TouchableOpacity 
+                    style={calculatorStyles.clearButton}
+                    onPress={handleClear}
+                  >
+                    <Text style={calculatorStyles.clearButtonText}>C</Text>
+                  </TouchableOpacity>
+                )}
               </View>
 
-              {/* 総スパンボタン第2行 */}
-              <View style={calculatorStyles.buttonRow}>
-                <TouchableOpacity 
-                  style={calculatorStyles.specialButton}
-                  onPress={handleNorthSouthSpan}
-                >
-                  <Text style={calculatorStyles.specialButtonText}>南北総スパン</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={calculatorStyles.specialButton}
-                  onPress={handleEastWestSpan}
-                >
-                  <Text style={calculatorStyles.specialButtonText}>東西総スパン</Text>
-                </TouchableOpacity>
-              </View>
+              {/* 平面モード専用ボタン */}
+              {calculatorType === 'plan' && (
+                <View style={calculatorStyles.buttonRow}>
+                  <TouchableOpacity 
+                    style={calculatorStyles.specialButton}
+                    onPress={handleNorthSouthSpan}
+                  >
+                    <Text style={calculatorStyles.specialButtonText}>南北総スパン</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={calculatorStyles.specialButton}
+                    onPress={handleEastWestSpan}
+                  >
+                    <Text style={calculatorStyles.specialButtonText}>東西総スパン</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {/* 立面モード専用ボタン */}
+              {calculatorType === 'elevation' && (
+                <View style={calculatorStyles.buttonRow}>
+                  <TouchableOpacity 
+                    style={calculatorStyles.specialButton}
+                    onPress={getReferenceHeight}
+                  >
+                    <Text style={calculatorStyles.specialButtonText}>基準高さ</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
 
               {/* 履歴表示 */}
               {history.length > 0 && (
