@@ -237,3 +237,63 @@ export const ROOF_BASE_UNIT_MAP = {
   '勾配軒': 1900,
   '陸屋根': 1800,
 } as const;
+
+// デフォルト値
+export const defaultMobileScaffoldInputData: MobileScaffoldInputData = {
+  frameWidth: {
+    northSouth: 1000,
+    eastWest: 1000,
+  },
+  eaveOverhang: {
+    north: 0,
+    east: 0,
+    south: 0,
+    west: 0,
+  },
+  propertyLine: {
+    north: false,
+    east: false,
+    south: false,
+    west: false,
+  },
+  propertyLineDistance: {
+    north: null,
+    east: null,
+    south: null,
+    west: null,
+  },
+  referenceHeight: 2400,
+  roofShape: 'flat',
+  hasTieColumns: false,
+  eavesHandrails: 0,
+  specialMaterial: {
+    northSouth: {
+      material355: 0,
+      material300: 0,
+      material150: 0,
+    },
+    eastWest: {
+      material355: 0,
+      material300: 0,
+      material150: 0,
+    },
+  },
+  targetOffset: {
+    north: {
+      enabled: false,
+      value: null,
+    },
+    east: {
+      enabled: false,
+      value: null,
+    },
+    south: {
+      enabled: false,
+      value: null,
+    },
+    west: {
+      enabled: false,
+      value: null,
+    },
+  },
+};

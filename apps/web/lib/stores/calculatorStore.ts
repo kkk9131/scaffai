@@ -4,8 +4,10 @@ import {
   MobileScaffoldInputData, 
   ScaffoldInputData,
   ScaffoldCalculationResult, 
-  convertMobileToEngine 
+  convertMobileToEngine,
+  defaultMobileScaffoldInputData
 } from '../calculator/types';
+import { validateMobileScaffoldInput } from '../validation';
 
 // Re-export types for external use
 export type { MobileScaffoldInputData, ScaffoldCalculationResult };
@@ -20,107 +22,53 @@ interface CalculatorState {
   // UI状態
   isCalculating: boolean;
   error: string | null;
+  validationErrors: Record<string, string> | null;
   
   // アクション
   updateInput: (data: Partial<MobileScaffoldInputData>) => void;
   calculate: () => Promise<void>;
   reset: () => void;
+  validateInput: () => boolean;
 }
 
-// デフォルト値（モバイル版と同じ）
-const defaultInputData: MobileScaffoldInputData = {
-  // 躯体幅 - Required, default values matching mobile
-  frameWidth: {
-    northSouth: 1000,  // モバイル版のdefault placeholder
-    eastWest: 1000,
-  },
-  
-  // 軒の出 - Optional, default to 0
-  eaveOverhang: {
-    north: 0,
-    east: 0,
-    south: 0,
-    west: 0,
-  },
-  
-  // 敷地境界線の有無 - Default: all disabled
-  propertyLine: {
-    north: false,
-    east: false,
-    south: false,
-    west: false,
-  },
-  
-  // 敷地境界線距離 - Default: all null when disabled
-  propertyLineDistance: {
-    north: null,
-    east: null,
-    south: null,
-    west: null,
-  },
-  
-  // 基準高さ - Required, default from mobile placeholder
-  referenceHeight: 2400,
-  
-  // 屋根の形状 - Required, default 'flat'
-  roofShape: 'flat',
-  
-  // 根がらみ支柱の有無 - Default: false
-  hasTieColumns: false,
-  
-  // 軒先手摺の本数 - Default: 0
-  eavesHandrails: 0,
-  
-  // 特殊部材数 - Default: all 0
-  specialMaterial: {
-    northSouth: {
-      material355: 0,
-      material300: 0,
-      material150: 0,
-    },
-    eastWest: {
-      material355: 0,
-      material300: 0,
-      material150: 0,
-    },
-  },
-  
-  // 目標離れ - Default: all disabled
-  targetOffset: {
-    north: {
-      enabled: false,
-      value: null,
-    },
-    east: {
-      enabled: false,
-      value: null,
-    },
-    south: {
-      enabled: false,
-      value: null,
-    },
-    west: {
-      enabled: false,
-      value: null,
-    },
-  },
-};
+// デフォルト値を共通パッケージから使用
 
 export const useCalculatorStore = create<CalculatorState>((set, get) => ({
-  inputData: defaultInputData,
+  inputData: defaultMobileScaffoldInputData,
   result: null,
   isCalculating: false,
   error: null,
+  validationErrors: null,
   
   updateInput: (data) => set((state) => ({
     inputData: { ...state.inputData, ...data },
     error: null, // 入力変更時にエラーをクリア
+    validationErrors: null, // バリデーションエラーもクリア
   })),
   
-  calculate: async () => {
+  validateInput: () => {
     const { inputData } = get();
+    const validation = validateMobileScaffoldInput(inputData);
     
-    set({ isCalculating: true, error: null });
+    if (!validation.success) {
+      set({ validationErrors: validation.errors });
+      return false;
+    }
+    
+    set({ validationErrors: null });
+    return true;
+  },
+  
+  calculate: async () => {
+    const { inputData, validateInput } = get();
+    
+    // まずバリデーションを実行
+    if (!validateInput()) {
+      set({ error: '入力値に誤りがあります。エラーを修正してください。' });
+      return;
+    }
+    
+    set({ isCalculating: true, error: null, validationErrors: null });
     
     try {
       // モバイル版データを計算エンジン用データに変換
@@ -136,9 +84,10 @@ export const useCalculatorStore = create<CalculatorState>((set, get) => ({
   },
   
   reset: () => set({
-    inputData: defaultInputData,
+    inputData: defaultMobileScaffoldInputData,
     result: null,
     error: null,
+    validationErrors: null,
     isCalculating: false,
   }),
 }));
