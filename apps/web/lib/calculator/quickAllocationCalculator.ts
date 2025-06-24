@@ -368,7 +368,7 @@ export function calculateQuickAllocation(input: QuickAllocationInput): QuickAllo
     }
   }
   
-  // 補正部材が選択できた場合はneedsCorrectio​nをfalseにする
+  // 補正部材が選択できた場合はneedsCorrectionをfalseにする
   const showCorrectionMessage = needsCorrection && correctionParts.length === 0;
   
   return {

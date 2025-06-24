@@ -74,6 +74,13 @@ export default function Sidebar({ className }: SidebarProps) {
             collapsed={collapsed} 
           />
           <SidebarItem 
+            icon={<Calculator size={20} />} 
+            label="簡易割付計算" 
+            href="/quick-allocation"
+            active={pathname === '/quick-allocation'}
+            collapsed={collapsed} 
+          />
+          <SidebarItem 
             icon={<FileText size={20} />} 
             label="出力" 
             href="/output"

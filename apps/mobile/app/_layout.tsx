@@ -7,6 +7,7 @@ import { Platform } from 'react-native';
 import { ScaffoldProvider } from '../context/ScaffoldContext';
 import { AuthProvider } from '../context/AuthContext';
 import { ThemeProvider } from '../context/ThemeContext';
+import { PurchaseProvider } from '../context/PurchaseContext';
 import { AuthGuard } from '../components/AuthGuard';
 import 'react-native-gesture-handler';
 
@@ -32,16 +33,18 @@ export default function RootLayout() {
     <ThemeProvider>
       <AuthProvider>
         <ScaffoldProvider>
-          <AuthGuard>
-            <Stack>
-              <Stack.Screen name="index" options={{ headerShown: false }} />
-              <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
-              <Stack.Screen name="auth/login" options={{ headerShown: false }} />
-              <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-              <Stack.Screen name="faq" options={{ headerShown: false }} />
-            </Stack>
-          </AuthGuard>
-          <StatusBar style="auto" />
+          <PurchaseProvider>
+            <AuthGuard>
+              <Stack>
+                <Stack.Screen name="index" options={{ headerShown: false }} />
+                <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
+                <Stack.Screen name="auth/login" options={{ headerShown: false }} />
+                <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+                <Stack.Screen name="faq" options={{ headerShown: false }} />
+              </Stack>
+            </AuthGuard>
+            <StatusBar style="auto" />
+          </PurchaseProvider>
         </ScaffoldProvider>
       </AuthProvider>
     </ThemeProvider>

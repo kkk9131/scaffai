@@ -1,110 +1,32 @@
 import { create } from 'zustand';
-import { calculateAll } from '../calculator/engine';
 import { 
-  MobileScaffoldInputData, 
-  ScaffoldInputData,
-  ScaffoldCalculationResult, 
-  convertMobileToEngine 
-} from '../calculator/types';
-
-// Re-export types for external use
-export type { MobileScaffoldInputData, ScaffoldCalculationResult };
+  calculateAll,
+  convertToScaffoldInputData,
+  type InputData,
+  type CalculationResult,
+  type ScaffoldInputData,
+  type ScaffoldCalculationResult,
+  defaultInputData
+} from '../calculator/mobile-engine';
 
 interface CalculatorState {
   // 入力データ
-  inputData: MobileScaffoldInputData;
+  inputData: InputData;
   
   // 計算結果
-  result: ScaffoldCalculationResult | null;
+  result: CalculationResult | null;
   
   // UI状態
   isCalculating: boolean;
   error: string | null;
   
   // アクション
-  updateInput: (data: Partial<MobileScaffoldInputData>) => void;
+  updateInput: (data: Partial<InputData>) => void;
   calculate: () => Promise<void>;
   reset: () => void;
 }
 
-// デフォルト値（モバイル版と同じ）
-const defaultInputData: MobileScaffoldInputData = {
-  // 躯体幅 - Required, default values matching mobile
-  frameWidth: {
-    northSouth: 1000,  // モバイル版のdefault placeholder
-    eastWest: 1000,
-  },
-  
-  // 軒の出 - Optional, default to 0
-  eaveOverhang: {
-    north: 0,
-    east: 0,
-    south: 0,
-    west: 0,
-  },
-  
-  // 敷地境界線の有無 - Default: all disabled
-  propertyLine: {
-    north: false,
-    east: false,
-    south: false,
-    west: false,
-  },
-  
-  // 敷地境界線距離 - Default: all null when disabled
-  propertyLineDistance: {
-    north: null,
-    east: null,
-    south: null,
-    west: null,
-  },
-  
-  // 基準高さ - Required, default from mobile placeholder
-  referenceHeight: 2400,
-  
-  // 屋根の形状 - Required, default 'flat'
-  roofShape: 'flat',
-  
-  // 根がらみ支柱の有無 - Default: false
-  hasTieColumns: false,
-  
-  // 軒先手摺の本数 - Default: 0
-  eavesHandrails: 0,
-  
-  // 特殊部材数 - Default: all 0
-  specialMaterial: {
-    northSouth: {
-      material355: 0,
-      material300: 0,
-      material150: 0,
-    },
-    eastWest: {
-      material355: 0,
-      material300: 0,
-      material150: 0,
-    },
-  },
-  
-  // 目標離れ - Default: all disabled
-  targetOffset: {
-    north: {
-      enabled: false,
-      value: null,
-    },
-    east: {
-      enabled: false,
-      value: null,
-    },
-    south: {
-      enabled: false,
-      value: null,
-    },
-    west: {
-      enabled: false,
-      value: null,
-    },
-  },
-};
+// デフォルト値を使用（モバイル版と完全一致）
 
 export const useCalculatorStore = create<CalculatorState>((set, get) => ({
   inputData: defaultInputData,
@@ -123,11 +45,18 @@ export const useCalculatorStore = create<CalculatorState>((set, get) => ({
     set({ isCalculating: true, error: null });
     
     try {
+      console.log('🔍 [DEBUG] 入力データ (Original Input):', JSON.stringify(inputData, null, 2));
+      
       // モバイル版データを計算エンジン用データに変換
-      const engineData = convertMobileToEngine(inputData);
+      const engineData = convertToScaffoldInputData(inputData);
+      console.log('🔍 [DEBUG] 変換後データ (Engine Input):', JSON.stringify(engineData, null, 2));
+      
       const result = await calculateScaffold(engineData);
+      console.log('🔍 [DEBUG] 計算結果 (Calculation Result):', JSON.stringify(result, null, 2));
+      
       set({ result, isCalculating: false });
     } catch (error) {
+      console.error('❌ [DEBUG] 計算エラー:', error);
       set({ 
         error: error instanceof Error ? error.message : '計算エラーが発生しました',
         isCalculating: false 
@@ -143,11 +72,43 @@ export const useCalculatorStore = create<CalculatorState>((set, get) => ({
   }),
 }));
 
-// 実際の計算エンジンを使用
-async function calculateScaffold(input: ScaffoldInputData): Promise<ScaffoldCalculationResult> {
+// モバイル版計算エンジンを使用
+async function calculateScaffold(input: ScaffoldInputData): Promise<CalculationResult> {
+  console.log('⚙️ [DEBUG] モバイル版計算エンジン開始 - calculateAll() 呼び出し');
+  console.log('⚙️ [DEBUG] エンジン入力検証:', {
+    'width_NS': input.width_NS,
+    'width_EW': input.width_EW,
+    'standard_height': input.standard_height,
+    'roof_shape': input.roof_shape,
+    'target_margin_N': input.target_margin_N,
+    'target_margin_E': input.target_margin_E,
+    'target_margin_S': input.target_margin_S,
+    'target_margin_W': input.target_margin_W,
+    'eaves_N': input.eaves_N,
+    'eaves_E': input.eaves_E,
+    'eaves_S': input.eaves_S,
+    'eaves_W': input.eaves_W,
+    'boundary_N': input.boundary_N,
+    'boundary_E': input.boundary_E,
+    'boundary_S': input.boundary_S,
+    'boundary_W': input.boundary_W
+  });
+  
   // 計算時間をシミュレート
   await new Promise(resolve => setTimeout(resolve, 300));
   
-  // 実際の計算エンジンを呼び出し
-  return calculateAll(input);
+  // モバイル版計算エンジンを呼び出し
+  console.log('🔥 [DEBUG] モバイル版計算エンジン直前 - 完全な入力データ:', JSON.stringify(input, null, 2));
+  const scaffoldResult = calculateAll(input);
+  console.log('🔥 [DEBUG] モバイル版計算エンジン直後 - 完全な結果データ:', JSON.stringify(scaffoldResult, null, 2));
+  
+  console.log('⚙️ [DEBUG] モバイル版計算エンジン完了 - 主要結果:', {
+    'ns_total_span': scaffoldResult.ns_total_span,
+    'ew_total_span': scaffoldResult.ew_total_span,
+    'ns_span_structure': scaffoldResult.ns_span_structure,
+    'ew_span_structure': scaffoldResult.ew_span_structure,
+    'num_stages': scaffoldResult.num_stages
+  });
+  
+  return scaffoldResult;
 }

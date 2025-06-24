@@ -6,11 +6,13 @@ import { useRouter } from 'expo-router';
 import { AppHeader } from '../../components/AppHeader';
 import { InputField } from '../../components/InputField';
 import { RadioField } from '../../components/RadioField';
+import { UsageStatusBar } from '../../components/UsageStatusBar';
 import { colors as baseColors } from '../../constants/colors';
 import { useTheme } from '../../context/ThemeContext';
 import { useScaffold } from '../../context/ScaffoldContext';
 import { Ionicons } from '@expo/vector-icons';
 import { calculateQuickAllocation, type QuickAllocationInput, type QuickAllocationResult } from '../../utils/quickAllocationCalculator';
+import { UsageManager } from '../../utils/usageManager';
 
 type CornerType = 'inside' | 'outside';
 type SpecialMaterialUsage = {
@@ -22,7 +24,7 @@ type SpecialMaterialUsage = {
 export default function QuickAllocation() {
   const router = useRouter();
   const { colors, isDark } = useTheme();
-  const { calculationResult: inputCalculationResult, inputData } = useScaffold();
+  const { calculationResult: inputCalculationResult, inputData, checkUsageLimit } = useScaffold();
   const scrollViewRef = useRef<ScrollView>(null);
   const resultSectionRef = useRef<View>(null);
   
@@ -99,8 +101,15 @@ export default function QuickAllocation() {
     },
   });
 
-  const handleCalculate = () => {
-    console.log('=== 計算開始 ===');
+  const handleCalculate = async () => {
+    console.log('=== 簡易割付計算開始 ===');
+    
+    // 使用制限チェック
+    const canCalculate = await checkUsageLimit('quickAllocations');
+    if (!canCalculate) {
+      console.log('❌ Quick allocation blocked by usage limit');
+      return;
+    }
     
     // バリデーション
     if (!currentDistance || !allocationDistance || !eaveOutput) {
@@ -171,6 +180,16 @@ export default function QuickAllocation() {
     console.log('計算成功、結果を設定');
     setResult(calculationResult);
     
+    // 簡易割付使用回数をインクリメント
+    try {
+      const incrementSuccess = await UsageManager.incrementQuickAllocations();
+      if (incrementSuccess) {
+        console.log('✅ Quick allocation usage count incremented');
+      }
+    } catch (usageError) {
+      console.warn('Failed to update quick allocation usage count:', usageError);
+    }
+    
     // 結果セクションまで自動スクロール
     setTimeout(() => {
       resultSectionRef.current?.measureLayout(
@@ -194,7 +213,24 @@ export default function QuickAllocation() {
   };
 
   // 電卓モード切り替え関数
-  const toggleCalculatorMode = () => {
+  const toggleCalculatorMode = async () => {
+    if (!isCalculatorMode) {
+      // 電卓モードに切り替える前に権限チェック
+      const canUse = await UsageManager.canUseFeature('hasCalculatorFunction');
+      if (!canUse) {
+        Alert.alert(
+          '電卓機能は利用できません',
+          'Freeプランでは電卓機能をご利用いただけません。\n\nPlusプラン以上にアップグレードしてご利用ください。',
+          [
+            { text: 'キャンセル', style: 'cancel' },
+            { text: 'プラン確認', onPress: () => {
+              router.push('/(drawer)/plan-management');
+            }}
+          ]
+        );
+        return;
+      }
+    }
     setIsCalculatorMode(!isCalculatorMode);
   };
 
@@ -606,6 +642,10 @@ export default function QuickAllocation() {
         }
       />
       
+      <UsageStatusBar onUpgradePress={() => {
+        router.push('/(drawer)/plan-management');
+      }} />
+      
       <KeyboardAvoidingView 
         style={styles.keyboardAvoidingView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -617,8 +657,7 @@ export default function QuickAllocation() {
             style={styles.content} 
             showsVerticalScrollIndicator={false}
           >
-        ) : null}
-        {/* 入隅・出隅選択 */}
+            {/* 入隅・出隅選択 */}
         <View style={[styles.section, dynamicStyles.section]}>
           <RadioField
             label="角部の種類"
@@ -896,7 +935,7 @@ export default function QuickAllocation() {
                   </View>
 
                   {/* 入力フォーム */}
-                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                  <View style={{ flexDirection: 'row', gap: 12, marginTop: 8, alignItems: 'flex-end' }}>
                     <View style={{ flex: 1 }}>
                       <Text style={[calculatorStyles.spanText, { marginBottom: 4 }]}>
                         {calculationMethod === 'maxBeam' ? '最高アンチ高 (mm)' : 'ジャッキアップ (mm)'}
@@ -913,10 +952,18 @@ export default function QuickAllocation() {
                       </View>
                     </View>
                     <TouchableOpacity 
-                      style={[calculatorStyles.specialButton, { alignSelf: 'flex-end', paddingHorizontal: 16 }]}
+                      style={[
+                        calculatorStyles.specialButton, 
+                        { 
+                          paddingHorizontal: 12, 
+                          paddingVertical: 8,
+                          minWidth: 60,
+                          height: 40
+                        }
+                      ]}
                       onPress={setHeightForCalculation}
                     >
-                      <Text style={calculatorStyles.specialButtonText}>設定</Text>
+                      <Text style={[calculatorStyles.specialButtonText, { fontSize: 12 }]}>設定</Text>
                     </TouchableOpacity>
                   </View>
                   

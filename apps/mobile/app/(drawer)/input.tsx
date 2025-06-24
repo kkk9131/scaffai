@@ -12,7 +12,9 @@ import {
 } from 'react-native';
 import { AppHeader } from '../../components/AppHeader';
 import { StatusBar } from 'expo-status-bar';
+import { useRouter } from 'expo-router';
 import { InputField } from '../../components/InputField';
+import { UsageStatusBar } from '../../components/UsageStatusBar';
 import { RadioField } from '../../components/RadioField';
 import { SwitchField } from '../../components/SwitchField';
 import { colors as baseColors } from '../../constants/colors';
@@ -22,6 +24,7 @@ import { useScaffold } from '../../context/ScaffoldContext';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function InputScreen() {
+  const router = useRouter();
   const { colors, isDark } = useTheme();
   const {
     inputData,
@@ -121,6 +124,11 @@ export default function InputScreen() {
     <View style={[styles.safeArea, { backgroundColor: colors.background.primary }]}>
       <AppHeader title={ja.input.title} />
       <StatusBar style={isDark ? 'light' : 'dark'} />
+      
+      <UsageStatusBar onUpgradePress={() => {
+        router.push('/(drawer)/plan-management');
+      }} />
+      
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}

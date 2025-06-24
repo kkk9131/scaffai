@@ -1,10 +1,20 @@
 'use client';
 
-import React, { useRef, useEffect, useState } from 'react';
-import { Edit3, Square, Move, ZoomIn, ZoomOut, Grid, Save, Undo, Redo, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
+import { Edit3, Square, Move, ZoomIn, ZoomOut, Grid, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+import { drawCompositeView, drawGrid as drawAdvancedGrid } from './utils/drawingUtils';
+import type { DrawingData, DimensionArea, BuildingVertex, EdgeEave, Opening, FloorData, FloorColors } from './types/drawing';
+import type { ScaffoldCalculationResult } from '../../lib/calculator/types';
+// import { convertToFloorData, generateDrawingMetadata, type ScaffoldInputData } from '../../lib/drawing/scaffoldGenerator';
 
-// @ts-ignore
-import * as ClipperLib from 'clipper-lib';
+interface ScaffoldInputData {
+  width_NS: number;
+  width_EW: number;
+  eaves_N: number;
+  eaves_E: number;
+  eaves_S: number;
+  eaves_W: number;
+}
 
 // スライダーのカスタムスタイル
 const sliderStyle = `
@@ -42,68 +52,6 @@ const sliderStyle = `
 }
 `;
 
-interface DrawingData {
-  building: {
-    width: number;
-    height: number;
-  };
-  eaves: {
-    north: number;
-    east: number;
-    south: number;
-    west: number;
-  };
-  timestamp: number;
-}
-
-interface DimensionArea {
-  type: 'building' | 'eave' | 'vertex' | 'opening';
-  direction: 'width' | 'height' | 'north' | 'east' | 'south' | 'west' | 'vertex';
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  value: number;
-  vertexIndex?: number;
-  openingId?: string;  // 開口部IDを追加
-}
-
-interface BuildingVertex {
-  x: number;
-  y: number;
-  id: string;
-}
-
-interface EdgeEave {
-  edgeIndex: number;
-  distance: number;
-}
-
-interface Opening {
-  id: string;
-  edgeIndex: number;        // どの辺に配置されているか
-  startPosition: number;    // 辺の開始点からの距離（0-1の比率）
-  endPosition: number;      // 辺の開始点からの距離（0-1の比率）
-  width: number;           // 開口幅（mm）
-  type: 'entrance' | 'back_door' | 'sliding_window' | 'garage' | 'passage';
-}
-
-interface FloorData {
-  id: string;
-  name: string;
-  height: number;
-  vertices: BuildingVertex[];
-  eaves: EdgeEave[];
-  openings: Opening[];      // 開口部データ
-  visible: boolean;
-}
-
-interface FloorColors {
-  building: string;
-  eaves: string;
-  vertex: string;
-}
-
 // 階層カラーパレット
 const FLOOR_COLORS: Record<number, FloorColors> = {
   1: { building: '#22C55E', eaves: '#16A34A', vertex: '#22C55E' }, // 緑+ダークグリーン
@@ -125,37 +73,18 @@ interface DragHandle {
 interface DrawingEditorProps {
   width?: number;
   height?: number;
+  calculationResult?: ScaffoldCalculationResult;
+  inputData?: ScaffoldInputData;
+  autoGenerate?: boolean;
 }
 
-// ユーティリティ関数：線分の交点を計算
-const calculateLineIntersection = (
-  p1: { x: number; y: number },
-  p2: { x: number; y: number },
-  p3: { x: number; y: number },
-  p4: { x: number; y: number }
-): { x: number; y: number } | null => {
-  const d1x = p2.x - p1.x;
-  const d1y = p2.y - p1.y;
-  const d2x = p4.x - p3.x;
-  const d2y = p4.y - p3.y;
-  
-  const denominator = d1x * d2y - d1y * d2x;
-  
-  if (Math.abs(denominator) < 1e-10) {
-    return null;
-  }
-  
-  const t = ((p3.x - p1.x) * d2y - (p3.y - p1.y) * d2x) / denominator;
-  
-  return {
-    x: p1.x + t * d1x,
-    y: p1.y + t * d1y
-  };
-};
 
 export default function DrawingEditor({ 
   width = 1000, 
-  height = 700 
+  height = 700,
+  calculationResult,
+  inputData,
+  autoGenerate = false
 }: DrawingEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [drawingData, setDrawingData] = useState<DrawingData | null>(null);
@@ -167,12 +96,12 @@ export default function DrawingEditor({
   const [dimensionAreas, setDimensionAreas] = useState<DimensionArea[]>([]);
   const [editingDimension, setEditingDimension] = useState<DimensionArea | null>(null);
   const [modalValue, setModalValue] = useState<string>('');
-  const [hoveredDimension, setHoveredDimension] = useState<DimensionArea | null>(null);
+  const [hoveredDimension] = useState<DimensionArea | null>(null);
   const [validationError, setValidationError] = useState<string>('');
-  const [mounted, setMounted] = useState(true);
+  const [mounted] = useState(true);
   const [dragHandles, setDragHandles] = useState<DragHandle[]>([]);
-  const [hoveredHandle, setHoveredHandle] = useState<DragHandle | null>(null);
-  const [draggingHandle, setDraggingHandle] = useState<DragHandle | null>(null);
+  const [hoveredHandle] = useState<DragHandle | null>(null);
+  const [draggingHandle] = useState<DragHandle | null>(null);
   const [dragStartPos, setDragStartPos] = useState<{ x: number; y: number } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
@@ -208,9 +137,120 @@ export default function DrawingEditor({
   // 開口部寸法表示状態（開口部IDのセット）
   const [visibleOpeningDimensions, setVisibleOpeningDimensions] = useState<Set<string>>(new Set());
 
+  // 足場ライン自動生成機能
   useEffect(() => {
-    // セッションストレージから簡易計算データを読み込み
-    if (typeof window !== 'undefined') {
+    if (autoGenerate && calculationResult && inputData) {
+      console.log('足場ライン自動生成を開始:', { calculationResult, inputData });
+      
+      try {
+        // 入力データから実寸でFloorDataを生成
+        const buildingWidthEW = inputData.width_EW; // 東西
+        const buildingWidthNS = inputData.width_NS; // 南北
+        
+        // Canvas中心
+        const centerX = width / 2;
+        const centerY = height / 2;
+        
+        // 縮尺計算
+        const margin = 100;
+        const maxCanvasWidth = width - margin * 2;
+        const maxCanvasHeight = height - margin * 2;
+        const scaleX = maxCanvasWidth / buildingWidthEW;
+        const scaleY = maxCanvasHeight / buildingWidthNS;
+        const autoScale = Math.min(scaleX, scaleY, 0.3);
+        
+        // 建物サイズをピクセルに変換
+        const buildingPixelWidth = buildingWidthEW * autoScale;
+        const buildingPixelHeight = buildingWidthNS * autoScale;
+        
+        // 建物Floor（入力データから正確な寸法）
+        const buildingFloor: FloorData = {
+          id: 'building-floor-1',
+          name: '建物',
+          height: 3000,
+          vertices: [
+            { id: 'building-1', x: centerX - buildingPixelWidth / 2, y: centerY - buildingPixelHeight / 2 },
+            { id: 'building-2', x: centerX + buildingPixelWidth / 2, y: centerY - buildingPixelHeight / 2 },
+            { id: 'building-3', x: centerX + buildingPixelWidth / 2, y: centerY + buildingPixelHeight / 2 },
+            { id: 'building-4', x: centerX - buildingPixelWidth / 2, y: centerY + buildingPixelHeight / 2 }
+          ],
+          eaves: [
+            { edgeIndex: 0, distance: inputData.eaves_N },
+            { edgeIndex: 1, distance: inputData.eaves_E },
+            { edgeIndex: 2, distance: inputData.eaves_S },
+            { edgeIndex: 3, distance: inputData.eaves_W }
+          ],
+          openings: [],
+          visible: true
+        };
+
+        // 足場ライン（計算結果から離れを反映）
+        console.log('計算結果の詳細:', calculationResult);
+        
+        // 計算結果から離れの値を取得（型定義に合わせて修正）
+        const eastGap = parseInt(calculationResult.east_gap?.replace(' mm', '') || '150');
+        const westGap = parseInt(calculationResult.west_gap?.replace(' mm', '') || '150');
+        const northGap = parseInt(calculationResult.north_gap?.replace(' mm', '') || '100');
+        const southGap = parseInt(calculationResult.south_gap?.replace(' mm', '') || '100');
+        
+        console.log('離れの値:', { eastGap, westGap, northGap, southGap });
+        
+        // 足場ラインサイズをピクセルに変換
+        const scaffoldPixelOffsetNorth = northGap * autoScale;
+        const scaffoldPixelOffsetEast = eastGap * autoScale;
+        const scaffoldPixelOffsetSouth = southGap * autoScale;
+        const scaffoldPixelOffsetWest = westGap * autoScale;
+        
+        const scaffoldFloor: FloorData = {
+          id: 'scaffold-line-1',
+          name: '足場ライン',
+          height: 3000,
+          vertices: [
+            { id: 'scaffold-1', x: centerX - buildingPixelWidth / 2 - scaffoldPixelOffsetWest, y: centerY - buildingPixelHeight / 2 - scaffoldPixelOffsetNorth },
+            { id: 'scaffold-2', x: centerX + buildingPixelWidth / 2 + scaffoldPixelOffsetEast, y: centerY - buildingPixelHeight / 2 - scaffoldPixelOffsetNorth },
+            { id: 'scaffold-3', x: centerX + buildingPixelWidth / 2 + scaffoldPixelOffsetEast, y: centerY + buildingPixelHeight / 2 + scaffoldPixelOffsetSouth },
+            { id: 'scaffold-4', x: centerX - buildingPixelWidth / 2 - scaffoldPixelOffsetWest, y: centerY + buildingPixelHeight / 2 + scaffoldPixelOffsetSouth }
+          ],
+          eaves: [],
+          openings: [],
+          visible: true
+        };
+        
+        const generatedFloors = [buildingFloor, scaffoldFloor];
+        console.log('生成されたFloors:', generatedFloors);
+        
+        // floorsに設定
+        setFloors(generatedFloors);
+        
+        // 建物フロアをアクティブに設定と頂点設定
+        if (generatedFloors.length > 0) {
+          setActiveFloorId(generatedFloors[0].id);
+          setBuildingVertices(generatedFloors[0].vertices);
+          setEdgeEaves(generatedFloors[0].eaves);
+          setOpenings(generatedFloors[0].openings || []);
+        }
+        
+        // 正しいdrawingDataを設定（編集機能を有効にするため）
+        const correctDrawingData = {
+          building: { width: inputData.width_EW, height: inputData.width_NS },
+          eaves: { north: inputData.eaves_N, east: inputData.eaves_E, south: inputData.eaves_S, west: inputData.eaves_W },
+          timestamp: Date.now()
+        };
+        setDrawingData(correctDrawingData);
+        
+        // 適切なズームレベルで表示
+        setScale(1); // デフォルトズームで表示
+        
+        console.log('足場ライン自動生成完了:', generatedFloors.length, '階層生成');
+      } catch (error) {
+        console.error('足場ライン自動生成エラー:', error);
+      }
+    }
+  }, [autoGenerate, calculationResult, inputData, width, height]);
+
+  useEffect(() => {
+    // 自動生成モードでない場合のみ、セッションストレージから簡易計算データを読み込み
+    if (typeof window !== 'undefined' && !autoGenerate) {
       const savedDrawingData = sessionStorage.getItem('drawingData');
       if (savedDrawingData) {
         try {
@@ -222,6 +262,14 @@ export default function DrawingEditor({
           initializeBuildingVertices(data);
         } catch (error) {
           console.error('データ読み込みエラー:', error);
+          // エラーの場合もデフォルトデータで初期化
+          const defaultData: DrawingData = {
+            building: { width: 6000, height: 4000 },
+            eaves: { north: 500, east: 500, south: 500, west: 500 },
+            timestamp: Date.now()
+          };
+          setDrawingData(defaultData);
+          initializeBuildingVertices(defaultData);
         }
       } else {
         // デフォルトデータで初期化
@@ -232,12 +280,13 @@ export default function DrawingEditor({
         };
         setDrawingData(defaultData);
         initializeBuildingVertices(defaultData);
+        console.log('デフォルトデータで初期化しました:', defaultData);
       }
       
       // 1階を初期フロアとして設定
       initializeFloors();
     }
-  }, []);
+  }, [width, height]);
 
   // 建物の頂点を初期化
   const initializeBuildingVertices = (data: DrawingData) => {
@@ -697,6 +746,7 @@ export default function DrawingEditor({
       newVertices.splice(insertAfterIndex + 1, 0, newVertex);
       return newVertices;
     });
+    // useEffectが自動でリアルタイム再描画を処理します
 
     // 新しい辺の軒の出を追加
     setEdgeEaves(prev => {
@@ -742,6 +792,7 @@ export default function DrawingEditor({
     setBuildingVertices(prev => prev.map((vertex, i) => 
       i === index ? { ...vertex, x: snapped.x, y: snapped.y } : vertex
     ));
+    // useEffectが自動でリアルタイム再描画を処理します
   };
 
   // Canvas座標を100mm単位のグリッドに吸着（グリッド描画と完全に一致）
@@ -814,18 +865,46 @@ export default function DrawingEditor({
     console.log('Grid check:', { showGrid, width, height });
     if (showGrid) {
       console.log('Drawing grid...');
-      drawGrid(ctx, width, height, scale, pan);
+      // 自動生成モードでは仮のdrawingDataを作成
+      const gridDrawingData = autoGenerate && floors.length > 0 && inputData ? {
+        building: { width: inputData.width_EW, height: inputData.width_NS },
+        eaves: { north: inputData.eaves_N, east: inputData.eaves_E, south: inputData.eaves_S, west: inputData.eaves_W },
+        timestamp: Date.now()
+      } : drawingData;
+      if (gridDrawingData) {
+        drawAdvancedGrid(ctx, width, height, scale, pan, gridDrawingData);
+      }
     } else {
       console.log('Grid is disabled');
     }
 
-    // 計算機からのデータがある場合は建物を描画（高度モードのみ）
-    if (drawingData) {
+    // 自動生成モードまたは計算機からのデータがある場合は建物を描画
+    console.log('Drawing mode check:', { autoGenerate, floorsLength: floors.length, hasDrawingData: !!drawingData, isCompositeMode, buildingVerticesLength: buildingVertices.length });
+    
+    if (autoGenerate && floors.length > 0) {
+      if (buildingVertices.length >= 3) {
+        // 頂点編集中：足場ラインのみ描画 + 編集中の建物描画
+        console.log('Drawing scaffold lines only + edited building for autoGenerate mode');
+        // 足場ラインのみを描画
+        const scaffoldFloors = floors.filter(floor => floor.name === '足場ライン');
+        if (scaffoldFloors.length > 0) {
+          drawCompositeView(ctx, width, height, scale, pan, scaffoldFloors, drawingData, setDimensionAreas);
+        }
+        // 編集中の建物を描画
+        drawAdvancedBuilding(ctx, width, height, scale, pan, false);
+      } else {
+        // 通常表示：全階層を描画
+        console.log('Using drawCompositeView for autoGenerate mode');
+        drawCompositeView(ctx, width, height, scale, pan, floors, drawingData, setDimensionAreas);
+      }
+    } else if (drawingData) {
       if (isCompositeMode) {
         // 作図モード：全階層を重ね合わせて描画（上階優先）
-        drawCompositeView(ctx, width, height, scale, pan);
+        console.log('Using drawCompositeView for composite mode');
+        drawCompositeView(ctx, width, height, scale, pan, floors, drawingData, setDimensionAreas);
       } else {
         // 編集モード：全階層を描画（非アクティブ階層は薄く表示）
+        console.log('Using drawAdvancedBuilding for edit mode');
         drawAllFloors(ctx, width, height, scale, pan);
         
         // アクティブ階層を描画
@@ -839,12 +918,12 @@ export default function DrawingEditor({
     }
 
 
-    // デバッグ用: 寸法エリアのハイライト表示
-    if (process.env.NODE_ENV === 'development') {
-      drawDimensionAreas(ctx);
-    }
+    // デバッグ用: 寸法エリアのハイライト表示 (無効化)
+    // if (process.env.NODE_ENV === 'development') {
+    //   drawDimensionAreas(ctx);
+    // }
 
-  }, [drawingData, width, height, scale, pan, showGrid, mounted, buildingVertices, edgeEaves, openings, visibleOpeningDimensions]);
+  }, [drawingData, width, height, scale, pan, showGrid, mounted, buildingVertices, edgeEaves, openings, visibleOpeningDimensions, autoGenerate, floors, isCompositeMode]);
 
   // キーボードショートカット
   useEffect(() => {
@@ -1150,178 +1229,13 @@ export default function DrawingEditor({
   };
 
   // 作図モード：全階層を重ね合わせて描画（上階優先）
-  const drawCompositeView = (
-    ctx: CanvasRenderingContext2D,
-    canvasWidth: number,
-    canvasHeight: number,
-    scale: number,
-    pan: { x: number; y: number }
-  ) => {
-    // 階層を階数順でソート（1F, 2F, 3F...）
-    const sortedFloors = [...floors].sort((a, b) => {
-      const aFloor = parseInt(a.id.split('-')[1]) || 1;
-      const bFloor = parseInt(b.id.split('-')[1]) || 1;
-      return aFloor - bFloor;
-    });
-
-    // 各階層の建物パスを準備
-    const floorPaths: Array<{
-      floor: FloorData;
-      buildingPath: Path2D;
-      eavesPath: Path2D | null;
-      colors: FloorColors;
-    }> = [];
-
-    // すべての階層のパスを作成
-    sortedFloors.forEach(floor => {
-      if (floor.vertices.length < 3) return;
-
-      const floorNumber = parseInt(floor.id.split('-')[1]) || 1;
-      const colors = FLOOR_COLORS[floorNumber] || FLOOR_COLORS[1];
-
-      // ズーム座標変換を計算
-      const centerX = canvasWidth / 2;
-      const centerY = canvasHeight / 2;
-      
-      const scaledVertices = floor.vertices.map(vertex => ({
-        x: centerX + (vertex.x - centerX) * scale + pan.x,
-        y: centerY + (vertex.y - centerY) * scale + pan.y
-      }));
-
-      // 建物パスを作成
-      const buildingPath = new Path2D();
-      buildingPath.moveTo(scaledVertices[0].x, scaledVertices[0].y);
-      for (let i = 1; i < scaledVertices.length; i++) {
-        buildingPath.lineTo(scaledVertices[i].x, scaledVertices[i].y);
-      }
-      buildingPath.closePath();
-
-      // 軒の出パスを作成（必要な場合）
-      let eavesPath: Path2D | null = null;
-      if (floor.eaves.length > 0 && floor.eaves.some(eave => eave.distance > 0)) {
-        try {
-          // 基準縮尺を計算
-          let baseScale = 0.3;
-          if (drawingData) {
-            const buildingWidthEW = drawingData.building.width;
-            const buildingWidthNS = drawingData.building.height;
-            const margin = 100;
-            const maxCanvasWidth = canvasWidth - margin * 2;
-            const maxCanvasHeight = canvasHeight - margin * 2;
-            const scaleX = maxCanvasWidth / buildingWidthEW;
-            const scaleY = maxCanvasHeight / buildingWidthNS;
-            baseScale = Math.min(scaleX, scaleY, 0.3);
-          }
-          const autoScale = baseScale * scale;
-
-          // 軒の出の頂点を計算
-          const eaveVertices: { x: number; y: number }[] = [];
-          const offsetLines: Array<{start: {x: number, y: number}, end: {x: number, y: number}}> = [];
-          
-          for (let i = 0; i < scaledVertices.length; i++) {
-            const currentVertex = scaledVertices[i];
-            const nextVertex = scaledVertices[(i + 1) % scaledVertices.length];
-            const eaveDistance = floor.eaves[i]?.distance || 0;
-            
-            if (eaveDistance > 0) {
-              const edgeX = nextVertex.x - currentVertex.x;
-              const edgeY = nextVertex.y - currentVertex.y;
-              const edgeLength = Math.sqrt(edgeX * edgeX + edgeY * edgeY);
-              
-              if (edgeLength > 0) {
-                const normalX = edgeY / edgeLength;
-                const normalY = -edgeX / edgeLength;
-                const canvasOffset = eaveDistance * autoScale;
-                
-                offsetLines.push({
-                  start: {
-                    x: currentVertex.x + normalX * canvasOffset,
-                    y: currentVertex.y + normalY * canvasOffset
-                  },
-                  end: {
-                    x: nextVertex.x + normalX * canvasOffset,
-                    y: nextVertex.y + normalY * canvasOffset
-                  }
-                });
-              }
-            } else {
-              offsetLines.push({ 
-                start: { x: currentVertex.x, y: currentVertex.y },
-                end: { x: nextVertex.x, y: nextVertex.y }
-              });
-            }
-          }
-
-          // 隣接する線分の交点を計算
-          for (let i = 0; i < offsetLines.length; i++) {
-            const currentLine = offsetLines[i];
-            const nextLine = offsetLines[(i + 1) % offsetLines.length];
-            
-            const intersection = calculateLineIntersection(
-              currentLine.start, currentLine.end,
-              nextLine.start, nextLine.end
-            );
-            
-            if (intersection) {
-              eaveVertices.push(intersection);
-            } else {
-              eaveVertices.push(currentLine.end);
-            }
-          }
-
-          // 軒の出パスを作成
-          if (eaveVertices.length >= 3) {
-            eavesPath = new Path2D();
-            eavesPath.moveTo(eaveVertices[0].x, eaveVertices[0].y);
-            for (let i = 1; i < eaveVertices.length; i++) {
-              eavesPath.lineTo(eaveVertices[i].x, eaveVertices[i].y);
-            }
-            eavesPath.closePath();
-          }
-        } catch (error) {
-          console.error('Composite view eave path creation error:', error);
-        }
-      }
-
-      floorPaths.push({
-        floor,
-        buildingPath,
-        eavesPath,
-        colors
-      });
-    });
-
-    // 下の階から上の階へ順番に描画（上階が上に重なる）
-    floorPaths.forEach(({ floor, buildingPath, eavesPath, colors }, index) => {
-      const isTopFloor = index === floorPaths.length - 1;
-      
-      // 建物塗りつぶし
-      ctx.fillStyle = colors.building + '4D'; // 30%透明度
-      ctx.fill(buildingPath);
-      
-      // 建物枠線
-      ctx.strokeStyle = colors.building;
-      ctx.lineWidth = isTopFloor ? 3 : 2; // 最上階は太い線
-      ctx.stroke(buildingPath);
-
-      // 軒の出を描画
-      if (eavesPath) {
-        ctx.strokeStyle = colors.eaves;
-        ctx.lineWidth = isTopFloor ? 2 : 1;
-        ctx.setLineDash(isTopFloor ? [8, 4] : [4, 2]);
-        ctx.stroke(eavesPath);
-        ctx.setLineDash([]);
-      }
-    });
-
-  };
 
   // 開口部の寸法を描画する関数
   const drawOpeningDimensions = (
     ctx: CanvasRenderingContext2D,
     scaledVertices: { x: number; y: number }[],
     colors: FloorColors,
-    autoScale: number,
+    _autoScale: number,
     newDimensionAreas: DimensionArea[]
   ) => {
     // 表示状態の開口部のみ処理
@@ -1443,427 +1357,6 @@ export default function DrawingEditor({
     });
   };
 
-  const drawBuildingFromData = (
-    ctx: CanvasRenderingContext2D, 
-    data: DrawingData, 
-    canvasWidth: number, 
-    canvasHeight: number,
-    scale: number,
-    pan: { x: number; y: number }
-  ) => {
-    // 寸法エリアとドラッグハンドルをリセット
-    const newDimensionAreas: DimensionArea[] = [];
-    const newDragHandles: DragHandle[] = [];
-    const buildingWidthNS = data.building.height; // 南北
-    const buildingWidthEW = data.building.width;  // 東西
-
-    // 現在の階層番号を取得してカラーを設定
-    const currentFloorNumber = parseInt(activeFloorId.split('-')[1]) || 1;
-    const colors = FLOOR_COLORS[currentFloorNumber] || FLOOR_COLORS[1];
-
-    // スケール計算
-    const margin = 100;
-    const maxCanvasWidth = canvasWidth - margin * 2;
-    const maxCanvasHeight = canvasHeight - margin * 2;
-
-    const scaleX = maxCanvasWidth / buildingWidthEW;
-    const scaleY = maxCanvasHeight / buildingWidthNS;
-    const autoScale = Math.min(scaleX, scaleY, 0.3) * scale;
-
-    // Canvas上での建物寸法
-    const canvasBuildingWidth = buildingWidthEW * autoScale;
-    const canvasBuildingHeight = buildingWidthNS * autoScale;
-
-    // 中央配置の座標計算（パン考慮）
-    const startX = (canvasWidth - canvasBuildingWidth) / 2 + pan.x;
-    const startY = (canvasHeight - canvasBuildingHeight) / 2 + pan.y;
-
-    // 軒の出計算
-    const eaveNorth = data.eaves.north * autoScale;
-    const eaveEast = data.eaves.east * autoScale;
-    const eaveSouth = data.eaves.south * autoScale;
-    const eaveWest = data.eaves.west * autoScale;
-
-    // 建物矩形（ライトグリーン）
-    ctx.strokeStyle = '#90EE90';
-    ctx.lineWidth = 3;
-    ctx.fillStyle = 'rgba(144, 238, 144, 0.2)';
-    ctx.fillRect(startX, startY, canvasBuildingWidth, canvasBuildingHeight);
-    ctx.strokeRect(startX, startY, canvasBuildingWidth, canvasBuildingHeight);
-
-    // 建物のドラッグハンドル座標を記録
-    const handleRadius = 6;
-    newDragHandles.push(
-      {
-        id: 'building-top-left',
-        type: 'building',
-        corner: 'top-left',
-        x: startX,
-        y: startY,
-        radius: handleRadius
-      },
-      {
-        id: 'building-top-right',
-        type: 'building',
-        corner: 'top-right',
-        x: startX + canvasBuildingWidth,
-        y: startY,
-        radius: handleRadius
-      },
-      {
-        id: 'building-bottom-left',
-        type: 'building',
-        corner: 'bottom-left',
-        x: startX,
-        y: startY + canvasBuildingHeight,
-        radius: handleRadius
-      },
-      {
-        id: 'building-bottom-right',
-        type: 'building',
-        corner: 'bottom-right',
-        x: startX + canvasBuildingWidth,
-        y: startY + canvasBuildingHeight,
-        radius: handleRadius
-      }
-    );
-
-    // シンプルモード: 辺ごとの個別距離に対応した軒の出生成（高度モードと同じアルゴリズム）
-    if (edgeEaves.length > 0 && edgeEaves.some(edge => edge.distance > 0)) {
-      try {
-        // 建物の四角形の頂点を定義
-        const simpleVertices = [
-          { x: startX, y: startY },
-          { x: startX + canvasBuildingWidth, y: startY },
-          { x: startX + canvasBuildingWidth, y: startY + canvasBuildingHeight },
-          { x: startX, y: startY + canvasBuildingHeight }
-        ];
-        
-        // 各辺から平行オフセットした線分を計算
-        const offsetLines: Array<{start: {x: number, y: number}, end: {x: number, y: number}}> = [];
-        
-        for (let i = 0; i < simpleVertices.length; i++) {
-          const currentVertex = simpleVertices[i];
-          const nextVertex = simpleVertices[(i + 1) % simpleVertices.length];
-          const eaveDistance = edgeEaves[i]?.distance || 0;
-          
-          if (eaveDistance > 0) {
-            // 辺のベクトルを計算
-            const edgeX = nextVertex.x - currentVertex.x;
-            const edgeY = nextVertex.y - currentVertex.y;
-            const edgeLength = Math.sqrt(edgeX * edgeX + edgeY * edgeY);
-            
-            if (edgeLength > 0) {
-              // 外向きの法線ベクトル
-              const normalX = edgeY / edgeLength;
-              const normalY = -edgeX / edgeLength;
-              
-              // 軒の出距離をピクセルに変換（正しい縮尺を使用）
-              const canvasOffset = eaveDistance * autoScale;
-              
-              // 平行オフセットした線分の始点と終点
-              const offsetStart = {
-                x: currentVertex.x + normalX * canvasOffset,
-                y: currentVertex.y + normalY * canvasOffset
-              };
-              const offsetEnd = {
-                x: nextVertex.x + normalX * canvasOffset,
-                y: nextVertex.y + normalY * canvasOffset
-              };
-              
-              offsetLines.push({ start: offsetStart, end: offsetEnd });
-            }
-          } else {
-            // 0mmの場合は元の辺をそのまま使用
-            offsetLines.push({ 
-              start: { x: currentVertex.x, y: currentVertex.y },
-              end: { x: nextVertex.x, y: nextVertex.y }
-            });
-          }
-        }
-        
-        // 隣接する線分の交点を計算して軒の出の頂点を求める
-        const eaveVertices: { x: number; y: number }[] = [];
-        
-        for (let i = 0; i < offsetLines.length; i++) {
-          const currentLine = offsetLines[i];
-          const nextLine = offsetLines[(i + 1) % offsetLines.length];
-          
-          // 2つの線分の交点を計算
-          const intersection = getSimpleLineIntersection(
-            currentLine.start, currentLine.end,
-            nextLine.start, nextLine.end
-          );
-          
-          if (intersection) {
-            eaveVertices.push(intersection);
-          } else {
-            // 交点が見つからない場合は現在の線分の終点を使用
-            eaveVertices.push(currentLine.end);
-          }
-        }
-        
-        // 軒の出ポリゴンを描画（塗りつぶしなし）
-        if (eaveVertices.length >= 3) {
-          ctx.strokeStyle = colors.eaves;
-          ctx.lineWidth = 2;
-          ctx.setLineDash([8, 4]);
-          
-          ctx.beginPath();
-          ctx.moveTo(eaveVertices[0].x, eaveVertices[0].y);
-          
-          for (let i = 1; i < eaveVertices.length; i++) {
-            ctx.lineTo(eaveVertices[i].x, eaveVertices[i].y);
-          }
-          
-          ctx.closePath();
-          ctx.stroke();
-          ctx.setLineDash([]);
-        }
-        
-      } catch (error) {
-        console.error('Simple mode eave generation error:', error);
-      }
-    }
-    
-    // シンプルモード用の線分交点計算関数
-    function getSimpleLineIntersection(
-      p1: {x: number, y: number}, p2: {x: number, y: number},
-      p3: {x: number, y: number}, p4: {x: number, y: number}
-    ): {x: number, y: number} | null {
-      const d1x = p2.x - p1.x;
-      const d1y = p2.y - p1.y;
-      const d2x = p4.x - p3.x;
-      const d2y = p4.y - p3.y;
-      
-      const denominator = d1x * d2y - d1y * d2x;
-      
-      if (Math.abs(denominator) < 1e-10) {
-        // 平行線の場合は交点なし
-        return null;
-      }
-      
-      const t = ((p3.x - p1.x) * d2y - (p3.y - p1.y) * d2x) / denominator;
-      
-      return {
-        x: p1.x + t * d1x,
-        y: p1.y + t * d1y
-      };
-    }
-
-    // 軒の出のドラッグハンドル座標を記録（軒の出がある場合のみ）
-    if (eaveNorth > 0 || eaveEast > 0 || eaveSouth > 0 || eaveWest > 0) {
-        const eaveStartX = startX - eaveWest;
-        const eaveStartY = startY - eaveNorth;
-        const eaveWidth = canvasBuildingWidth + eaveWest + eaveEast;
-        const eaveHeight = canvasBuildingHeight + eaveNorth + eaveSouth;
-
-        newDragHandles.push(
-          {
-            id: 'eave-top-left',
-            type: 'eave',
-            corner: 'top-left',
-            x: eaveStartX,
-            y: eaveStartY,
-            radius: handleRadius
-          },
-          {
-            id: 'eave-top-right',
-            type: 'eave',
-            corner: 'top-right',
-            x: eaveStartX + eaveWidth,
-            y: eaveStartY,
-            radius: handleRadius
-          },
-          {
-            id: 'eave-bottom-left',
-            type: 'eave',
-            corner: 'bottom-left',
-            x: eaveStartX,
-            y: eaveStartY + eaveHeight,
-            radius: handleRadius
-          },
-          {
-            id: 'eave-bottom-right',
-            type: 'eave',
-            corner: 'bottom-right',
-            x: eaveStartX + eaveWidth,
-            y: eaveStartY + eaveHeight,
-            radius: handleRadius
-          }
-        );
-      }
-    
-
-    // 寸法ラベル
-    ctx.fillStyle = '#333333';
-    ctx.font = '16px Arial';
-    ctx.textAlign = 'center';
-
-    // 建物寸法ラベル
-    const hasEaves = eaveNorth > 0 || eaveEast > 0 || eaveSouth > 0 || eaveWest > 0;
-    const extraOffset = hasEaves ? 40 : 0;
-
-    // 東西寸法（下）
-    const ewLabelText = `建物 ${buildingWidthEW.toFixed(1)}mm`;
-    const ewLabelX = startX + canvasBuildingWidth / 2;
-    const ewLabelY = startY + canvasBuildingHeight + 50 + extraOffset + Math.max(eaveSouth, 0);
-    
-    ctx.fillText(ewLabelText, ewLabelX, ewLabelY);
-    
-    // 東西寸法のクリック可能エリアを記録
-    const ewTextMetrics = ctx.measureText(ewLabelText);
-    const ewTextWidth = ewTextMetrics.width;
-    const ewTextHeight = (ewTextMetrics.actualBoundingBoxAscent || 12) + (ewTextMetrics.actualBoundingBoxDescent || 4);
-    newDimensionAreas.push({
-      type: 'building',
-      direction: 'width',
-      x: ewLabelX - ewTextWidth / 2,
-      y: ewLabelY - (ewTextMetrics.actualBoundingBoxAscent || 12),
-      width: ewTextWidth,
-      height: ewTextHeight,
-      value: buildingWidthEW
-    });
-
-    // 南北寸法（右）
-    const nsLabelX = startX + canvasBuildingWidth + 50 + extraOffset + Math.max(eaveEast, 0);
-    const nsLabelY = startY + canvasBuildingHeight / 2;
-    const nsLabelText = `建物 ${buildingWidthNS.toFixed(1)}mm`;
-    
-    ctx.save();
-    ctx.translate(nsLabelX, nsLabelY);
-    ctx.rotate(-Math.PI / 2);
-    ctx.fillText(nsLabelText, 0, 0);
-    ctx.restore();
-    
-    // 南北寸法のクリック可能エリアを記録（回転テキスト）
-    const nsTextMetrics = ctx.measureText(nsLabelText);
-    const nsTextWidth = nsTextMetrics.width;
-    const nsTextHeight = (nsTextMetrics.actualBoundingBoxAscent || 12) + (nsTextMetrics.actualBoundingBoxDescent || 4);
-    
-    // 回転したテキストの場合、幅と高さが入れ替わる
-    newDimensionAreas.push({
-      type: 'building',
-      direction: 'height',
-      x: nsLabelX - nsTextHeight / 2,
-      y: nsLabelY - nsTextWidth / 2,
-      width: nsTextHeight,
-      height: nsTextWidth,
-      value: buildingWidthNS
-    });
-
-    // 軒の出ラベル
-    if (hasEaves) {
-      ctx.fillStyle = '#FF8C00';
-      ctx.font = '14px Arial';
-
-      if (data.eaves.north > 0) {
-        ctx.textAlign = 'center';
-        const northText = `軒 ${data.eaves.north.toFixed(1)}mm`;
-        const northX = startX + canvasBuildingWidth / 2;
-        const northY = startY - eaveNorth - 10;
-        ctx.fillText(northText, northX, northY);
-        
-        // 北軒の出クリック可能エリア
-        const northTextMetrics = ctx.measureText(northText);
-        const northTextWidth = northTextMetrics.width;
-        const northTextHeight = northTextMetrics.actualBoundingBoxAscent + northTextMetrics.actualBoundingBoxDescent;
-        newDimensionAreas.push({
-          type: 'eave',
-          direction: 'north',
-          x: northX - northTextWidth / 2,
-          y: northY - northTextMetrics.actualBoundingBoxAscent,
-          width: northTextWidth,
-          height: northTextHeight,
-          value: data.eaves.north
-        });
-      }
-      
-      if (data.eaves.south > 0) {
-        ctx.textAlign = 'center';
-        const southText = `軒 ${data.eaves.south.toFixed(1)}mm`;
-        const southX = startX + canvasBuildingWidth / 2;
-        const southY = startY + canvasBuildingHeight + eaveSouth + 25;
-        ctx.fillText(southText, southX, southY);
-        
-        // 南軒の出クリック可能エリア
-        const southTextMetrics = ctx.measureText(southText);
-        const southTextWidth = southTextMetrics.width;
-        const southTextHeight = southTextMetrics.actualBoundingBoxAscent + southTextMetrics.actualBoundingBoxDescent;
-        newDimensionAreas.push({
-          type: 'eave',
-          direction: 'south',
-          x: southX - southTextWidth / 2,
-          y: southY - southTextMetrics.actualBoundingBoxAscent,
-          width: southTextWidth,
-          height: southTextHeight,
-          value: data.eaves.south
-        });
-      }
-      
-      if (data.eaves.east > 0) {
-        const eastText = `軒 ${data.eaves.east.toFixed(1)}mm`;
-        const eastX = startX + canvasBuildingWidth + eaveEast + 15;
-        const eastY = startY + canvasBuildingHeight / 2;
-        
-        ctx.save();
-        ctx.translate(eastX, eastY);
-        ctx.rotate(-Math.PI / 2);
-        ctx.textAlign = 'center';
-        ctx.fillText(eastText, 0, 0);
-        ctx.restore();
-        
-        // 東軒の出クリック可能エリア（回転テキスト）
-        const eastTextMetrics = ctx.measureText(eastText);
-        const eastTextWidth = eastTextMetrics.width;
-        const eastTextHeight = eastTextMetrics.actualBoundingBoxAscent + eastTextMetrics.actualBoundingBoxDescent;
-        
-        // 回転したテキストの場合、幅と高さが入れ替わる
-        newDimensionAreas.push({
-          type: 'eave',
-          direction: 'east',
-          x: eastX - eastTextHeight / 2,
-          y: eastY - eastTextWidth / 2,
-          width: eastTextHeight,
-          height: eastTextWidth,
-          value: data.eaves.east
-        });
-      }
-      
-      if (data.eaves.west > 0) {
-        const westText = `軒 ${data.eaves.west.toFixed(1)}mm`;
-        const westX = startX - eaveWest - 15;
-        const westY = startY + canvasBuildingHeight / 2;
-        
-        ctx.save();
-        ctx.translate(westX, westY);
-        ctx.rotate(-Math.PI / 2);
-        ctx.textAlign = 'center';
-        ctx.fillText(westText, 0, 0);
-        ctx.restore();
-        
-        // 西軒の出クリック可能エリア（回転テキスト）
-        const westTextMetrics = ctx.measureText(westText);
-        const westTextWidth = westTextMetrics.width;
-        const westTextHeight = westTextMetrics.actualBoundingBoxAscent + westTextMetrics.actualBoundingBoxDescent;
-        
-        // 回転したテキストの場合、幅と高さが入れ替わる
-        newDimensionAreas.push({
-          type: 'eave',
-          direction: 'west',
-          x: westX - westTextHeight / 2,
-          y: westY - westTextWidth / 2,
-          width: westTextHeight,
-          height: westTextWidth,
-          value: data.eaves.west
-        });
-      }
-    }
-    
-    // 寸法エリアとドラッグハンドルをstateに保存
-    setDimensionAreas(newDimensionAreas);
-    setDragHandles(newDragHandles);
-  };
 
   const drawDimensionAreas = (ctx: CanvasRenderingContext2D) => {
     // 寸法エリアを半透明の赤で表示（デバッグ用）
@@ -1925,7 +1418,8 @@ export default function DrawingEditor({
     canvasWidth: number,
     canvasHeight: number,
     scale: number,
-    pan: { x: number; y: number }
+    pan: { x: number; y: number },
+    vertexHandlesOnly = false // 頂点ハンドルのみ描画するフラグ
   ) => {
     if (buildingVertices.length < 3) return;
 
@@ -1954,10 +1448,6 @@ export default function DrawingEditor({
     const currentFloorNumber = parseInt(activeFloorId.split('-')[1]) || 1;
     const colors = FLOOR_COLORS[currentFloorNumber] || FLOOR_COLORS[1];
 
-    // 建物ポリゴンを描画（ズーム対応、階層カラー適用、開口部対応）
-    ctx.lineWidth = 3;
-    ctx.fillStyle = colors.building + '33'; // 20%透明度
-
     // 建物頂点をズームに応じて変換
     const centerX = canvasWidth / 2;
     const centerY = canvasHeight / 2;
@@ -1968,42 +1458,49 @@ export default function DrawingEditor({
       y: centerY + (vertex.y - centerY) * scale + pan.y
     }));
 
-    // 塗りつぶしのみ先に描画（開口部は影響しない）
-    ctx.beginPath();
-    ctx.moveTo(scaledVertices[0].x, scaledVertices[0].y);
-    for (let i = 1; i < scaledVertices.length; i++) {
-      ctx.lineTo(scaledVertices[i].x, scaledVertices[i].y);
-    }
-    ctx.closePath();
-    ctx.fill();
+    // 頂点ハンドルのみモードでない場合は建物を描画
+    if (!vertexHandlesOnly) {
+      // 建物ポリゴンを描画（ズーム対応、階層カラー適用、開口部対応）
+      ctx.lineWidth = 3;
+      ctx.fillStyle = colors.building + '33'; // 20%透明度
 
-    // 各辺を個別に描画（開口部考慮）
-    ctx.strokeStyle = colors.building;
-    for (let i = 0; i < scaledVertices.length; i++) {
-      const current = scaledVertices[i];
-      const next = scaledVertices[(i + 1) % scaledVertices.length];
-      
-      // この辺の開口部を取得
-      const edgeOpenings = openings.filter(opening => opening.edgeIndex === i);
-      
-      if (edgeOpenings.length === 0) {
-        // 開口部がない場合は通常の実線
-        ctx.setLineDash([]);
-        ctx.beginPath();
-        ctx.moveTo(current.x, current.y);
-        ctx.lineTo(next.x, next.y);
-        ctx.stroke();
-      } else {
-        // 開口部がある場合は部分的に描画
-        drawEdgeWithOpenings(ctx, current, next, edgeOpenings);
+      // 塗りつぶしのみ先に描画（開口部は影響しない）
+      ctx.beginPath();
+      ctx.moveTo(scaledVertices[0].x, scaledVertices[0].y);
+      for (let i = 1; i < scaledVertices.length; i++) {
+        ctx.lineTo(scaledVertices[i].x, scaledVertices[i].y);
+      }
+      ctx.closePath();
+      ctx.fill();
+
+      // 各辺を個別に描画（開口部考慮）
+      ctx.strokeStyle = colors.building;
+      for (let i = 0; i < scaledVertices.length; i++) {
+        const current = scaledVertices[i];
+        const next = scaledVertices[(i + 1) % scaledVertices.length];
+        
+        // この辺の開口部を取得
+        const edgeOpenings = openings.filter(opening => opening.edgeIndex === i);
+        
+        if (edgeOpenings.length === 0) {
+          // 開口部がない場合は通常の実線
+          ctx.setLineDash([]);
+          ctx.beginPath();
+          ctx.moveTo(current.x, current.y);
+          ctx.lineTo(next.x, next.y);
+          ctx.stroke();
+        } else {
+          // 開口部がある場合は部分的に描画
+          drawEdgeWithOpenings(ctx, current, next, edgeOpenings);
+        }
       }
     }
 
     // 軒の出ポリゴンの頂点を保存する変数
     let eaveVertices: { x: number; y: number }[] = [];
 
-    // 辺ごとの個別距離に対応した軒の出生成（正確な平行オフセット）
-    if (edgeEaves.length > 0 && edgeEaves.some(edge => edge.distance > 0)) {
+    // 頂点ハンドルのみモードでない場合は軒の出を描画
+    if (!vertexHandlesOnly && edgeEaves.length > 0 && edgeEaves.some(edge => edge.distance > 0)) {
       try {
         // 各辺から平行オフセットした線分を計算
         const offsetLines: Array<{start: {x: number, y: number}, end: {x: number, y: number}}> = [];
@@ -2090,27 +1587,6 @@ export default function DrawingEditor({
       }
     }
     
-    // 建物の境界を計算する関数
-    function getBuildingBounds(vertices: BuildingVertex[]) {
-      if (vertices.length === 0) return { width: 0, height: 0 };
-      
-      let minX = vertices[0].x;
-      let maxX = vertices[0].x;
-      let minY = vertices[0].y;
-      let maxY = vertices[0].y;
-      
-      for (let i = 1; i < vertices.length; i++) {
-        minX = Math.min(minX, vertices[i].x);
-        maxX = Math.max(maxX, vertices[i].x);
-        minY = Math.min(minY, vertices[i].y);
-        maxY = Math.max(maxY, vertices[i].y);
-      }
-      
-      return {
-        width: maxX - minX,
-        height: maxY - minY
-      };
-    }
     
     // 線分の交点を計算する関数
     function getLineIntersection(
@@ -2137,8 +1613,10 @@ export default function DrawingEditor({
       };
     }
 
-    // 軒の出線上に寸法を表示（クリック可能）
-    edgeEaves.forEach((eave, index) => {
+    // 頂点ハンドルのみモードでない場合は寸法を描画
+    if (!vertexHandlesOnly) {
+      // 軒の出線上に寸法を表示（クリック可能）
+      edgeEaves.forEach((eave, index) => {
       if (index < scaledVertices.length) {
         const current = scaledVertices[index];
         const next = scaledVertices[(index + 1) % scaledVertices.length];
@@ -2167,10 +1645,10 @@ export default function DrawingEditor({
           ctx.fillStyle = colors.eaves;
           ctx.font = '12px Arial';
           ctx.textAlign = 'center';
-          ctx.fillText(`${eave.distance.toFixed(1)}mm`, eaveMidX, eaveMidY - 5);
+          ctx.fillText(`${(eave.distance || 0).toFixed(1)}mm`, eaveMidX, eaveMidY - 5);
           
           // クリック可能エリアを記録
-          const eaveTextMetrics = ctx.measureText(`${eave.distance.toFixed(1)}mm`);
+          const eaveTextMetrics = ctx.measureText(`${(eave.distance || 0).toFixed(1)}mm`);
           const eaveTextWidth = eaveTextMetrics.width;
           const eaveTextHeight = 16;
           newDimensionAreas.push({
@@ -2185,10 +1663,10 @@ export default function DrawingEditor({
           });
         }
       }
-    });
+      });
 
-    // 建物の辺上に寸法を表示（クリック可能）
-    buildingVertices.forEach((vertex, index) => {
+      // 建物の辺上に寸法を表示（クリック可能）
+      buildingVertices.forEach((vertex, index) => {
       const nextVertex = buildingVertices[(index + 1) % buildingVertices.length];
       
       // 辺の長さを計算（ズーム無関係の基準座標で計算）
@@ -2238,30 +1716,13 @@ export default function DrawingEditor({
           vertexIndex: index
         });
       }
-    });
+      });
 
-    // 頂点を描画（ズーム対応）
-    scaledVertices.forEach((vertex, index) => {
-      const radius = 8;
-      const isSelected = selectedVertexIndex === index;
-      
-      ctx.beginPath();
-      ctx.arc(vertex.x, vertex.y, radius, 0, 2 * Math.PI);
-      ctx.fillStyle = isSelected ? '#3b82f6' : '#ffffff';
-      ctx.fill();
-      ctx.strokeStyle = isSelected ? '#1e40af' : colors.vertex;
-      ctx.lineWidth = 2;
-      ctx.stroke();
+      // 開口部の寸法を描画（表示状態の開口部のみ）
+      drawOpeningDimensions(ctx, scaledVertices, colors, autoScale, newDimensionAreas);
 
-      // 頂点番号を表示
-      ctx.fillStyle = '#333333';
-      ctx.font = '12px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText((index + 1).toString(), vertex.x, vertex.y - 15);
-    });
-
-    // 辺の中点を描画（新しい頂点追加用） - ズーム対応
-    for (let i = 0; i < scaledVertices.length; i++) {
+      // 辺の中点を描画（新しい頂点追加用） - ズーム対応
+      for (let i = 0; i < scaledVertices.length; i++) {
       const current = scaledVertices[i];
       const next = scaledVertices[(i + 1) % scaledVertices.length];
       
@@ -2275,10 +1736,23 @@ export default function DrawingEditor({
       ctx.strokeStyle = '#059669';
       ctx.lineWidth = 1;
       ctx.stroke();
+      }
     }
 
-    // 開口部の寸法を描画（表示状態の開口部のみ）
-    drawOpeningDimensions(ctx, scaledVertices, colors, autoScale, newDimensionAreas);
+    // 頂点を描画（シンプルなデザイン）
+    scaledVertices.forEach((vertex, index) => {
+      const radius = 8;
+      const isSelected = selectedVertexIndex === index;
+      
+      // シンプルな円形ハンドル
+      ctx.beginPath();
+      ctx.arc(vertex.x, vertex.y, radius, 0, 2 * Math.PI);
+      ctx.fillStyle = isSelected ? '#3b82f6' : '#ffffff';
+      ctx.fill();
+      ctx.strokeStyle = isSelected ? '#1e40af' : '#64748b';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    });
 
     setDimensionAreas(newDimensionAreas);
     setDragHandles(newDragHandles);
@@ -2338,7 +1812,7 @@ export default function DrawingEditor({
       // 頂点のホバー検出（ズーム対応）
       const hoveredVertexIndex = scaledVertices.findIndex(vertex => {
         const distance = Math.sqrt(Math.pow(mouseX - vertex.x, 2) + Math.pow(mouseY - vertex.y, 2));
-        return distance <= 8;
+        return distance <= 15; // 頂点サイズと合わせて調整
       });
 
       // 辺の中点のホバー検出（ズーム対応）
@@ -2443,7 +1917,7 @@ export default function DrawingEditor({
       // 頂点クリック判定（ズーム対応）
       const clickedVertexIndex = scaledVertices.findIndex(vertex => {
         const distance = Math.sqrt(Math.pow(mouseX - vertex.x, 2) + Math.pow(mouseY - vertex.y, 2));
-        return distance <= 8;
+        return distance <= 15; // 頂点サイズと合わせて調整
       });
 
       if (clickedVertexIndex !== -1) {
@@ -2475,7 +1949,7 @@ export default function DrawingEditor({
     }
   };
 
-  const handleCanvasMouseUp = (event: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleCanvasMouseUp = (_event: React.MouseEvent<HTMLCanvasElement>) => {
     console.log('Mouse up:', { isDragging, isPanning });
     
     if (isDragging) {
@@ -2976,7 +2450,7 @@ export default function DrawingEditor({
                   {edgeEaves.map((eave, index) => (
                     <div key={index} className="space-y-2">
                       <label className="text-xs font-medium text-slate-600 dark:text-slate-300">
-                        辺 {index + 1} の軒の出 ({eave.distance.toFixed(1)}mm)
+                        辺 {index + 1} の軒の出 ({(eave.distance || 0).toFixed(1)}mm)
                       </label>
                       <div className="space-y-2">
                         <input
@@ -2994,7 +2468,7 @@ export default function DrawingEditor({
                             min="0"
                             max="2000"
                             step="0.1"
-                            value={eave.distance.toFixed(1)}
+                            value={(eave.distance || 0).toFixed(1)}
                             onChange={(e) => updateEdgeEaveDistance(index, parseFloat(e.target.value) || 0)}
                             className="w-20 px-2 py-1 text-xs border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"
                           />
@@ -3097,7 +2571,7 @@ export default function DrawingEditor({
                         作成済み開口部 ({openings.length}個)
                       </label>
                       <div className="space-y-1">
-                        {openings.map((opening, index) => (
+                        {openings.map((opening, _index) => (
                           <div key={opening.id} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-800 rounded text-xs">
                             <span className="text-slate-700 dark:text-slate-300">
                               辺{opening.edgeIndex + 1} - {opening.width}mm {getOpeningTypeName(opening.type)}

@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { useCalculatorStore, MobileScaffoldInputData } from '../../lib/stores/calculatorStore';
+import { useCalculatorStore } from '../../lib/stores/calculatorStore';
+import { InputData } from '../../lib/calculator/mobile-engine';
 import { Building2, ArrowRight, Ruler, Settings, Wrench, MapPin, Target, Edit3 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/Select';
 
@@ -10,7 +11,7 @@ export default function CalculatorForm() {
   const { inputData, updateInput, calculate, isCalculating, error } = useCalculatorStore();
   const router = useRouter();
 
-  const handleInputChange = (data: Partial<MobileScaffoldInputData>) => {
+  const handleInputChange = (data: Partial<InputData>) => {
     updateInput(data);
   };
 
@@ -19,24 +20,58 @@ export default function CalculatorForm() {
     await calculate();
   };
 
-  const handleGoToDrawingEditor = () => {
-    // 入力データをセッションストレージに保存
-    sessionStorage.setItem('drawingData', JSON.stringify({
-      building: {
-        width: inputData.frameWidth.eastWest,
-        height: inputData.frameWidth.northSouth,
-      },
-      eaves: {
-        north: inputData.eaveOverhang.north,
-        east: inputData.eaveOverhang.east,
-        south: inputData.eaveOverhang.south,
-        west: inputData.eaveOverhang.west,
-      },
-      timestamp: Date.now(),
-    }));
-    
-    // 作図エディタページへナビゲート
-    router.push('/draw');
+  const handleGoToDrawingEditor = async () => {
+    try {
+      console.log('足場ライン自動作図を開始');
+      
+      // まず計算を実行
+      await calculate();
+      
+      // 計算結果を取得
+      const { result } = useCalculatorStore.getState();
+      console.log('計算結果:', result);
+      
+      if (result) {
+        // 計算結果とinputDataをセッションストレージに保存（足場ライン生成用）
+        const scaffoldInputData = {
+          width_NS: inputData.frameWidth.northSouth,
+          width_EW: inputData.frameWidth.eastWest,
+          eaves_N: inputData.eaveOverhang.north,
+          eaves_E: inputData.eaveOverhang.east,
+          eaves_S: inputData.eaveOverhang.south,
+          eaves_W: inputData.eaveOverhang.west
+        };
+
+        console.log('セッションストレージに保存:', { result, scaffoldInputData });
+        sessionStorage.setItem('scaffoldCalculationResult', JSON.stringify(result));
+        sessionStorage.setItem('scaffoldInputData', JSON.stringify(scaffoldInputData));
+
+        // 足場ライン自動生成モードで作図エディタへ
+        router.push('/draw?auto=true');
+      } else {
+        console.log('計算結果がないため通常モードで遷移');
+        // 計算結果がない場合は通常の図面エディタ
+        sessionStorage.setItem('drawingData', JSON.stringify({
+          building: {
+            width: inputData.frameWidth.eastWest,
+            height: inputData.frameWidth.northSouth,
+          },
+          eaves: {
+            north: inputData.eaveOverhang.north,
+            east: inputData.eaveOverhang.east,
+            south: inputData.eaveOverhang.south,
+            west: inputData.eaveOverhang.west,
+          },
+          timestamp: Date.now(),
+        }));
+        
+        router.push('/draw');
+      }
+    } catch (error) {
+      console.error('エラー:', error);
+      // エラー時は通常モードで遷移
+      router.push('/draw');
+    }
   };
 
   return (
@@ -60,11 +95,11 @@ export default function CalculatorForm() {
             <div className="relative">
               <input
                 type="number"
-                value={inputData.frameWidth.northSouth}
+                value={inputData.frameWidth.northSouth || ''}
                 onChange={(e) => handleInputChange({
                   frameWidth: {
                     ...inputData.frameWidth,
-                    northSouth: parseInt(e.target.value) || 0
+                    northSouth: e.target.value ? parseInt(e.target.value) : null
                   }
                 })}
                 placeholder="例: 1000"
@@ -78,11 +113,11 @@ export default function CalculatorForm() {
             <div className="relative">
               <input
                 type="number"
-                value={inputData.frameWidth.eastWest}
+                value={inputData.frameWidth.eastWest || ''}
                 onChange={(e) => handleInputChange({
                   frameWidth: {
                     ...inputData.frameWidth,
-                    eastWest: parseInt(e.target.value) || 0
+                    eastWest: e.target.value ? parseInt(e.target.value) : null
                   }
                 })}
                 placeholder="例: 1000"
@@ -106,11 +141,11 @@ export default function CalculatorForm() {
             <div className="relative">
               <input
                 type="number"
-                value={inputData.eaveOverhang.north}
+                value={inputData.eaveOverhang.north || ''}
                 onChange={(e) => handleInputChange({
                   eaveOverhang: {
                     ...inputData.eaveOverhang,
-                    north: parseInt(e.target.value) || 0
+                    north: e.target.value ? parseInt(e.target.value) : null
                   }
                 })}
                 placeholder="0"
@@ -124,11 +159,11 @@ export default function CalculatorForm() {
             <div className="relative">
               <input
                 type="number"
-                value={inputData.eaveOverhang.east}
+                value={inputData.eaveOverhang.east || ''}
                 onChange={(e) => handleInputChange({
                   eaveOverhang: {
                     ...inputData.eaveOverhang,
-                    east: parseInt(e.target.value) || 0
+                    east: e.target.value ? parseInt(e.target.value) : null
                   }
                 })}
                 placeholder="0"
@@ -142,11 +177,11 @@ export default function CalculatorForm() {
             <div className="relative">
               <input
                 type="number"
-                value={inputData.eaveOverhang.south}
+                value={inputData.eaveOverhang.south || ''}
                 onChange={(e) => handleInputChange({
                   eaveOverhang: {
                     ...inputData.eaveOverhang,
-                    south: parseInt(e.target.value) || 0
+                    south: e.target.value ? parseInt(e.target.value) : null
                   }
                 })}
                 placeholder="0"
@@ -160,11 +195,11 @@ export default function CalculatorForm() {
             <div className="relative">
               <input
                 type="number"
-                value={inputData.eaveOverhang.west}
+                value={inputData.eaveOverhang.west || ''}
                 onChange={(e) => handleInputChange({
                   eaveOverhang: {
                     ...inputData.eaveOverhang,
-                    west: parseInt(e.target.value) || 0
+                    west: e.target.value ? parseInt(e.target.value) : null
                   }
                 })}
                 placeholder="0"
@@ -197,7 +232,7 @@ export default function CalculatorForm() {
                         [direction]: e.target.checked
                       },
                       propertyLineDistance: {
-                        ...inputData.propertyLineDistance,
+                        ...(inputData.propertyLineDistance || {}),
                         [direction]: e.target.checked ? 0 : null
                       }
                     })}
@@ -228,8 +263,8 @@ export default function CalculatorForm() {
                         value={inputData.propertyLineDistance[direction] || ''}
                         onChange={(e) => handleInputChange({
                           propertyLineDistance: {
-                            ...inputData.propertyLineDistance,
-                            [direction]: parseInt(e.target.value) || 0
+                            ...(inputData.propertyLineDistance || {}),
+                            [direction]: e.target.value ? parseInt(e.target.value) : null
                           }
                         })}
                         placeholder="距離"
@@ -257,9 +292,9 @@ export default function CalculatorForm() {
             <div className="relative">
               <input
                 type="number"
-                value={inputData.referenceHeight}
+                value={inputData.referenceHeight || ''}
                 onChange={(e) => handleInputChange({
-                  referenceHeight: parseInt(e.target.value) || 0
+                  referenceHeight: e.target.value ? parseInt(e.target.value) : null
                 })}
                 placeholder="2400"
                 className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
@@ -356,9 +391,9 @@ export default function CalculatorForm() {
             <div className="relative">
               <input
                 type="number"
-                value={inputData.eavesHandrails}
+                value={inputData.eavesHandrails || ''}
                 onChange={(e) => handleInputChange({
-                  eavesHandrails: parseInt(e.target.value) || 0
+                  eavesHandrails: e.target.value ? parseInt(e.target.value) : null
                 })}
                 placeholder="0"
                 className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
@@ -383,13 +418,13 @@ export default function CalculatorForm() {
             <div>
               <label className="block text-sm font-medium mb-2">355mm</label>
               <Select
-                value={inputData.specialMaterial.northSouth.material355.toString()}
+                value={(inputData.specialMaterial.northSouth.material355 || 0).toString()}
                 onValueChange={(value) => handleInputChange({
                   specialMaterial: {
                     ...inputData.specialMaterial,
                     northSouth: {
                       ...inputData.specialMaterial.northSouth,
-                      material355: parseInt(value)
+                      material355: parseInt(value) || null
                     }
                   }
                 })}
@@ -407,13 +442,13 @@ export default function CalculatorForm() {
             <div>
               <label className="block text-sm font-medium mb-2">300mm</label>
               <Select
-                value={inputData.specialMaterial.northSouth.material300.toString()}
+                value={(inputData.specialMaterial.northSouth.material300 || 0).toString()}
                 onValueChange={(value) => handleInputChange({
                   specialMaterial: {
                     ...inputData.specialMaterial,
                     northSouth: {
                       ...inputData.specialMaterial.northSouth,
-                      material300: parseInt(value)
+                      material300: parseInt(value) || null
                     }
                   }
                 })}
@@ -431,13 +466,13 @@ export default function CalculatorForm() {
             <div>
               <label className="block text-sm font-medium mb-2">150mm</label>
               <Select
-                value={inputData.specialMaterial.northSouth.material150.toString()}
+                value={(inputData.specialMaterial.northSouth.material150 || 0).toString()}
                 onValueChange={(value) => handleInputChange({
                   specialMaterial: {
                     ...inputData.specialMaterial,
                     northSouth: {
                       ...inputData.specialMaterial.northSouth,
-                      material150: parseInt(value)
+                      material150: parseInt(value) || null
                     }
                   }
                 })}
@@ -462,13 +497,13 @@ export default function CalculatorForm() {
             <div>
               <label className="block text-sm font-medium mb-2">355mm</label>
               <Select
-                value={inputData.specialMaterial.eastWest.material355.toString()}
+                value={(inputData.specialMaterial.eastWest.material355 || 0).toString()}
                 onValueChange={(value) => handleInputChange({
                   specialMaterial: {
                     ...inputData.specialMaterial,
                     eastWest: {
                       ...inputData.specialMaterial.eastWest,
-                      material355: parseInt(value)
+                      material355: parseInt(value) || null
                     }
                   }
                 })}
@@ -486,13 +521,13 @@ export default function CalculatorForm() {
             <div>
               <label className="block text-sm font-medium mb-2">300mm</label>
               <Select
-                value={inputData.specialMaterial.eastWest.material300.toString()}
+                value={(inputData.specialMaterial.eastWest.material300 || 0).toString()}
                 onValueChange={(value) => handleInputChange({
                   specialMaterial: {
                     ...inputData.specialMaterial,
                     eastWest: {
                       ...inputData.specialMaterial.eastWest,
-                      material300: parseInt(value)
+                      material300: parseInt(value) || null
                     }
                   }
                 })}
@@ -510,13 +545,13 @@ export default function CalculatorForm() {
             <div>
               <label className="block text-sm font-medium mb-2">150mm</label>
               <Select
-                value={inputData.specialMaterial.eastWest.material150.toString()}
+                value={(inputData.specialMaterial.eastWest.material150 || 0).toString()}
                 onValueChange={(value) => handleInputChange({
                   specialMaterial: {
                     ...inputData.specialMaterial,
                     eastWest: {
                       ...inputData.specialMaterial.eastWest,
-                      material150: parseInt(value)
+                      material150: parseInt(value) || null
                     }
                   }
                 })}
@@ -559,7 +594,7 @@ export default function CalculatorForm() {
                         ...inputData.targetOffset,
                         [direction]: {
                           enabled: e.target.checked,
-                          value: e.target.checked ? 0 : null
+                          value: e.target.checked ? null : null
                         }
                       }
                     })}
@@ -572,17 +607,17 @@ export default function CalculatorForm() {
                   <div className="relative">
                     <input
                       type="number"
-                      value={inputData.targetOffset[direction].value || ''}
+                      value={inputData.targetOffset[direction].value !== null ? String(inputData.targetOffset[direction].value) : ''}
                       onChange={(e) => handleInputChange({
                         targetOffset: {
                           ...inputData.targetOffset,
                           [direction]: {
                             enabled: true,
-                            value: parseInt(e.target.value) || 0
+                            value: e.target.value === '' ? null : Number(e.target.value)
                           }
                         }
                       })}
-                      placeholder="目標離れ"
+                      placeholder="900"
                       className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">mm</span>
@@ -602,7 +637,7 @@ export default function CalculatorForm() {
           className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-emerald-500 text-white rounded-xl font-medium shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
         >
           <Edit3 className="w-4 h-4" />
-          <span>作図エディタへ</span>
+          <span>足場ライン自動作図</span>
         </button>
         
         <button

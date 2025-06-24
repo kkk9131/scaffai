@@ -55,6 +55,7 @@ export function calculateFaceDimensions(
   
   if (debugPrints) {
     console.log(`[DEBUG ${faceName}] Target margins: L=${targetMarginLeftVal} -> effective: ${effectiveTargetMarginLeft}, R=${targetMarginRightVal} -> effective: ${effectiveTargetMarginRight}`);
+    console.log(`[DEBUG ${faceName}] Individual targets enabled: L=${targetMarginLeftVal !== null}, R=${targetMarginRightVal !== null}`);
   }
   
   // 1. ユーザー指定の必須特殊部材リストを作成
@@ -81,7 +82,7 @@ export function calculateFaceDimensions(
     boundaryRightVal,
     effectiveTargetMarginLeft,
     effectiveTargetMarginRight,
-    debugPrints
+    true  // デバッグ強制有効
   );
   
   if (debugPrints) {
@@ -98,7 +99,7 @@ export function calculateFaceDimensions(
     effectiveTargetMarginRight,
     eavesLeftVal,
     eavesRightVal,
-    debugPrints
+    true  // デバッグ強制有効
   );
   
   if (debugPrints) {
@@ -373,6 +374,14 @@ export function calculateFaceDimensions(
         spanPartsText = `${spanPartsText}, ${correctionPartVal}${suffixStr}`;
       }
     }
+  }
+  
+  // 🔍 重要：100mm誤差チェック - 常に表示
+  const calculatedSum = widthVal + originalLeftMargin + originalRightMargin;
+  if (calculatedSum !== totalVal) {
+    console.error(`❌ [${faceName}] 数学エラー: ${widthVal} + ${originalLeftMargin} + ${originalRightMargin} = ${calculatedSum} ≠ ${totalVal} (差: ${totalVal - calculatedSum}mm)`);
+  } else {
+    console.log(`✅ [${faceName}] 数学OK: ${widthVal} + ${originalLeftMargin} + ${originalRightMargin} = ${calculatedSum}`);
   }
   
   if (debugPrints) {
