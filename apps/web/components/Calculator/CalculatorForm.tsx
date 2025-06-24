@@ -8,7 +8,7 @@ import { Building2, ArrowRight, Ruler, Settings, Wrench, MapPin, Target, Edit3 }
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/Select';
 
 export default function CalculatorForm() {
-  const { inputData, updateInput, calculate, isCalculating, error } = useCalculatorStore();
+  const { inputData, updateInput, calculate, isCalculating, error, validationErrors, validateInput, reset } = useCalculatorStore();
   const router = useRouter();
 
   const handleInputChange = (data: Partial<InputData>) => {
@@ -18,6 +18,19 @@ export default function CalculatorForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await calculate();
+  };
+
+  // エラーメッセージを取得するヘルパー関数
+  const getFieldError = (fieldPath: string): string | undefined => {
+    return validationErrors?.[fieldPath];
+  };
+
+  // エラー表示用コンポーネント
+  const FieldError = ({ message }: { message?: string }) => {
+    if (!message) return null;
+    return (
+      <p className="text-red-500 text-sm mt-1">{message}</p>
+    );
   };
 
   const handleGoToDrawingEditor = async () => {
@@ -103,10 +116,15 @@ export default function CalculatorForm() {
                   }
                 })}
                 placeholder="例: 1000"
-                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                className={`w-full px-4 py-2 rounded-lg border bg-white dark:bg-slate-800 ${
+                  getFieldError('frameWidth.northSouth') 
+                    ? 'border-red-500 dark:border-red-400' 
+                    : 'border-slate-200 dark:border-slate-700'
+                }`}
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">mm</span>
             </div>
+            <FieldError message={getFieldError('frameWidth.northSouth')} />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">東西</label>
@@ -121,10 +139,15 @@ export default function CalculatorForm() {
                   }
                 })}
                 placeholder="例: 1000"
-                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                className={`w-full px-4 py-2 rounded-lg border bg-white dark:bg-slate-800 ${
+                  getFieldError('frameWidth.eastWest') 
+                    ? 'border-red-500 dark:border-red-400' 
+                    : 'border-slate-200 dark:border-slate-700'
+                }`}
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">mm</span>
             </div>
+            <FieldError message={getFieldError('frameWidth.eastWest')} />
           </div>
         </div>
       </section>
@@ -297,10 +320,15 @@ export default function CalculatorForm() {
                   referenceHeight: e.target.value ? parseInt(e.target.value) : null
                 })}
                 placeholder="2400"
-                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                className={`w-full px-4 py-2 rounded-lg border bg-white dark:bg-slate-800 ${
+                  getFieldError('referenceHeight') 
+                    ? 'border-red-500 dark:border-red-400' 
+                    : 'border-slate-200 dark:border-slate-700'
+                }`}
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">mm</span>
             </div>
+            <FieldError message={getFieldError('referenceHeight')} />
           </div>
 
           {/* 屋根形状 */}
@@ -396,10 +424,15 @@ export default function CalculatorForm() {
                   eavesHandrails: e.target.value ? parseInt(e.target.value) : null
                 })}
                 placeholder="0"
-                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
+                className={`w-full px-4 py-2 rounded-lg border bg-white dark:bg-slate-800 ${
+                  getFieldError('eavesHandrails') 
+                    ? 'border-red-500 dark:border-red-400' 
+                    : 'border-slate-200 dark:border-slate-700'
+                }`}
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">本</span>
             </div>
+            <FieldError message={getFieldError('eavesHandrails')} />
           </div>
         </div>
       </section>
@@ -429,7 +462,7 @@ export default function CalculatorForm() {
                   }
                 })}
               >
-                <SelectTrigger>
+                <SelectTrigger className={getFieldError('specialMaterial.northSouth.material355') ? 'border-red-500' : ''}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -438,6 +471,7 @@ export default function CalculatorForm() {
                   <SelectItem value="2">2本</SelectItem>
                 </SelectContent>
               </Select>
+              <FieldError message={getFieldError('specialMaterial.northSouth.material355')} />
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">300mm</label>
@@ -631,6 +665,14 @@ export default function CalculatorForm() {
 
       {/* ボタンエリア */}
       <div className="flex flex-col sm:flex-row gap-4 justify-end pt-4">
+        <button
+          type="button"
+          onClick={reset}
+          className="flex items-center justify-center gap-2 px-6 py-3 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-xl font-medium transition-all duration-200"
+        >
+          <span>リセット</span>
+        </button>
+        
         <button
           type="button"
           onClick={handleGoToDrawingEditor}

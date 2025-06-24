@@ -33,6 +33,22 @@ export type {
   ScaffoldCalculationResult,
 } from './calculator/types';
 
+// 共通型定義とバリデーション
+export type { 
+  MobileScaffoldInputData,
+} from './types/scaffold';
+export { 
+  convertMobileToEngine,
+  defaultMobileScaffoldInputData,
+  roofShapeMapping 
+} from './types/scaffold';
+
+export { 
+  validateMobileScaffoldInput,
+  mobileScaffoldInputSchema,
+  validationMessages 
+} from './validation';
+
 // Utilities
 export {
   formatCurrency,

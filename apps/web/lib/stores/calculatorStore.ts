@@ -8,6 +8,10 @@ import {
   type ScaffoldCalculationResult,
   defaultInputData
 } from '../calculator/mobile-engine';
+import { validateMobileScaffoldInput } from '../validation';
+
+// Re-export types for external use
+export type { InputData as MobileScaffoldInputData, CalculationResult as ScaffoldCalculationResult };
 
 interface CalculatorState {
   // 入力データ
@@ -19,11 +23,13 @@ interface CalculatorState {
   // UI状態
   isCalculating: boolean;
   error: string | null;
+  validationErrors: Record<string, string> | null;
   
   // アクション
   updateInput: (data: Partial<InputData>) => void;
   calculate: () => Promise<void>;
   reset: () => void;
+  validateInput: () => boolean;
 }
 
 // デフォルト値を使用（モバイル版と完全一致）
@@ -33,16 +39,37 @@ export const useCalculatorStore = create<CalculatorState>((set, get) => ({
   result: null,
   isCalculating: false,
   error: null,
+  validationErrors: null,
   
   updateInput: (data) => set((state) => ({
     inputData: { ...state.inputData, ...data },
     error: null, // 入力変更時にエラーをクリア
+    validationErrors: null, // バリデーションエラーもクリア
   })),
   
-  calculate: async () => {
+  validateInput: () => {
     const { inputData } = get();
+    const validation = validateMobileScaffoldInput(inputData);
     
-    set({ isCalculating: true, error: null });
+    if (!validation.success) {
+      set({ validationErrors: validation.errors });
+      return false;
+    }
+    
+    set({ validationErrors: null });
+    return true;
+  },
+  
+  calculate: async () => {
+    const { inputData, validateInput } = get();
+    
+    // まずバリデーションを実行
+    if (!validateInput()) {
+      set({ error: '入力値に誤りがあります。エラーを修正してください。' });
+      return;
+    }
+    
+    set({ isCalculating: true, error: null, validationErrors: null });
     
     try {
       console.log('🔍 [DEBUG] 入力データ (Original Input):', JSON.stringify(inputData, null, 2));
@@ -68,6 +95,7 @@ export const useCalculatorStore = create<CalculatorState>((set, get) => ({
     inputData: defaultInputData,
     result: null,
     error: null,
+    validationErrors: null,
     isCalculating: false,
   }),
 }));
