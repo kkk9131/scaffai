@@ -1,21 +1,54 @@
 'use client';
 
-import { useState } from 'react';
-import { Building2, ArrowRight, Eye, EyeOff, ChevronLeft } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Building2, ArrowRight, Eye, EyeOff, ChevronLeft, AlertCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Login() {
   const router = useRouter();
+  const { signIn, loading, error, clearError, user } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showDemoInfo, setShowDemoInfo] = useState(true);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // 既にログインしている場合はダッシュボードにリダイレクト
+  useEffect(() => {
+    if (user) {
+      router.push('/dashboard');
+    }
+  }, [user, router]);
+
+  // エラーメッセージが変更されたときに自動で非表示にする
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => {
+        clearError();
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error, clearError]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, you would validate and authenticate here
-    router.push('/dashboard');
+    
+    if (!email || !password) {
+      return;
+    }
+
+    const { error } = await signIn(email, password);
+    
+    if (!error) {
+      // ログイン成功時は認証コンテキストが自動でリダイレクトする
+      router.push('/dashboard');
+    }
+  };
+
+  const handleDemoLogin = () => {
+    setEmail('demo@scaffai.com');
+    setPassword('demo123');
   };
 
   return (
@@ -37,6 +70,22 @@ export default function Login() {
           <p className="text-sm text-slate-400 text-center">足場設計プラットフォームにアクセス</p>
         </div>
         
+        {/* Error Message */}
+        {error && (
+          <div className="mb-4 p-4 bg-red-900/30 border border-red-700/50 rounded-lg flex items-center gap-3 text-red-300">
+            <AlertCircle size={20} className="flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm">{error}</p>
+            </div>
+            <button
+              onClick={clearError}
+              className="text-red-400 hover:text-red-300 text-xs"
+            >
+              ×
+            </button>
+          </div>
+        )}
+        
         {/* Demo Account Info */}
         {showDemoInfo && (
           <div className="mb-6 p-4 bg-slate-700/50 rounded-lg border border-slate-600/50 text-sm text-slate-300">
@@ -53,6 +102,12 @@ export default function Login() {
               <p>Email: demo@scaffai.com</p>
               <p>Password: demo123</p>
             </div>
+            <button
+              onClick={handleDemoLogin}
+              className="mt-2 text-xs text-blue-400 hover:text-blue-300 underline"
+            >
+              デモアカウントで入力
+            </button>
           </div>
         )}
         
@@ -99,9 +154,19 @@ export default function Login() {
           
           <button
             type="submit"
-            className="w-full flex items-center justify-center gap-2 mt-6 px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-800"
+            disabled={loading || !email || !password}
+            className="w-full flex items-center justify-center gap-2 mt-6 px-4 py-3 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-800"
           >
-            ログイン <ArrowRight size={16} />
+            {loading ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                ログイン中...
+              </>
+            ) : (
+              <>
+                ログイン <ArrowRight size={16} />
+              </>
+            )}
           </button>
         </form>
         

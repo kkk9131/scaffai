@@ -18,6 +18,8 @@ build/
 *.tsbuildinfo
 
 # Environment variables
+.env*
+!.env.example
 .env
 .env.local
 .env.development.local
@@ -25,7 +27,8 @@ build/
 .env.production.local
 
 # IDE and editors
-.vscode/
+.vscode/settings.json
+.vscode/launch.json
 .idea/
 *.swp
 *.swo
@@ -70,16 +73,24 @@ web-build/
 *.temp
 .tmp/
 .temp/
+.cache/
 
 # Coverage reports
 coverage/
 *.lcov
 
+# Testing
+.nyc_output/
+test-results/
+playwright-report/
+
+# Security
+*.pem
+*.cert
+
 # Claude
 .claude/
 
-# docs
-/docs/
 
 # YoYo AI version control directory
 .yoyo/

@@ -1,6 +1,8 @@
 'use client';
 
 import { ThemeProvider } from '../../contexts/ThemeContext';
+import { RequireAuth } from '../../components/ProtectedRoute';
+import { PlatformAccessGuard } from '../../components/PlatformAccessGuard';
 import Sidebar from '../../components/layout/Sidebar';
 import CalculatorForm from '../../components/Calculator/CalculatorForm';
 import DrawingCanvas from '../../components/DrawingCanvas/DrawingCanvas';
@@ -10,10 +12,12 @@ export default function CalculatorPage() {
   const { result, inputData } = useCalculatorStore();
 
   return (
-    <ThemeProvider>
-      <div className="flex h-screen">
-        <Sidebar />
-        <div className="flex-1 overflow-auto">
+    <RequireAuth>
+      <PlatformAccessGuard>
+        <ThemeProvider>
+          <div className="flex h-screen">
+          <Sidebar />
+          <div className="flex-1 overflow-auto">
           <main className="flex-1 overflow-hidden">
             <div className="h-full overflow-auto">
               <div className="max-w-3xl mx-auto p-6 md:p-8 space-y-6">
@@ -145,5 +149,7 @@ export default function CalculatorPage() {
         </div>
       </div>
     </ThemeProvider>
+      </PlatformAccessGuard>
+    </RequireAuth>
   );
 }
