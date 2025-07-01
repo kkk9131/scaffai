@@ -7,6 +7,7 @@ import { HistoryStorage, CalculationStatsStorage } from '../utils/storage';
 import { CalculationHistory } from '../types/history';
 import { supabase } from '../lib/supabase';
 import { useAuthContext } from './AuthContext';
+import { UsageManager } from '../utils/usageManager';
 
 // roofShapeのマッピング
 const roofShapeMapping = {
@@ -248,6 +249,7 @@ type ScaffoldContextType = {
   saveToLocal: (title?: string) => Promise<void>; // ローカル保存専用
   saveToCloud: (title?: string) => Promise<void>; // クラウド保存専用
   saveCalculationToHistory: (title?: string) => Promise<void>; // 後方互換性のため追加
+  checkUsageLimit: (actionType: 'calculations' | 'quickAllocations') => Promise<boolean>; // 使用制限チェック追加
 };
 
 // コンテキスト作成
@@ -738,6 +740,16 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [calculationResult, inputData, user]);
 
+  // 使用制限チェック関数を追加
+  const checkUsageLimit = useCallback(async (actionType: 'calculations' | 'quickAllocations') => {
+    try {
+      return await UsageManager.canUseFeature(actionType);
+    } catch (error) {
+      console.error('Usage limit check failed:', error);
+      return false;
+    }
+  }, []);
+
   return (
     <ScaffoldContext.Provider
       value={{
@@ -756,6 +768,7 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
         saveToLocal,
         saveToCloud,
         saveCalculationToHistory,
+        checkUsageLimit,
       }}
     >
       {children}

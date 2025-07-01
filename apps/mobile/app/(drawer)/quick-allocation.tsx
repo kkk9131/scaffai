@@ -105,10 +105,25 @@ export default function QuickAllocation() {
     console.log('=== 簡易割付計算開始 ===');
     
     // 使用制限チェック
-    const canCalculate = await checkUsageLimit('quickAllocations');
-    if (!canCalculate) {
-      console.log('❌ Quick allocation blocked by usage limit');
-      return;
+    try {
+      const canCalculate = await checkUsageLimit('quickAllocations');
+      if (!canCalculate) {
+        console.log('❌ Quick allocation blocked by usage limit');
+        Alert.alert(
+          '使用制限に達しました',
+          '今月の簡易割付計算の使用回数に達しました。\n\nPlusプラン以上にアップグレードすると無制限でご利用いただけます。',
+          [
+            { text: 'キャンセル', style: 'cancel' },
+            { text: 'プラン確認', onPress: () => {
+              router.push('/(drawer)/plan-management');
+            }}
+          ]
+        );
+        return;
+      }
+    } catch (error) {
+      console.error('Usage limit check failed:', error);
+      // エラーが発生した場合は計算を続行（制限チェックの失敗で機能が使えなくなることを防ぐ）
     }
     
     // バリデーション
@@ -214,23 +229,6 @@ export default function QuickAllocation() {
 
   // 電卓モード切り替え関数
   const toggleCalculatorMode = async () => {
-    if (!isCalculatorMode) {
-      // 電卓モードに切り替える前に権限チェック
-      const canUse = await UsageManager.canUseFeature('hasCalculatorFunction');
-      if (!canUse) {
-        Alert.alert(
-          '電卓機能は利用できません',
-          'Freeプランでは電卓機能をご利用いただけません。\n\nPlusプラン以上にアップグレードしてご利用ください。',
-          [
-            { text: 'キャンセル', style: 'cancel' },
-            { text: 'プラン確認', onPress: () => {
-              router.push('/(drawer)/plan-management');
-            }}
-          ]
-        );
-        return;
-      }
-    }
     setIsCalculatorMode(!isCalculatorMode);
   };
 
