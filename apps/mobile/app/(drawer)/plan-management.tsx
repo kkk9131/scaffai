@@ -84,6 +84,7 @@ export default function PlanManagement() {
   const { colors } = useTheme();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<UserPlan>('free');
   const [showComparisonModal, setShowComparisonModal] = useState(false);
 
   // Get contexts directly (this is the proper way to use hooks)
@@ -101,6 +102,9 @@ export default function PlanManagement() {
     try {
       console.log('🔧 [PlanManagement] Initializing contexts...');
       console.log('🔧 [PlanManagement] Current user plan:', userPlan);
+      if (userPlan) {
+        setSelectedPlan(userPlan);
+      }
       setIsLoading(false);
     } catch (err) {
       console.error('❌ [PlanManagement] Context initialization error:', err);
@@ -145,6 +149,7 @@ export default function PlanManagement() {
             onPress: async () => {
               try {
                 await upgradePlan(newPlan);
+                setSelectedPlan(newPlan);
                 Alert.alert(
                   'アップグレード完了',
                   `${planDetails[newPlan].name}プランにアップグレードしました！\n\n新しい機能をお楽しみください。`
@@ -213,44 +218,44 @@ export default function PlanManagement() {
     </View>
   );
 
-  const CurrentPlanSection = () => (
+    const CurrentPlanSection = () => (
     <View style={[styles.section, dynamicStyles.section]}>
       <Text style={[styles.sectionTitle, dynamicStyles.text]}>現在のプラン</Text>
       
-                      <View style={[
-          styles.currentPlanCard,
-          { borderColor: planDetails[userPlan].color }
-        ]}>
-          <View style={styles.planHeader}>
-            <View style={[
-              styles.planBadge,
-              { backgroundColor: planDetails[userPlan].color }
-            ]}>
-              <Text style={styles.planBadgeText}>{planDetails[userPlan].name}</Text>
-            </View>
-            <View style={styles.planPricing}>
-              <Text style={[styles.planPrice, dynamicStyles.text]}>
-                {planDetails[userPlan].price}
-              </Text>
-              <Text style={[styles.planPeriod, dynamicStyles.subText]}>
-                {planDetails[userPlan].period}
-              </Text>
-            </View>
+      <View style={[
+        styles.currentPlanCard,
+        { borderColor: planDetails[userPlan as keyof typeof planDetails].color }
+      ]}>
+        <View style={styles.planHeader}>
+          <View style={[
+            styles.planBadge,
+            { backgroundColor: planDetails[userPlan as keyof typeof planDetails].color }
+          ]}>
+            <Text style={styles.planBadgeText}>{planDetails[userPlan as keyof typeof planDetails].name}</Text>
           </View>
+          <View style={styles.planPricing}>
+            <Text style={[styles.planPrice, dynamicStyles.text]}>
+              {planDetails[userPlan as keyof typeof planDetails].price}
+            </Text>
+            <Text style={[styles.planPeriod, dynamicStyles.subText]}>
+              {planDetails[userPlan as keyof typeof planDetails].period}
+            </Text>
+          </View>
+        </View>
 
-          <View style={styles.planFeatures}>
-            {planDetails[userPlan].features.map((feature, index) => (
-              <View key={index} style={styles.featureItem}>
-                <Ionicons name="checkmark-circle" size={16} color={baseColors.success} />
-                <Text style={[styles.featureText, dynamicStyles.text]}>{feature}</Text>
-              </View>
-            ))}
-            
-            {planDetails[userPlan].limitations?.map((limitation, index) => (
-              <View key={index} style={styles.featureItem}>
-                <Ionicons name="close-circle" size={16} color={baseColors.error} />
-                <Text style={[styles.featureText, dynamicStyles.subText]}>{limitation}</Text>
-              </View>
+        <View style={styles.planFeatures}>
+          {planDetails[userPlan as keyof typeof planDetails].features.map((feature, index) => (
+            <View key={index} style={styles.featureItem}>
+              <Ionicons name="checkmark-circle" size={16} color={baseColors.success} />
+              <Text style={[styles.featureText, dynamicStyles.text]}>{feature}</Text>
+            </View>
+          ))}
+          
+          {planDetails[userPlan as keyof typeof planDetails].limitations?.map((limitation, index) => (
+            <View key={index} style={styles.featureItem}>
+              <Ionicons name="close-circle" size={16} color={baseColors.error} />
+              <Text style={[styles.featureText, dynamicStyles.subText]}>{limitation}</Text>
+            </View>
           ))}
         </View>
       </View>
@@ -264,7 +269,7 @@ export default function PlanManagement() {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.plansScroll}>
         {(Object.keys(planDetails) as UserPlan[]).map((plan) => {
           const details = planDetails[plan];
-          const isCurrentPlan = plan === selectedPlan;
+          const isCurrentPlan = plan === userPlan;
           
           return (
             <View 
@@ -407,15 +412,15 @@ export default function PlanManagement() {
           </TouchableOpacity>
           
           {/* 購入復元ボタン（RevenueCat設定時のみ表示） */}
-          {purchaseContext?.isConfigured && (
+          {isConfigured && (
             <TouchableOpacity
               style={[styles.actionButton, { backgroundColor: baseColors.secondary.main }]}
-              onPress={() => purchaseContext.restorePurchases()}
-              disabled={purchaseContext.isLoading}
+              onPress={() => restorePurchases()}
+              disabled={purchaseLoading}
             >
               <Ionicons name="refresh" size={20} color="#FFFFFF" />
               <Text style={styles.actionButtonText}>
-                {purchaseContext.isLoading ? '復元中...' : '購入を復元'}
+                {purchaseLoading ? '復元中...' : '購入を復元'}
               </Text>
             </TouchableOpacity>
           )}
@@ -424,12 +429,12 @@ export default function PlanManagement() {
           <View style={styles.statusContainer}>
             <View style={styles.statusItem}>
               <Ionicons 
-                name={purchaseContext?.isConfigured ? "checkmark-circle" : "alert-circle"} 
+                name={isConfigured ? "checkmark-circle" : "alert-circle"} 
                 size={16} 
-                color={purchaseContext?.isConfigured ? baseColors.success : baseColors.warning} 
+                color={isConfigured ? baseColors.success : baseColors.warning} 
               />
               <Text style={[styles.statusText, dynamicStyles.subText]}>
-                決済システム: {purchaseContext?.isConfigured ? '設定済み' : '開発モード'}
+                決済システム: {isConfigured ? '設定済み' : '開発モード'}
               </Text>
             </View>
           </View>
