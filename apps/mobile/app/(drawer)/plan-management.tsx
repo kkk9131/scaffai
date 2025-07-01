@@ -84,39 +84,30 @@ export default function PlanManagement() {
   const { colors } = useTheme();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPlan, setSelectedPlan] = useState<UserPlan>('free');
   const [showComparisonModal, setShowComparisonModal] = useState(false);
 
   // Get contexts directly (this is the proper way to use hooks)
-  const scaffoldContext = useScaffold();
-  const purchaseContext = usePurchase();
+  const { 
+    userPlan, 
+    remainingCalculations, 
+    remainingQuickAllocations,
+    upgradePlan
+  } = useScaffold();
+  
+  const { restorePurchases, isLoading: purchaseLoading, isConfigured } = usePurchase();
 
   // Initialize with error handling
   useEffect(() => {
     try {
       console.log('🔧 [PlanManagement] Initializing contexts...');
-      console.log('🔧 [PlanManagement] Scaffold context:', !!scaffoldContext);
-      console.log('🔧 [PlanManagement] Purchase context:', !!purchaseContext);
-      
-      if (scaffoldContext?.userPlan) {
-        setSelectedPlan(scaffoldContext.userPlan);
-        console.log('🔧 [PlanManagement] Current user plan:', scaffoldContext.userPlan);
-      }
-      
+      console.log('🔧 [PlanManagement] Current user plan:', userPlan);
       setIsLoading(false);
     } catch (err) {
       console.error('❌ [PlanManagement] Context initialization error:', err);
       setError(`Context initialization failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
       setIsLoading(false);
     }
-  }, [scaffoldContext?.userPlan]);
-
-  // Update selected plan when context changes
-  useEffect(() => {
-    if (scaffoldContext?.userPlan) {
-      setSelectedPlan(scaffoldContext.userPlan);
-    }
-  }, [scaffoldContext?.userPlan]);
+  }, [userPlan]);
 
   const dynamicStyles = StyleSheet.create({
     container: {
@@ -135,17 +126,17 @@ export default function PlanManagement() {
 
   const handlePlanUpgrade = async (newPlan: UserPlan) => {
     try {
-      if (!scaffoldContext?.upgradePlan) {
-        throw new Error('升级功能不可用');
+      if (!upgradePlan) {
+        throw new Error('アップグレード機能が利用できません');
       }
 
-      if (newPlan === scaffoldContext.userPlan) {
-        Alert.alert('现在のプラン', `既に${planDetails[newPlan].name}プランをご利用中です。`);
+      if (newPlan === userPlan) {
+        Alert.alert('現在のプラン', `既に${planDetails[newPlan].name}プランをご利用中です。`);
         return;
       }
 
       Alert.alert(
-        'プラン変更の确认',
+        'プラン変更の確認',
         `${planDetails[newPlan].name}プラン（${planDetails[newPlan].price}/${planDetails[newPlan].period}）にアップグレードしますか？\n\n※実際の決済は後日実装予定です。テスト用に変更します。`,
         [
           { text: 'キャンセル', style: 'cancel' },
@@ -153,7 +144,7 @@ export default function PlanManagement() {
             text: 'アップグレード', 
             onPress: async () => {
               try {
-                await scaffoldContext.upgradePlan(newPlan);
+                await upgradePlan(newPlan);
                 Alert.alert(
                   'アップグレード完了',
                   `${planDetails[newPlan].name}プランにアップグレードしました！\n\n新しい機能をお楽しみください。`
@@ -180,18 +171,18 @@ export default function PlanManagement() {
         <View style={styles.usageCard}>
           <Text style={[styles.usageLabel, dynamicStyles.subText]}>計算実行</Text>
           <Text style={[styles.usageValue, dynamicStyles.text]}>
-            {scaffoldContext?.remainingCalculations !== null ? `残り${scaffoldContext.remainingCalculations}回` : '無制限'}
+            {remainingCalculations !== null ? `残り${remainingCalculations}回` : '無制限'}
           </Text>
           <View style={[
             styles.usageBar,
             { backgroundColor: colors.border.main }
           ]}>
-            {scaffoldContext?.remainingCalculations !== null && (
+            {remainingCalculations !== null && (
               <View style={[
                 styles.usageBarFill,
                 { 
-                  backgroundColor: scaffoldContext.remainingCalculations > 5 ? baseColors.success : baseColors.warning,
-                  width: `${(scaffoldContext.remainingCalculations / 15) * 100}%`
+                  backgroundColor: remainingCalculations > 5 ? baseColors.success : baseColors.warning,
+                  width: `${(remainingCalculations / 15) * 100}%`
                 }
               ]} />
             )}
@@ -201,18 +192,18 @@ export default function PlanManagement() {
         <View style={styles.usageCard}>
           <Text style={[styles.usageLabel, dynamicStyles.subText]}>簡易割付</Text>
           <Text style={[styles.usageValue, dynamicStyles.text]}>
-            {scaffoldContext?.remainingQuickAllocations !== null ? `残り${scaffoldContext.remainingQuickAllocations}回` : '無制限'}
+            {remainingQuickAllocations !== null ? `残り${remainingQuickAllocations}回` : '無制限'}
           </Text>
           <View style={[
             styles.usageBar,
             { backgroundColor: colors.border.main }
           ]}>
-            {scaffoldContext?.remainingQuickAllocations !== null && (
+            {remainingQuickAllocations !== null && (
               <View style={[
                 styles.usageBarFill,
                 { 
-                  backgroundColor: scaffoldContext.remainingQuickAllocations > 10 ? baseColors.success : baseColors.warning,
-                  width: `${(scaffoldContext.remainingQuickAllocations / 30) * 100}%`
+                  backgroundColor: remainingQuickAllocations > 10 ? baseColors.success : baseColors.warning,
+                  width: `${(remainingQuickAllocations / 30) * 100}%`
                 }
               ]} />
             )}
@@ -226,40 +217,40 @@ export default function PlanManagement() {
     <View style={[styles.section, dynamicStyles.section]}>
       <Text style={[styles.sectionTitle, dynamicStyles.text]}>現在のプラン</Text>
       
-      <View style={[
-        styles.currentPlanCard,
-        { borderColor: planDetails[selectedPlan].color }
-      ]}>
-        <View style={styles.planHeader}>
-          <View style={[
-            styles.planBadge,
-            { backgroundColor: planDetails[selectedPlan].color }
-          ]}>
-            <Text style={styles.planBadgeText}>{planDetails[selectedPlan].name}</Text>
+                      <View style={[
+          styles.currentPlanCard,
+          { borderColor: planDetails[userPlan].color }
+        ]}>
+          <View style={styles.planHeader}>
+            <View style={[
+              styles.planBadge,
+              { backgroundColor: planDetails[userPlan].color }
+            ]}>
+              <Text style={styles.planBadgeText}>{planDetails[userPlan].name}</Text>
+            </View>
+            <View style={styles.planPricing}>
+              <Text style={[styles.planPrice, dynamicStyles.text]}>
+                {planDetails[userPlan].price}
+              </Text>
+              <Text style={[styles.planPeriod, dynamicStyles.subText]}>
+                {planDetails[userPlan].period}
+              </Text>
+            </View>
           </View>
-          <View style={styles.planPricing}>
-            <Text style={[styles.planPrice, dynamicStyles.text]}>
-              {planDetails[selectedPlan].price}
-            </Text>
-            <Text style={[styles.planPeriod, dynamicStyles.subText]}>
-              {planDetails[selectedPlan].period}
-            </Text>
-          </View>
-        </View>
 
-        <View style={styles.planFeatures}>
-          {planDetails[selectedPlan].features.map((feature, index) => (
-            <View key={index} style={styles.featureItem}>
-              <Ionicons name="checkmark-circle" size={16} color={baseColors.success} />
-              <Text style={[styles.featureText, dynamicStyles.text]}>{feature}</Text>
-            </View>
-          ))}
-          
-          {planDetails[selectedPlan].limitations?.map((limitation, index) => (
-            <View key={index} style={styles.featureItem}>
-              <Ionicons name="close-circle" size={16} color={baseColors.error} />
-              <Text style={[styles.featureText, dynamicStyles.subText]}>{limitation}</Text>
-            </View>
+          <View style={styles.planFeatures}>
+            {planDetails[userPlan].features.map((feature, index) => (
+              <View key={index} style={styles.featureItem}>
+                <Ionicons name="checkmark-circle" size={16} color={baseColors.success} />
+                <Text style={[styles.featureText, dynamicStyles.text]}>{feature}</Text>
+              </View>
+            ))}
+            
+            {planDetails[userPlan].limitations?.map((limitation, index) => (
+              <View key={index} style={styles.featureItem}>
+                <Ionicons name="close-circle" size={16} color={baseColors.error} />
+                <Text style={[styles.featureText, dynamicStyles.subText]}>{limitation}</Text>
+              </View>
           ))}
         </View>
       </View>
