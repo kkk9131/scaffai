@@ -87,7 +87,7 @@ export const PLAN_LIMITS: Record<UserPlan, PlanLimits> = {
   free: {
     calculations: 15,
     quickAllocations: 30,
-    hasCalculatorFunction: false,
+    hasCalculatorFunction: true,
     hasCloudSync: false,
     hasWebAccess: false,
     hasCADExport: false,
