@@ -12,7 +12,7 @@ import { AuthGuard } from '../components/AuthGuard';
 import 'react-native-gesture-handler';
 
 // Web用CSS読み込み
-if (Platform.OS === 'web') {
+if (Platform.OS === 'web' && typeof document !== 'undefined') {
   // CSS for web platform
   const style = document.createElement('style');
   style.textContent = `
@@ -28,9 +28,7 @@ if (Platform.OS === 'web') {
       box-sizing: border-box;
     }
   `;
-  if (typeof document !== 'undefined') {
-    document.head.appendChild(style);
-  }
+  document.head.appendChild(style);
 }
 
 SplashScreen.preventAutoHideAsync();
