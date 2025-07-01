@@ -82,21 +82,41 @@ const planDetails = {
 export default function PlanManagement() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { 
-    userPlan, 
-    remainingCalculations, 
-    remainingQuickAllocations,
-    upgradePlan
-  } = useScaffold();
-  
-  const { restorePurchases, isLoading, isConfigured } = usePurchase();
-
-  const [selectedPlan, setSelectedPlan] = useState<UserPlan>(userPlan);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<UserPlan>('free');
   const [showComparisonModal, setShowComparisonModal] = useState(false);
 
+  // Get contexts directly (this is the proper way to use hooks)
+  const scaffoldContext = useScaffold();
+  const purchaseContext = usePurchase();
+
+  // Initialize with error handling
   useEffect(() => {
-    setSelectedPlan(userPlan);
-  }, [userPlan]);
+    try {
+      console.log('🔧 [PlanManagement] Initializing contexts...');
+      console.log('🔧 [PlanManagement] Scaffold context:', !!scaffoldContext);
+      console.log('🔧 [PlanManagement] Purchase context:', !!purchaseContext);
+      
+      if (scaffoldContext?.userPlan) {
+        setSelectedPlan(scaffoldContext.userPlan);
+        console.log('🔧 [PlanManagement] Current user plan:', scaffoldContext.userPlan);
+      }
+      
+      setIsLoading(false);
+    } catch (err) {
+      console.error('❌ [PlanManagement] Context initialization error:', err);
+      setError(`Context initialization failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setIsLoading(false);
+    }
+  }, [scaffoldContext?.userPlan]);
+
+  // Update selected plan when context changes
+  useEffect(() => {
+    if (scaffoldContext?.userPlan) {
+      setSelectedPlan(scaffoldContext.userPlan);
+    }
+  }, [scaffoldContext?.userPlan]);
 
   const dynamicStyles = StyleSheet.create({
     container: {
@@ -114,32 +134,42 @@ export default function PlanManagement() {
   });
 
   const handlePlanUpgrade = async (newPlan: UserPlan) => {
-    if (newPlan === userPlan) {
-      Alert.alert('現在のプラン', `既に${planDetails[newPlan].name}プランをご利用中です。`);
-      return;
-    }
+    try {
+      if (!scaffoldContext?.upgradePlan) {
+        throw new Error('升级功能不可用');
+      }
 
-    Alert.alert(
-      'プラン変更の確認',
-      `${planDetails[newPlan].name}プラン（${planDetails[newPlan].price}/${planDetails[newPlan].period}）にアップグレードしますか？\n\n※実際の決済は後日実装予定です。テスト用に変更します。`,
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        { 
-          text: 'アップグレード', 
-          onPress: async () => {
-            try {
-              await upgradePlan(newPlan);
-              Alert.alert(
-                'アップグレード完了',
-                `${planDetails[newPlan].name}プランにアップグレードしました！\n\n新しい機能をお楽しみください。`
-              );
-            } catch (error) {
-              Alert.alert('エラー', 'プランの変更に失敗しました。');
+      if (newPlan === scaffoldContext.userPlan) {
+        Alert.alert('现在のプラン', `既に${planDetails[newPlan].name}プランをご利用中です。`);
+        return;
+      }
+
+      Alert.alert(
+        'プラン変更の确认',
+        `${planDetails[newPlan].name}プラン（${planDetails[newPlan].price}/${planDetails[newPlan].period}）にアップグレードしますか？\n\n※実際の決済は後日実装予定です。テスト用に変更します。`,
+        [
+          { text: 'キャンセル', style: 'cancel' },
+          { 
+            text: 'アップグレード', 
+            onPress: async () => {
+              try {
+                await scaffoldContext.upgradePlan(newPlan);
+                Alert.alert(
+                  'アップグレード完了',
+                  `${planDetails[newPlan].name}プランにアップグレードしました！\n\n新しい機能をお楽しみください。`
+                );
+              } catch (error) {
+                console.error('Plan upgrade error:', error);
+                Alert.alert('エラー', 'プランの変更に失敗しました。');
+              }
             }
           }
-        }
-      ]
-    );
+        ]
+      );
+    } catch (error) {
+      console.error('Handle plan upgrade error:', error);
+      Alert.alert('エラー', 'プランの変更処理でエラーが発生しました。');
+    }
   };
 
   const UsageSection = () => (
@@ -150,18 +180,18 @@ export default function PlanManagement() {
         <View style={styles.usageCard}>
           <Text style={[styles.usageLabel, dynamicStyles.subText]}>計算実行</Text>
           <Text style={[styles.usageValue, dynamicStyles.text]}>
-            {remainingCalculations !== null ? `残り${remainingCalculations}回` : '無制限'}
+            {scaffoldContext?.remainingCalculations !== null ? `残り${scaffoldContext.remainingCalculations}回` : '無制限'}
           </Text>
           <View style={[
             styles.usageBar,
             { backgroundColor: colors.border.main }
           ]}>
-            {remainingCalculations !== null && (
+            {scaffoldContext?.remainingCalculations !== null && (
               <View style={[
                 styles.usageBarFill,
                 { 
-                  backgroundColor: remainingCalculations > 5 ? baseColors.success : baseColors.warning,
-                  width: `${(remainingCalculations / 15) * 100}%`
+                  backgroundColor: scaffoldContext.remainingCalculations > 5 ? baseColors.success : baseColors.warning,
+                  width: `${(scaffoldContext.remainingCalculations / 15) * 100}%`
                 }
               ]} />
             )}
@@ -171,18 +201,18 @@ export default function PlanManagement() {
         <View style={styles.usageCard}>
           <Text style={[styles.usageLabel, dynamicStyles.subText]}>簡易割付</Text>
           <Text style={[styles.usageValue, dynamicStyles.text]}>
-            {remainingQuickAllocations !== null ? `残り${remainingQuickAllocations}回` : '無制限'}
+            {scaffoldContext?.remainingQuickAllocations !== null ? `残り${scaffoldContext.remainingQuickAllocations}回` : '無制限'}
           </Text>
           <View style={[
             styles.usageBar,
             { backgroundColor: colors.border.main }
           ]}>
-            {remainingQuickAllocations !== null && (
+            {scaffoldContext?.remainingQuickAllocations !== null && (
               <View style={[
                 styles.usageBarFill,
                 { 
-                  backgroundColor: remainingQuickAllocations > 10 ? baseColors.success : baseColors.warning,
-                  width: `${(remainingQuickAllocations / 30) * 100}%`
+                  backgroundColor: scaffoldContext.remainingQuickAllocations > 10 ? baseColors.success : baseColors.warning,
+                  width: `${(scaffoldContext.remainingQuickAllocations / 30) * 100}%`
                 }
               ]} />
             )}
@@ -198,34 +228,34 @@ export default function PlanManagement() {
       
       <View style={[
         styles.currentPlanCard,
-        { borderColor: planDetails[userPlan].color }
+        { borderColor: planDetails[selectedPlan].color }
       ]}>
         <View style={styles.planHeader}>
           <View style={[
             styles.planBadge,
-            { backgroundColor: planDetails[userPlan].color }
+            { backgroundColor: planDetails[selectedPlan].color }
           ]}>
-            <Text style={styles.planBadgeText}>{planDetails[userPlan].name}</Text>
+            <Text style={styles.planBadgeText}>{planDetails[selectedPlan].name}</Text>
           </View>
           <View style={styles.planPricing}>
             <Text style={[styles.planPrice, dynamicStyles.text]}>
-              {planDetails[userPlan].price}
+              {planDetails[selectedPlan].price}
             </Text>
             <Text style={[styles.planPeriod, dynamicStyles.subText]}>
-              {planDetails[userPlan].period}
+              {planDetails[selectedPlan].period}
             </Text>
           </View>
         </View>
 
         <View style={styles.planFeatures}>
-          {planDetails[userPlan].features.map((feature, index) => (
+          {planDetails[selectedPlan].features.map((feature, index) => (
             <View key={index} style={styles.featureItem}>
               <Ionicons name="checkmark-circle" size={16} color={baseColors.success} />
               <Text style={[styles.featureText, dynamicStyles.text]}>{feature}</Text>
             </View>
           ))}
           
-          {planDetails[userPlan].limitations?.map((limitation, index) => (
+          {planDetails[selectedPlan].limitations?.map((limitation, index) => (
             <View key={index} style={styles.featureItem}>
               <Ionicons name="close-circle" size={16} color={baseColors.error} />
               <Text style={[styles.featureText, dynamicStyles.subText]}>{limitation}</Text>
@@ -243,7 +273,7 @@ export default function PlanManagement() {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.plansScroll}>
         {(Object.keys(planDetails) as UserPlan[]).map((plan) => {
           const details = planDetails[plan];
-          const isCurrentPlan = plan === userPlan;
+          const isCurrentPlan = plan === selectedPlan;
           
           return (
             <View 
@@ -312,6 +342,53 @@ export default function PlanManagement() {
     </View>
   );
 
+  // Loading state
+  if (isLoading) {
+    return (
+      <View style={[styles.container, dynamicStyles.container]}>
+        <AppHeader 
+          title="プラン管理" 
+          showBackButton 
+          onBackPress={() => router.back()} 
+        />
+        <View style={styles.loadingContainer}>
+          <Text style={[styles.loadingText, dynamicStyles.text]}>読み込み中...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <View style={[styles.container, dynamicStyles.container]}>
+        <AppHeader 
+          title="プラン管理" 
+          showBackButton 
+          onBackPress={() => router.back()} 
+        />
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={48} color={baseColors.error} />
+          <Text style={[styles.errorTitle, { color: baseColors.error }]}>エラーが発生しました</Text>
+          <Text style={[styles.errorText, dynamicStyles.subText]}>{error}</Text>
+          <TouchableOpacity
+            style={[styles.retryButton, { backgroundColor: baseColors.primary.main }]}
+            onPress={() => {
+              setError(null);
+              setIsLoading(true);
+              // Retry initialization
+              setTimeout(() => {
+                setIsLoading(false);
+              }, 1000);
+            }}
+          >
+            <Text style={styles.retryButtonText}>再試行</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, dynamicStyles.container]}>
       <AppHeader 
@@ -339,15 +416,15 @@ export default function PlanManagement() {
           </TouchableOpacity>
           
           {/* 購入復元ボタン（RevenueCat設定時のみ表示） */}
-          {isConfigured && (
+          {purchaseContext?.isConfigured && (
             <TouchableOpacity
               style={[styles.actionButton, { backgroundColor: baseColors.secondary.main }]}
-              onPress={() => restorePurchases()}
-              disabled={isLoading}
+              onPress={() => purchaseContext.restorePurchases()}
+              disabled={purchaseContext.isLoading}
             >
               <Ionicons name="refresh" size={20} color="#FFFFFF" />
               <Text style={styles.actionButtonText}>
-                {isLoading ? '復元中...' : '購入を復元'}
+                {purchaseContext.isLoading ? '復元中...' : '購入を復元'}
               </Text>
             </TouchableOpacity>
           )}
@@ -356,12 +433,12 @@ export default function PlanManagement() {
           <View style={styles.statusContainer}>
             <View style={styles.statusItem}>
               <Ionicons 
-                name={isConfigured ? "checkmark-circle" : "alert-circle"} 
+                name={purchaseContext?.isConfigured ? "checkmark-circle" : "alert-circle"} 
                 size={16} 
-                color={isConfigured ? baseColors.success : baseColors.warning} 
+                color={purchaseContext?.isConfigured ? baseColors.success : baseColors.warning} 
               />
               <Text style={[styles.statusText, dynamicStyles.subText]}>
-                決済システム: {isConfigured ? '設定済み' : '開発モード'}
+                決済システム: {purchaseContext?.isConfigured ? '設定済み' : '開発モード'}
               </Text>
             </View>
           </View>
@@ -587,5 +664,42 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 14,
+  },
+  
+  // Loading state
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  
+  // Error state
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
+  errorText: {
+    fontSize: 16,
+    marginBottom: 24,
+  },
+  retryButton: {
+    padding: 16,
+    borderRadius: 12,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
