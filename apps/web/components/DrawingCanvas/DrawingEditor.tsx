@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Edit3, Square, Move, ZoomIn, ZoomOut, Grid, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { drawCompositeView, drawGrid as drawAdvancedGrid } from './utils/drawingUtils';
+import { findInsideCornerEdges, findAllocationEdge, generateEdgeInfo, generateCornerInfo } from './utils/geometryCalculator';
 import type { DrawingData, DimensionArea, BuildingVertex, EdgeEave, Opening, FloorData, FloorColors, AdvancedCalculationSummary, ScaffoldLineData } from './types/drawing';
 import type { ScaffoldCalculationResult } from '../../lib/calculator/types';
 // import { convertToFloorData, generateDrawingMetadata, type ScaffoldInputData } from '../../lib/drawing/scaffoldGenerator';
@@ -2250,7 +2251,7 @@ export default function DrawingEditor({
     return { canExecute: true };
   };
 
-  // 高度計算メイン関数（仮実装）
+  // 高度計算メイン関数
   const executeAdvancedCalculation = async () => {
     const validation = canExecuteAdvancedCalculation();
     if (!validation.canExecute) {
@@ -2261,30 +2262,81 @@ export default function DrawingEditor({
     setIsAdvancedCalculating(true);
     
     try {
-      console.log('高度計算を開始します...');
+      console.log('=== 高度計算開始 ===');
       console.log('建物頂点:', buildingVertices);
       console.log('軒の出:', edgeEaves);
       
       const simpleResult = getSimpleCalculationResult();
+      if (!simpleResult) {
+        throw new Error('簡易計算結果の取得に失敗しました');
+      }
+      
       console.log('簡易計算結果:', simpleResult);
       
-      // Phase 2で実装予定の計算ロジック
-      // TODO: 実際の計算処理を実装
+      // === Phase 2: 幾何学計算 ===
       
-      // 仮の結果
-      const dummyResult: AdvancedCalculationSummary = {
+      // 1. 全辺の情報を生成
+      const allEdges = generateEdgeInfo(buildingVertices);
+      console.log('全辺情報:', allEdges);
+      
+      // 2. 全角の情報を生成
+      const allCorners = generateCornerInfo(buildingVertices);
+      console.log('全角情報:', allCorners);
+      
+      // 3. 簡易計算結果から各面の離れを取得
+      const faceDistances = {
+        north: simpleResult.result.north_gap ? parseInt(simpleResult.result.north_gap.replace(' mm', '')) : 150,
+        east: simpleResult.result.east_gap ? parseInt(simpleResult.result.east_gap.replace(' mm', '')) : 150,
+        south: simpleResult.result.south_gap ? parseInt(simpleResult.result.south_gap.replace(' mm', '')) : 150,
+        west: simpleResult.result.west_gap ? parseInt(simpleResult.result.west_gap.replace(' mm', '')) : 150
+      };
+      console.log('各面の基本離れ:', faceDistances);
+      
+      // 4. 入隅辺を検出
+      const insideCornerEdges = findInsideCornerEdges(buildingVertices, faceDistances);
+      console.log('入隅辺検出結果:', insideCornerEdges);
+      
+      // 5. 各入隅辺の割付距離を特定
+      const calculationInputs = insideCornerEdges.map(item => {
+        const allocationResult = findAllocationEdge(item.edge, buildingVertices);
+        
+        // この辺の軒の出を取得
+        const eaveDistance = edgeEaves.find(eave => eave.edgeIndex === item.edge.edgeIndex)?.distance || 0;
+        
+        return {
+          edge: item.edge,
+          baseDistance: item.baseDistance,
+          allocationDistance: allocationResult.length,
+          eaveDistance: eaveDistance,
+          faceName: item.faceName
+        };
+      });
+      
+      console.log('計算入力データ:', calculationInputs);
+      
+      // Phase 3で実装予定: 実際のQuickAllocation計算
+      const calculatedEdges = calculationInputs.map(input => ({
+        edgeIndex: input.edge.edgeIndex,
         success: true,
-        calculatedEdges: [],
-        scaffoldLine: null,
+        resultDistance: input.baseDistance + input.allocationDistance, // 仮計算
+        spanConfiguration: [1800], // 仮データ
+        spanComposition: '1span',
+        errorMessage: undefined
+      }));
+      
+      const result: AdvancedCalculationSummary = {
+        success: true,
+        calculatedEdges: calculatedEdges,
+        scaffoldLine: null, // Phase 4で実装
         totalErrors: []
       };
       
-      setAdvancedCalculationResult(dummyResult);
-      console.log('高度計算完了');
+      setAdvancedCalculationResult(result);
+      console.log('=== 高度計算完了 ===', result);
       
     } catch (error) {
       console.error('高度計算エラー:', error);
-      alert('高度計算中にエラーが発生しました');
+      alert('高度計算中にエラーが発生しました: ' + (error as Error).message);
     } finally {
       setIsAdvancedCalculating(false);
     }
