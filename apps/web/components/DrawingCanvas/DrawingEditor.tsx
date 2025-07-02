@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Edit3, Square, Move, ZoomIn, ZoomOut, Grid, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { drawCompositeView, drawGrid as drawAdvancedGrid } from './utils/drawingUtils';
 import { findInsideCornerEdges, findAllocationEdge, generateEdgeInfo, generateCornerInfo } from './utils/geometryCalculator';
+import { generateScaffoldLine } from './utils/scaffoldLineGenerator';
 import type { DrawingData, DimensionArea, BuildingVertex, EdgeEave, Opening, FloorData, FloorColors, AdvancedCalculationSummary, ScaffoldLineData } from './types/drawing';
 import type { ScaffoldCalculationResult } from '../../lib/calculator/types';
 // import { convertToFloorData, generateDrawingMetadata, type ScaffoldInputData } from '../../lib/drawing/scaffoldGenerator';
@@ -899,6 +900,11 @@ export default function DrawingEditor({
         }
         // 編集中の建物を描画
         drawAdvancedBuilding(ctx, width, height, scale, pan, false);
+        
+        // 足場ライン描画
+        if (scaffoldLineData && showScaffoldLine) {
+          drawScaffoldLine(ctx, scaffoldLineData, scale, pan);
+        }
       } else {
         // 通常表示：全階層を描画
         console.log('Using drawCompositeView for autoGenerate mode');
@@ -916,6 +922,11 @@ export default function DrawingEditor({
         
         // アクティブ階層を描画
         drawAdvancedBuilding(ctx, width, height, scale, pan);
+        
+        // 足場ライン描画
+        if (scaffoldLineData && showScaffoldLine) {
+          drawScaffoldLine(ctx, scaffoldLineData, scale, pan);
+        }
       }
     }
 
@@ -930,7 +941,7 @@ export default function DrawingEditor({
     //   drawDimensionAreas(ctx);
     // }
 
-  }, [drawingData, width, height, scale, pan, showGrid, mounted, buildingVertices, edgeEaves, openings, visibleOpeningDimensions, autoGenerate, floors, isCompositeMode]);
+  }, [drawingData, width, height, scale, pan, showGrid, mounted, buildingVertices, edgeEaves, openings, visibleOpeningDimensions, autoGenerate, floors, isCompositeMode, scaffoldLineData, showScaffoldLine]);
 
   // キーボードショートカット
   useEffect(() => {
@@ -1765,6 +1776,148 @@ export default function DrawingEditor({
     setDragHandles(newDragHandles);
   };
 
+  // 足場ライン描画関数
+  const drawScaffoldLine = (
+    ctx: CanvasRenderingContext2D,
+    scaffoldData: ScaffoldLineData,
+    scale: number,
+    pan: { x: number; y: number }
+  ) => {
+    if (!scaffoldData.visible || scaffoldData.vertices.length < 3) return;
+
+    const centerX = width / 2;
+    const centerY = height / 2;
+
+    // 足場頂点をズーム座標系に変換
+    const scaledScaffoldVertices = scaffoldData.vertices.map(vertex => ({
+      x: centerX + (vertex.x - centerX) * scale + pan.x,
+      y: centerY + (vertex.y - centerY) * scale + pan.y
+    }));
+
+    // 足場ライン（建物外周）を描画
+    ctx.strokeStyle = '#FF6B35'; // オレンジ色で足場ラインを描画
+    ctx.lineWidth = 3;
+    ctx.setLineDash([8, 4]); // 長めの破線
+
+    ctx.beginPath();
+    ctx.moveTo(scaledScaffoldVertices[0].x, scaledScaffoldVertices[0].y);
+    
+    for (let i = 1; i < scaledScaffoldVertices.length; i++) {
+      ctx.lineTo(scaledScaffoldVertices[i].x, scaledScaffoldVertices[i].y);
+    }
+    
+    ctx.closePath();
+    ctx.stroke();
+    ctx.setLineDash([]); // 破線をリセット
+
+    // 足場頂点を描画
+    scaledScaffoldVertices.forEach((vertex, index) => {
+      const radius = 6;
+      
+      ctx.beginPath();
+      ctx.arc(vertex.x, vertex.y, radius, 0, 2 * Math.PI);
+      ctx.fillStyle = '#FF6B35';
+      ctx.fill();
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    });
+
+    // スパンマーカーを描画
+    scaffoldData.edges.forEach((edge, edgeIndex) => {
+      if (edge.spanMarkers && edge.spanMarkers.length > 0) {
+        const scaledStart = scaledScaffoldVertices[edgeIndex];
+        const scaledEnd = scaledScaffoldVertices[(edgeIndex + 1) % scaledScaffoldVertices.length];
+
+        edge.spanMarkers.forEach(marker => {
+          // マーカー位置を計算
+          const markerX = scaledStart.x + (scaledEnd.x - scaledStart.x) * marker.position;
+          const markerY = scaledStart.y + (scaledEnd.y - scaledStart.y) * marker.position;
+
+          // スパン境界マーカーを描画
+          ctx.strokeStyle = '#FF6B35';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([3, 3]); // 短い破線
+
+          // 辺の法線方向にマーカーを描画
+          const edgeX = scaledEnd.x - scaledStart.x;
+          const edgeY = scaledEnd.y - scaledStart.y;
+          const edgeLength = Math.sqrt(edgeX * edgeX + edgeY * edgeY);
+
+          if (edgeLength > 0) {
+            const normalX = -edgeY / edgeLength;
+            const normalY = edgeX / edgeLength;
+            const markerLength = 20;
+
+            ctx.beginPath();
+            ctx.moveTo(markerX - normalX * markerLength / 2, markerY - normalY * markerLength / 2);
+            ctx.lineTo(markerX + normalX * markerLength / 2, markerY + normalY * markerLength / 2);
+            ctx.stroke();
+          }
+
+          ctx.setLineDash([]); // 破線をリセット
+        });
+      }
+    });
+
+    // 足場ライン寸法を描画
+    scaffoldData.edges.forEach((edge, edgeIndex) => {
+      const scaledStart = scaledScaffoldVertices[edgeIndex];
+      const scaledEnd = scaledScaffoldVertices[(edgeIndex + 1) % scaledScaffoldVertices.length];
+
+      // 辺の中点を計算
+      const midX = (scaledStart.x + scaledEnd.x) / 2;
+      const midY = (scaledStart.y + scaledEnd.y) / 2;
+
+      // 辺の方向ベクトルと法線ベクトル
+      const edgeX = scaledEnd.x - scaledStart.x;
+      const edgeY = scaledEnd.y - scaledStart.y;
+      const edgeLength = Math.sqrt(edgeX * edgeX + edgeY * edgeY);
+
+      if (edgeLength > 0) {
+        // 外向きの法線ベクトル
+        const normalX = -edgeY / edgeLength;
+        const normalY = edgeX / edgeLength;
+
+        // 寸法テキストの位置（足場ラインから少し外側）
+        const offset = 30;
+        const textX = midX + normalX * offset;
+        const textY = midY + normalY * offset;
+
+        // スパン構成テキストを描画
+        ctx.fillStyle = '#FF6B35';
+        ctx.font = 'bold 11px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        const spanText = edge.spanConfiguration.length > 0 
+          ? edge.spanConfiguration.join(' + ') + 'mm'
+          : '基本構成';
+
+        // 背景を描画（視認性向上）
+        const textMetrics = ctx.measureText(spanText);
+        const textWidth = textMetrics.width;
+        const textHeight = 14;
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.fillRect(textX - textWidth/2 - 2, textY - textHeight/2 - 1, textWidth + 4, textHeight + 2);
+
+        ctx.strokeStyle = '#FF6B35';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(textX - textWidth/2 - 2, textY - textHeight/2 - 1, textWidth + 4, textHeight + 2);
+
+        // テキストを描画
+        ctx.fillStyle = '#FF6B35';
+        ctx.fillText(spanText, textX, textY);
+      }
+    });
+
+    console.log('足場ライン描画完了:', {
+      vertices: scaledScaffoldVertices.length,
+      edges: scaffoldData.edges.length
+    });
+  };
+
   const handleZoomIn = () => setScale(prev => Math.min(prev * 1.2, 3));
   const handleZoomOut = () => setScale(prev => Math.max(prev / 1.2, 0.3));
   const handleResetView = () => {
@@ -2430,10 +2583,25 @@ export default function DrawingEditor({
         overallSuccess
       });
       
+      // === Phase 4: 足場ライン生成 ===
+      let scaffoldLineData: ScaffoldLineData | null = null;
+      
+      if (overallSuccess && successfulCalculations.length > 0) {
+        try {
+          console.log('=== 足場ライン生成開始 ===');
+          scaffoldLineData = generateScaffoldLine(buildingVertices, calculatedEdges);
+          setScaffoldLineData(scaffoldLineData);
+          console.log('=== 足場ライン生成完了 ===', scaffoldLineData);
+        } catch (error) {
+          console.error('足場ライン生成エラー:', error);
+          scaffoldLineData = null;
+        }
+      }
+      
       const result: AdvancedCalculationSummary = {
         success: overallSuccess,
         calculatedEdges: calculatedEdges,
-        scaffoldLine: null, // Phase 4で実装
+        scaffoldLine: scaffoldLineData,
         totalErrors: totalErrors
       };
       
