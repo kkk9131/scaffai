@@ -2314,25 +2314,142 @@ export default function DrawingEditor({
       
       console.log('計算入力データ:', calculationInputs);
       
-      // Phase 3で実装予定: 実際のQuickAllocation計算
-      const calculatedEdges = calculationInputs.map(input => ({
-        edgeIndex: input.edge.edgeIndex,
-        success: true,
-        resultDistance: input.baseDistance + input.allocationDistance, // 仮計算
-        spanConfiguration: [1800], // 仮データ
-        spanComposition: '1span',
-        errorMessage: undefined
+      // === Phase 3: QuickAllocation計算の実行 ===
+      
+      // 簡易計算の入力データから特殊部材情報を取得
+      const scaffoldInputData = JSON.parse(sessionStorage.getItem('scaffoldInputData') || '{}');
+      console.log('簡易計算入力データ:', scaffoldInputData);
+      
+      // QuickAllocation計算機能をインポート
+      const { calculateQuickAllocation } = await import('../../lib/calculator/quickAllocationCalculator');
+      
+      const calculatedEdges = await Promise.all(calculationInputs.map(async (input) => {
+        try {
+          console.log(`=== 辺${input.edge.edgeIndex}の計算開始 ===`);
+          console.log('入力辺情報:', {
+            direction: input.edge.direction,
+            faceName: input.faceName,
+            baseDistance: input.baseDistance,
+            allocationDistance: input.allocationDistance,
+            eaveDistance: input.eaveDistance
+          });
+          
+          // 面の方向に応じて特殊部材を取得
+          let specialMaterials = {
+            material355: false,
+            material300: false,
+            material150: false
+          };
+          
+          if (input.edge.direction === 'north' || input.edge.direction === 'south') {
+            // 南北方向の特殊部材
+            specialMaterials = {
+              material355: (scaffoldInputData.use_355_NS || 0) > 0,
+              material300: (scaffoldInputData.use_300_NS || 0) > 0,
+              material150: (scaffoldInputData.use_150_NS || 0) > 0
+            };
+          } else {
+            // 東西方向の特殊部材
+            specialMaterials = {
+              material355: (scaffoldInputData.use_355_EW || 0) > 0,
+              material300: (scaffoldInputData.use_300_EW || 0) > 0,
+              material150: (scaffoldInputData.use_150_EW || 0) > 0
+            };
+          }
+          
+          console.log('特殊部材設定:', specialMaterials);
+          
+          // 目標離れの決定: 軒の出≤820mmなら900mm、それ以外は未指定
+          const targetDistance = input.eaveDistance <= 820 ? 900 : undefined;
+          console.log('目標離れ:', targetDistance, '(軒の出:', input.eaveDistance, 'mm)');
+          
+          // QuickAllocation計算の入力データを作成
+          const quickAllocationInput = {
+            currentDistance: input.baseDistance,
+            allocationDistance: input.allocationDistance,
+            eaveOutput: input.eaveDistance,
+            boundaryLine: 0, // 境界線制限なし
+            cornerType: 'inside' as const, // 入隅辺なので常に'inside'
+            specialMaterials: specialMaterials,
+            targetDistance: targetDistance
+          };
+          
+          console.log('QuickAllocation入力:', quickAllocationInput);
+          
+          // QuickAllocation計算を実行
+          const calculationResult = calculateQuickAllocation(quickAllocationInput);
+          
+          console.log('QuickAllocation結果:', calculationResult);
+          
+          if (calculationResult.success) {
+            return {
+              edgeIndex: input.edge.edgeIndex,
+              success: true,
+              resultDistance: calculationResult.resultDistance!,
+              spanConfiguration: calculationResult.spanConfiguration!,
+              spanComposition: calculationResult.spanComposition!,
+              errorMessage: undefined
+            };
+          } else {
+            return {
+              edgeIndex: input.edge.edgeIndex,
+              success: false,
+              resultDistance: null,
+              spanConfiguration: null,
+              spanComposition: null,
+              errorMessage: calculationResult.errorMessage || '計算に失敗しました'
+            };
+          }
+          
+        } catch (error) {
+          console.error(`辺${input.edge.edgeIndex}の計算エラー:`, error);
+          return {
+            edgeIndex: input.edge.edgeIndex,
+            success: false,
+            resultDistance: null,
+            spanConfiguration: null,
+            spanComposition: null,
+            errorMessage: `計算エラー: ${(error as Error).message}`
+          };
+        }
       }));
       
+      // 計算結果の集計とエラーチェック
+      const successfulCalculations = calculatedEdges.filter(edge => edge.success);
+      const failedCalculations = calculatedEdges.filter(edge => !edge.success);
+      const totalErrors = failedCalculations.map(edge => 
+        `辺${edge.edgeIndex}: ${edge.errorMessage}`
+      );
+      
+      const overallSuccess = successfulCalculations.length > 0 && failedCalculations.length === 0;
+      
+      console.log('計算結果サマリー:', {
+        total: calculatedEdges.length,
+        successful: successfulCalculations.length,
+        failed: failedCalculations.length,
+        overallSuccess
+      });
+      
       const result: AdvancedCalculationSummary = {
-        success: true,
+        success: overallSuccess,
         calculatedEdges: calculatedEdges,
         scaffoldLine: null, // Phase 4で実装
-        totalErrors: []
+        totalErrors: totalErrors
       };
       
       setAdvancedCalculationResult(result);
       console.log('=== 高度計算完了 ===', result);
+      
+      // 結果をユーザーに通知
+      if (overallSuccess) {
+        console.log(`✅ 高度計算成功: ${successfulCalculations.length}件の入隅辺を処理しました`);
+      } else {
+        const message = failedCalculations.length > 0 
+          ? `⚠️ 一部の計算に失敗しました: ${failedCalculations.length}/${calculatedEdges.length}件`
+          : '❌ 高度計算に失敗しました';
+        console.warn(message);
+        alert(message + '\n詳細はコンソールを確認してください。');
+      }
       
     } catch (error) {
       console.error('高度計算エラー:', error);
@@ -2507,15 +2624,57 @@ export default function DrawingEditor({
                 </div>
               )}
               
-              {/* 計算結果の簡易表示 */}
+              {/* 計算結果の詳細表示 */}
               {advancedCalculationResult && (
-                <div className="mt-3 p-2 bg-slate-50 dark:bg-slate-800 rounded text-xs">
-                  <div className="text-slate-600 dark:text-slate-400">
-                    計算結果: {advancedCalculationResult.success ? '✅ 成功' : '❌ 失敗'}
+                <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-800 rounded text-xs space-y-2">
+                  <div className="text-slate-600 dark:text-slate-400 font-medium">
+                    高度計算結果: {advancedCalculationResult.success ? '✅ 成功' : '❌ 失敗'}
                   </div>
+                  
                   {advancedCalculationResult.calculatedEdges.length > 0 && (
-                    <div className="text-slate-600 dark:text-slate-400">
-                      処理済み辺: {advancedCalculationResult.calculatedEdges.length}件
+                    <div className="space-y-1">
+                      <div className="text-slate-600 dark:text-slate-400">
+                        処理済み辺: {advancedCalculationResult.calculatedEdges.length}件
+                      </div>
+                      
+                      {/* 成功した辺の詳細 */}
+                      {advancedCalculationResult.calculatedEdges.filter(edge => edge.success).map(edge => (
+                        <div key={edge.edgeIndex} className="bg-green-50 dark:bg-green-900 p-2 rounded">
+                          <div className="text-green-700 dark:text-green-300 font-medium">
+                            辺{edge.edgeIndex + 1}: ✅ 成功
+                          </div>
+                          <div className="text-green-600 dark:text-green-400 text-xs">
+                            離れ: {edge.resultDistance?.toFixed(1)}mm
+                          </div>
+                          <div className="text-green-600 dark:text-green-400 text-xs">
+                            構成: {edge.spanComposition}
+                          </div>
+                        </div>
+                      ))}
+                      
+                      {/* 失敗した辺のエラー表示 */}
+                      {advancedCalculationResult.calculatedEdges.filter(edge => !edge.success).map(edge => (
+                        <div key={edge.edgeIndex} className="bg-red-50 dark:bg-red-900 p-2 rounded">
+                          <div className="text-red-700 dark:text-red-300 font-medium">
+                            辺{edge.edgeIndex + 1}: ❌ 失敗
+                          </div>
+                          <div className="text-red-600 dark:text-red-400 text-xs">
+                            {edge.errorMessage}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* 全体エラーの表示 */}
+                  {advancedCalculationResult.totalErrors.length > 0 && (
+                    <div className="pt-2 border-t border-slate-200 dark:border-slate-600">
+                      <div className="text-red-600 dark:text-red-400 font-medium">エラー一覧:</div>
+                      {advancedCalculationResult.totalErrors.map((error, index) => (
+                        <div key={index} className="text-red-500 dark:text-red-400 text-xs">
+                          • {error}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
