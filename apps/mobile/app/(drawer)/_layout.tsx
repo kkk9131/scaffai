@@ -189,6 +189,13 @@ export default function DrawerLayout() {
           drawerIcon: ({ color }) => <Ionicons name="settings" size={20} color={color} />,
         }}
       />
+      <Drawer.Screen
+        name="plan-management"
+        options={{
+          drawerLabel: 'プラン管理',
+          drawerIcon: ({ color }) => <Ionicons name="card" size={20} color={color} />,
+        }}
+      />
     </Drawer>
   );
 }

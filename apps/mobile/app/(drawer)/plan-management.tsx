@@ -82,6 +82,12 @@ const planDetails = {
 export default function PlanManagement() {
   const router = useRouter();
   const { colors } = useTheme();
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<UserPlan>('free');
+  const [showComparisonModal, setShowComparisonModal] = useState(false);
+
+  // Get contexts directly (this is the proper way to use hooks)
   const { 
     userPlan, 
     remainingCalculations, 
@@ -89,13 +95,22 @@ export default function PlanManagement() {
     upgradePlan
   } = useScaffold();
   
-  const { restorePurchases, isLoading, isConfigured } = usePurchase();
+  const { restorePurchases, isLoading: purchaseLoading, isConfigured } = usePurchase();
 
-  const [selectedPlan, setSelectedPlan] = useState<UserPlan>(userPlan);
-  const [showComparisonModal, setShowComparisonModal] = useState(false);
-
+  // Initialize with error handling
   useEffect(() => {
-    setSelectedPlan(userPlan);
+    try {
+      console.log('🔧 [PlanManagement] Initializing contexts...');
+      console.log('🔧 [PlanManagement] Current user plan:', userPlan);
+      if (userPlan) {
+        setSelectedPlan(userPlan);
+      }
+      setIsLoading(false);
+    } catch (err) {
+      console.error('❌ [PlanManagement] Context initialization error:', err);
+      setError(`Context initialization failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setIsLoading(false);
+    }
   }, [userPlan]);
 
   const dynamicStyles = StyleSheet.create({
@@ -114,32 +129,43 @@ export default function PlanManagement() {
   });
 
   const handlePlanUpgrade = async (newPlan: UserPlan) => {
-    if (newPlan === userPlan) {
-      Alert.alert('現在のプラン', `既に${planDetails[newPlan].name}プランをご利用中です。`);
-      return;
-    }
+    try {
+      if (!upgradePlan) {
+        throw new Error('アップグレード機能が利用できません');
+      }
 
-    Alert.alert(
-      'プラン変更の確認',
-      `${planDetails[newPlan].name}プラン（${planDetails[newPlan].price}/${planDetails[newPlan].period}）にアップグレードしますか？\n\n※実際の決済は後日実装予定です。テスト用に変更します。`,
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        { 
-          text: 'アップグレード', 
-          onPress: async () => {
-            try {
-              await upgradePlan(newPlan);
-              Alert.alert(
-                'アップグレード完了',
-                `${planDetails[newPlan].name}プランにアップグレードしました！\n\n新しい機能をお楽しみください。`
-              );
-            } catch (error) {
-              Alert.alert('エラー', 'プランの変更に失敗しました。');
+      if (newPlan === userPlan) {
+        Alert.alert('現在のプラン', `既に${planDetails[newPlan].name}プランをご利用中です。`);
+        return;
+      }
+
+      Alert.alert(
+        'プラン変更の確認',
+        `${planDetails[newPlan].name}プラン（${planDetails[newPlan].price}/${planDetails[newPlan].period}）にアップグレードしますか？\n\n※実際の決済は後日実装予定です。テスト用に変更します。`,
+        [
+          { text: 'キャンセル', style: 'cancel' },
+          { 
+            text: 'アップグレード', 
+            onPress: async () => {
+              try {
+                await upgradePlan(newPlan);
+                setSelectedPlan(newPlan);
+                Alert.alert(
+                  'アップグレード完了',
+                  `${planDetails[newPlan].name}プランにアップグレードしました！\n\n新しい機能をお楽しみください。`
+                );
+              } catch (error) {
+                console.error('Plan upgrade error:', error);
+                Alert.alert('エラー', 'プランの変更に失敗しました。');
+              }
             }
           }
-        }
-      ]
-    );
+        ]
+      );
+    } catch (error) {
+      console.error('Handle plan upgrade error:', error);
+      Alert.alert('エラー', 'プランの変更処理でエラーが発生しました。');
+    }
   };
 
   const UsageSection = () => (
@@ -192,40 +218,40 @@ export default function PlanManagement() {
     </View>
   );
 
-  const CurrentPlanSection = () => (
+    const CurrentPlanSection = () => (
     <View style={[styles.section, dynamicStyles.section]}>
       <Text style={[styles.sectionTitle, dynamicStyles.text]}>現在のプラン</Text>
       
       <View style={[
         styles.currentPlanCard,
-        { borderColor: planDetails[userPlan].color }
+        { borderColor: planDetails[userPlan as keyof typeof planDetails].color }
       ]}>
         <View style={styles.planHeader}>
           <View style={[
             styles.planBadge,
-            { backgroundColor: planDetails[userPlan].color }
+            { backgroundColor: planDetails[userPlan as keyof typeof planDetails].color }
           ]}>
-            <Text style={styles.planBadgeText}>{planDetails[userPlan].name}</Text>
+            <Text style={styles.planBadgeText}>{planDetails[userPlan as keyof typeof planDetails].name}</Text>
           </View>
           <View style={styles.planPricing}>
             <Text style={[styles.planPrice, dynamicStyles.text]}>
-              {planDetails[userPlan].price}
+              {planDetails[userPlan as keyof typeof planDetails].price}
             </Text>
             <Text style={[styles.planPeriod, dynamicStyles.subText]}>
-              {planDetails[userPlan].period}
+              {planDetails[userPlan as keyof typeof planDetails].period}
             </Text>
           </View>
         </View>
 
         <View style={styles.planFeatures}>
-          {planDetails[userPlan].features.map((feature, index) => (
+          {planDetails[userPlan as keyof typeof planDetails].features.map((feature, index) => (
             <View key={index} style={styles.featureItem}>
               <Ionicons name="checkmark-circle" size={16} color={baseColors.success} />
               <Text style={[styles.featureText, dynamicStyles.text]}>{feature}</Text>
             </View>
           ))}
           
-          {planDetails[userPlan].limitations?.map((limitation, index) => (
+          {planDetails[userPlan as keyof typeof planDetails].limitations?.map((limitation, index) => (
             <View key={index} style={styles.featureItem}>
               <Ionicons name="close-circle" size={16} color={baseColors.error} />
               <Text style={[styles.featureText, dynamicStyles.subText]}>{limitation}</Text>
@@ -312,6 +338,53 @@ export default function PlanManagement() {
     </View>
   );
 
+  // Loading state
+  if (isLoading) {
+    return (
+      <View style={[styles.container, dynamicStyles.container]}>
+        <AppHeader 
+          title="プラン管理" 
+          showBackButton 
+          onBackPress={() => router.back()} 
+        />
+        <View style={styles.loadingContainer}>
+          <Text style={[styles.loadingText, dynamicStyles.text]}>読み込み中...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <View style={[styles.container, dynamicStyles.container]}>
+        <AppHeader 
+          title="プラン管理" 
+          showBackButton 
+          onBackPress={() => router.back()} 
+        />
+        <View style={styles.errorContainer}>
+          <Ionicons name="alert-circle" size={48} color={baseColors.error} />
+          <Text style={[styles.errorTitle, { color: baseColors.error }]}>エラーが発生しました</Text>
+          <Text style={[styles.errorText, dynamicStyles.subText]}>{error}</Text>
+          <TouchableOpacity
+            style={[styles.retryButton, { backgroundColor: baseColors.primary.main }]}
+            onPress={() => {
+              setError(null);
+              setIsLoading(true);
+              // Retry initialization
+              setTimeout(() => {
+                setIsLoading(false);
+              }, 1000);
+            }}
+          >
+            <Text style={styles.retryButtonText}>再試行</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.container, dynamicStyles.container]}>
       <AppHeader 
@@ -343,11 +416,11 @@ export default function PlanManagement() {
             <TouchableOpacity
               style={[styles.actionButton, { backgroundColor: baseColors.secondary.main }]}
               onPress={() => restorePurchases()}
-              disabled={isLoading}
+              disabled={purchaseLoading}
             >
               <Ionicons name="refresh" size={20} color="#FFFFFF" />
               <Text style={styles.actionButtonText}>
-                {isLoading ? '復元中...' : '購入を復元'}
+                {purchaseLoading ? '復元中...' : '購入を復元'}
               </Text>
             </TouchableOpacity>
           )}
@@ -587,5 +660,42 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 14,
+  },
+  
+  // Loading state
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  
+  // Error state
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
+  errorText: {
+    fontSize: 16,
+    marginBottom: 24,
+  },
+  retryButton: {
+    padding: 16,
+    borderRadius: 12,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
