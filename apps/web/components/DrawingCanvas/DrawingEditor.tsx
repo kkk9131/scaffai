@@ -3,7 +3,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Edit3, Square, Move, ZoomIn, ZoomOut, Grid, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { drawCompositeView, drawGrid as drawAdvancedGrid } from './utils/drawingUtils';
-import type { DrawingData, DimensionArea, BuildingVertex, EdgeEave, Opening, FloorData, FloorColors } from './types/drawing';
+import { findInsideCornerEdges, findAllocationEdge, generateEdgeInfo, generateCornerInfo } from './utils/geometryCalculator';
+import type { DrawingData, DimensionArea, BuildingVertex, EdgeEave, Opening, FloorData, FloorColors, AdvancedCalculationSummary, ScaffoldLineData } from './types/drawing';
 import type { ScaffoldCalculationResult } from '../../lib/calculator/types';
 // import { convertToFloorData, generateDrawingMetadata, type ScaffoldInputData } from '../../lib/drawing/scaffoldGenerator';
 
@@ -136,6 +137,12 @@ export default function DrawingEditor({
   
   // 開口部寸法表示状態（開口部IDのセット）
   const [visibleOpeningDimensions, setVisibleOpeningDimensions] = useState<Set<string>>(new Set());
+
+  // 高度計算関連のステート
+  const [advancedCalculationResult, setAdvancedCalculationResult] = useState<AdvancedCalculationSummary | null>(null);
+  const [scaffoldLineData, setScaffoldLineData] = useState<ScaffoldLineData | null>(null);
+  const [showScaffoldLine, setShowScaffoldLine] = useState<boolean>(true);
+  const [isAdvancedCalculating, setIsAdvancedCalculating] = useState<boolean>(false);
 
   // 足場ライン自動生成機能
   useEffect(() => {
@@ -2203,6 +2210,138 @@ export default function DrawingEditor({
     // 頂点選択は維持
   };
 
+  // === 高度計算関連の関数 ===
+
+  // 簡易計算結果をセッションから取得
+  const getSimpleCalculationResult = () => {
+    if (typeof window === 'undefined') return null;
+    
+    try {
+      const savedResult = sessionStorage.getItem('scaffoldCalculationResult');
+      const savedInput = sessionStorage.getItem('scaffoldInputData');
+      
+      if (!savedResult || !savedInput) {
+        console.warn('簡易計算結果がセッションに見つかりません');
+        return null;
+      }
+      
+      return {
+        result: JSON.parse(savedResult),
+        input: JSON.parse(savedInput)
+      };
+    } catch (error) {
+      console.error('簡易計算結果の読み込みエラー:', error);
+      return null;
+    }
+  };
+
+  // 高度計算実行の前提条件チェック
+  const canExecuteAdvancedCalculation = (): { canExecute: boolean; errorMessage?: string } => {
+    // 建物頂点が3点以上あるかチェック
+    if (buildingVertices.length < 3) {
+      return { canExecute: false, errorMessage: '建物の頂点が3点以上必要です' };
+    }
+    
+    // 簡易計算結果があるかチェック
+    const simpleResult = getSimpleCalculationResult();
+    if (!simpleResult) {
+      return { canExecute: false, errorMessage: '先に簡易計算を実行してください' };
+    }
+    
+    return { canExecute: true };
+  };
+
+  // 高度計算メイン関数
+  const executeAdvancedCalculation = async () => {
+    const validation = canExecuteAdvancedCalculation();
+    if (!validation.canExecute) {
+      alert(validation.errorMessage);
+      return;
+    }
+
+    setIsAdvancedCalculating(true);
+    
+    try {
+      console.log('=== 高度計算開始 ===');
+      console.log('建物頂点:', buildingVertices);
+      console.log('軒の出:', edgeEaves);
+      
+      const simpleResult = getSimpleCalculationResult();
+      if (!simpleResult) {
+        throw new Error('簡易計算結果の取得に失敗しました');
+      }
+      
+      console.log('簡易計算結果:', simpleResult);
+      
+      // === Phase 2: 幾何学計算 ===
+      
+      // 1. 全辺の情報を生成
+      const allEdges = generateEdgeInfo(buildingVertices);
+      console.log('全辺情報:', allEdges);
+      
+      // 2. 全角の情報を生成
+      const allCorners = generateCornerInfo(buildingVertices);
+      console.log('全角情報:', allCorners);
+      
+      // 3. 簡易計算結果から各面の離れを取得
+      const faceDistances = {
+        north: simpleResult.result.north_gap ? parseInt(simpleResult.result.north_gap.replace(' mm', '')) : 150,
+        east: simpleResult.result.east_gap ? parseInt(simpleResult.result.east_gap.replace(' mm', '')) : 150,
+        south: simpleResult.result.south_gap ? parseInt(simpleResult.result.south_gap.replace(' mm', '')) : 150,
+        west: simpleResult.result.west_gap ? parseInt(simpleResult.result.west_gap.replace(' mm', '')) : 150
+      };
+      console.log('各面の基本離れ:', faceDistances);
+      
+      // 4. 入隅辺を検出
+      const insideCornerEdges = findInsideCornerEdges(buildingVertices, faceDistances);
+      console.log('入隅辺検出結果:', insideCornerEdges);
+      
+      // 5. 各入隅辺の割付距離を特定
+      const calculationInputs = insideCornerEdges.map(item => {
+        const allocationResult = findAllocationEdge(item.edge, buildingVertices);
+        
+        // この辺の軒の出を取得
+        const eaveDistance = edgeEaves.find(eave => eave.edgeIndex === item.edge.edgeIndex)?.distance || 0;
+        
+        return {
+          edge: item.edge,
+          baseDistance: item.baseDistance,
+          allocationDistance: allocationResult.length,
+          eaveDistance: eaveDistance,
+          faceName: item.faceName
+        };
+      });
+      
+      console.log('計算入力データ:', calculationInputs);
+      
+      // Phase 3で実装予定: 実際のQuickAllocation計算
+      const calculatedEdges = calculationInputs.map(input => ({
+        edgeIndex: input.edge.edgeIndex,
+        success: true,
+        resultDistance: input.baseDistance + input.allocationDistance, // 仮計算
+        spanConfiguration: [1800], // 仮データ
+        spanComposition: '1span',
+        errorMessage: undefined
+      }));
+      
+      const result: AdvancedCalculationSummary = {
+        success: true,
+        calculatedEdges: calculatedEdges,
+        scaffoldLine: null, // Phase 4で実装
+        totalErrors: []
+      };
+      
+      setAdvancedCalculationResult(result);
+      console.log('=== 高度計算完了 ===', result);
+      
+    } catch (error) {
+      console.error('高度計算エラー:', error);
+      alert('高度計算中にエラーが発生しました: ' + (error as Error).message);
+    } finally {
+      setIsAdvancedCalculating(false);
+    }
+  };
+
 
 
   return (
@@ -2338,6 +2477,51 @@ export default function DrawingEditor({
 
         {!rightPanelCollapsed && (
           <div className="p-4">
+            {/* 高度計算セクション */}
+            <div className="mb-6">
+              <button
+                onClick={executeAdvancedCalculation}
+                disabled={isAdvancedCalculating}
+                className={`w-full p-3 rounded-lg font-medium transition-colors ${
+                  isAdvancedCalculating
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-green-600 text-white hover:bg-green-700'
+                }`}
+              >
+                {isAdvancedCalculating ? '計算中...' : '🔧 高度計算'}
+              </button>
+              
+              {/* 足場ライン表示切り替え */}
+              {scaffoldLineData && (
+                <div className="mt-3 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="scaffold-line-toggle"
+                    checked={showScaffoldLine}
+                    onChange={(e) => setShowScaffoldLine(e.target.checked)}
+                    className="rounded"
+                  />
+                  <label htmlFor="scaffold-line-toggle" className="text-sm text-slate-700 dark:text-slate-300">
+                    足場ライン表示
+                  </label>
+                </div>
+              )}
+              
+              {/* 計算結果の簡易表示 */}
+              {advancedCalculationResult && (
+                <div className="mt-3 p-2 bg-slate-50 dark:bg-slate-800 rounded text-xs">
+                  <div className="text-slate-600 dark:text-slate-400">
+                    計算結果: {advancedCalculationResult.success ? '✅ 成功' : '❌ 失敗'}
+                  </div>
+                  {advancedCalculationResult.calculatedEdges.length > 0 && (
+                    <div className="text-slate-600 dark:text-slate-400">
+                      処理済み辺: {advancedCalculationResult.calculatedEdges.length}件
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* 階層管理 */}
             <div className="mb-6">
               <h3 className="text-sm font-medium mb-3">階層管理</h3>
