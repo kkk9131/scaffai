@@ -82,3 +82,60 @@ export const FLOOR_COLORS: Record<number, FloorColors> = {
   4: { building: '#F59E0B', eaves: '#D97706', vertex: '#F59E0B' }, // 黄+ダークオレンジ
   5: { building: '#EF4444', eaves: '#B91C1C', vertex: '#EF4444' }  // 赤+ダークレッド
 };
+
+// === 高度計算用の型定義 ===
+
+export interface EdgeInfo {
+  edgeIndex: number;
+  startVertex: BuildingVertex;
+  endVertex: BuildingVertex;
+  length: number;
+  direction: 'north' | 'east' | 'south' | 'west';
+  angle: number;
+  isInsideCorner: boolean;
+  isOutsideCorner: boolean;
+}
+
+export interface CornerInfo {
+  vertexIndex: number;
+  vertex: BuildingVertex;
+  cornerType: 'inside' | 'outside' | 'straight';
+  angle: number;
+  incomingEdge: EdgeInfo;
+  outgoingEdge: EdgeInfo;
+}
+
+export interface AdvancedCalculationInput {
+  edgeInfo: EdgeInfo;
+  baseDistance: number;    // 対応する面の基本離れ
+  allocationDistance: number;  // 入隅方向辺の長さ
+  eaveDistance: number;    // この辺の軒の出
+}
+
+export interface AdvancedCalculationResult {
+  edgeIndex: number;
+  success: boolean;
+  resultDistance: number | null;
+  spanConfiguration: number[] | null;
+  spanComposition: string | null;
+  errorMessage?: string;
+}
+
+export interface ScaffoldLineData {
+  vertices: BuildingVertex[];
+  edges: {
+    edgeIndex: number;
+    startVertex: BuildingVertex;
+    endVertex: BuildingVertex;
+    spanConfiguration: number[];
+    spanMarkers: { position: number; type: 'span-boundary' }[];
+  }[];
+  visible: boolean;
+}
+
+export interface AdvancedCalculationSummary {
+  success: boolean;
+  calculatedEdges: AdvancedCalculationResult[];
+  scaffoldLine: ScaffoldLineData | null;
+  totalErrors: string[];
+}
