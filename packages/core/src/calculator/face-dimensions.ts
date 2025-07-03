@@ -290,12 +290,15 @@ export function calculateFaceDimensions(
   const originalLeftMargin = roundToNearest5mm(leftMargin);
   const originalRightMargin = roundToNearest5mm(rightMargin);
   
-  // 補正部材の計算
+  // 補正部材の計算（境界線がある場合のみ）
   let correctionPartVal: number | null = null;
   let corrValForLeftNoteStr: number | null = null;
   let corrValForRightNoteStr: number | null = null;
   
-  if (needsCorrectionFlag) {
+  // 境界線がない場合は補正部材を使用しない
+  const hasBoundary = boundaryLeftVal !== null || boundaryRightVal !== null;
+  
+  if (needsCorrectionFlag && hasBoundary) {
     const candidates = [150, 300, 355, 600, 900];
     
     if (originalLeftMargin < thresholdLeft) {
@@ -333,6 +336,10 @@ export function calculateFaceDimensions(
     if (debugPrints) {
       console.log(`[DEBUG ${faceName}] Needs correction. L_corr_note=${corrValForLeftNoteStr}, R_corr_note=${corrValForRightNoteStr}, span_text_corr_val=${correctionPartVal}`);
     }
+  } else if (needsCorrectionFlag && !hasBoundary) {
+    if (debugPrints) {
+      console.log(`[DEBUG ${faceName}] No boundary - correction parts are not used in simple calculation`);
+    }
   }
   
   // スパン構成テキストの生成
@@ -342,17 +349,17 @@ export function calculateFaceDimensions(
   
   // 離れ注記の生成
   let leftNoteStr = `${originalLeftMargin} mm`;
-  if (originalLeftMargin < thresholdLeft && corrValForLeftNoteStr !== null) {
+  if (originalLeftMargin < thresholdLeft && corrValForLeftNoteStr !== null && hasBoundary) {
     leftNoteStr += `(+${corrValForLeftNoteStr})`;
   }
   
   let rightNoteStr = `${originalRightMargin} mm`;
-  if (originalRightMargin < thresholdRight && corrValForRightNoteStr !== null) {
+  if (originalRightMargin < thresholdRight && corrValForRightNoteStr !== null && hasBoundary) {
     rightNoteStr += `(+${corrValForRightNoteStr})`;
   }
   
-  // スパン構成テキストの補正表示
-  if (needsCorrectionFlag && correctionPartVal !== null) {
+  // スパン構成テキストの補正表示（境界線がある場合のみ）
+  if (needsCorrectionFlag && correctionPartVal !== null && hasBoundary) {
     const prefixStr = (originalLeftMargin < thresholdLeft && corrValForLeftNoteStr === correctionPartVal) 
       ? `(+${correctionPartVal})` : "";
     const suffixStr = (originalRightMargin < thresholdRight && corrValForRightNoteStr === correctionPartVal) 
