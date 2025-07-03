@@ -25,13 +25,9 @@ export function calculateAll(input: ScaffoldInputData): ScaffoldCalculationResul
   } = input;
 
   // 南北方向の計算（東面・西面の離れを決定）
+  // 個別の目標離れを考慮して計算（東=left, 西=right）
   const targetMarginEast = target_margin_E;
   const targetMarginWest = target_margin_W;
-  const targetMarginNS = targetMarginEast !== null && targetMarginWest !== null 
-    ? Math.max(targetMarginEast!, targetMarginWest!)
-    : targetMarginEast !== null ? targetMarginEast 
-    : targetMarginWest !== null ? targetMarginWest
-    : null;
     
   const nsResult = calculateFaceDimensions(
     width_NS,
@@ -39,18 +35,15 @@ export function calculateAll(input: ScaffoldInputData): ScaffoldCalculationResul
     boundary_E, boundary_W,
     use_150_NS, use_300_NS, use_355_NS,
     NORMAL_PARTS,
-    targetMarginNS,
+    targetMarginEast,
+    targetMarginWest,
     "NS_direction (East/West gaps)"
   );
 
   // 東西方向の計算（北面・南面の離れを決定）
+  // 個別の目標離れを考慮して計算（南=left, 北=right）
   const targetMarginSouth = target_margin_S;
   const targetMarginNorth = target_margin_N;
-  const targetMarginEW = targetMarginSouth !== null && targetMarginNorth !== null 
-    ? Math.max(targetMarginSouth!, targetMarginNorth!)
-    : targetMarginSouth !== null ? targetMarginSouth
-    : targetMarginNorth !== null ? targetMarginNorth
-    : null;
     
   const ewResult = calculateFaceDimensions(
     width_EW,
@@ -58,7 +51,8 @@ export function calculateAll(input: ScaffoldInputData): ScaffoldCalculationResul
     boundary_S, boundary_N,
     use_150_EW, use_300_EW, use_355_EW,
     NORMAL_PARTS,
-    targetMarginEW,
+    targetMarginSouth,
+    targetMarginNorth,
     "EW_direction (North/South gaps)"
   );
 
