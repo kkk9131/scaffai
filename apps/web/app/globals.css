@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* デバッグ用の強制スタイル */
+.test-red {
+  background-color: red !important;
+  color: white !important;
+  padding: 1rem !important;
+}
+
 @layer base {
   :root {
     --background: 30 20% 96%;

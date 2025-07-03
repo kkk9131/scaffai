@@ -18,6 +18,7 @@ import { ja } from '../../constants/translations';
 import { useRouter } from 'expo-router';
 import { useAuthContext } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useScaffold } from '../../context/ScaffoldContext';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 // import Animated, { FadeIn } from 'react-native-reanimated';
@@ -26,6 +27,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { user, profile, signOut, updateProfile } = useAuthContext();
   const { colors, isDark } = useTheme();
+  const { userPlan, remainingCalculations, remainingQuickAllocations } = useScaffold();
   const [showImagePicker, setShowImagePicker] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -242,8 +244,30 @@ export default function ProfileScreen() {
           <View style={styles.userInfo}>
             <Text style={[styles.userName, dynamicStyles.userName]}>{profile?.name || 'ユーザー'}</Text>
             <Text style={[styles.userEmail, dynamicStyles.userEmail]}>{user?.email}</Text>
-            <View style={[styles.planBadge, { backgroundColor: baseColors.secondary.main }]}>
-              <Text style={[styles.planText, dynamicStyles.planText]}>{profile?.scaffai_role || 'USER'}</Text>
+            
+            {/* プランバッジ */}
+            <View style={styles.planContainer}>
+              <View style={[styles.planBadge, { 
+                backgroundColor: userPlan === 'free' ? baseColors.secondary.main : 
+                                userPlan === 'plus' ? baseColors.primary.main :
+                                userPlan === 'pro' ? baseColors.accent.purple :
+                                baseColors.accent.orange
+              }]}>
+                <Text style={[styles.planText, { color: '#FFFFFF' }]}>
+                  {userPlan === 'free' ? 'Free' : 
+                   userPlan === 'plus' ? 'Plus' :
+                   userPlan === 'pro' ? 'Pro' : 'Max'} プラン
+                </Text>
+              </View>
+              
+              {/* 使用状況（Freeプランのみ） */}
+              {userPlan === 'free' && (
+                <View style={styles.usageInfo}>
+                  <Text style={[styles.usageText, { color: colors.text.secondary }]}>
+                    計算: {remainingCalculations}回 / 簡易割付: {remainingQuickAllocations}回 残り
+                  </Text>
+                </View>
+              )}
             </View>
           </View>
         </View>
@@ -260,12 +284,29 @@ export default function ProfileScreen() {
             <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.menuItem, dynamicStyles.menuItem]}>
+          <TouchableOpacity 
+            style={[styles.menuItem, dynamicStyles.menuItem]}
+            onPress={() => router.push('/(drawer)/plan-management')}
+          >
             <View style={styles.menuItemLeft}>
               <Ionicons name="card" size={24} color={baseColors.primary.main} />
-              <Text style={[styles.menuItemText, dynamicStyles.menuItemText]}>プラン・課金</Text>
+              <View>
+                <Text style={[styles.menuItemText, dynamicStyles.menuItemText]}>プラン・課金</Text>
+                <Text style={[styles.menuItemSubtext, { color: colors.text.secondary }]}>
+                  現在: {userPlan === 'free' ? 'Free' : 
+                          userPlan === 'plus' ? 'Plus' :
+                          userPlan === 'pro' ? 'Pro' : 'Max'} プラン
+                </Text>
+              </View>
             </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+            <View style={styles.menuItemRight}>
+              {userPlan === 'free' && remainingCalculations !== null && remainingCalculations <= 5 && (
+                <View style={[styles.warningBadge, { backgroundColor: baseColors.warning }]}>
+                  <Ionicons name="warning" size={12} color="#FFFFFF" />
+                </View>
+              )}
+              <Ionicons name="chevron-forward" size={20} color={colors.text.secondary} />
+            </View>
           </TouchableOpacity>
 
           <TouchableOpacity style={[styles.menuItem, dynamicStyles.menuItem]}>
@@ -414,14 +455,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 12,
   },
+  planContainer: {
+    alignItems: 'center',
+    marginTop: 8,
+  },
   planBadge: {
     paddingHorizontal: 16,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: 20,
+    marginBottom: 8,
   },
   planText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  usageInfo: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+  },
+  usageText: {
+    fontSize: 11,
+    textAlign: 'center',
   },
   section: {
     borderRadius: 12,
@@ -444,10 +500,28 @@ const styles = StyleSheet.create({
   menuItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+  },
+  menuItemRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   menuItemText: {
     fontSize: 16,
     marginLeft: 12,
+  },
+  menuItemSubtext: {
+    fontSize: 12,
+    marginLeft: 12,
+    marginTop: 2,
+  },
+  warningBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   logoutButton: {
     flexDirection: 'row',

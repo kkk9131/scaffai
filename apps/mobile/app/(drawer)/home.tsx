@@ -179,20 +179,20 @@ export default function HomeScreen() {
       },
     },
     {
+      id: 'quick-allocation',
+      title: '簡易割付',
+      subtitle: '素早い割付計算',
+      icon: 'layers',
+      color: baseColors.primary.main,
+      onPress: () => router.push('/(drawer)/quick-allocation'),
+    },
+    {
       id: 'history',
       title: '履歴確認',
       subtitle: '過去の計算結果',
       icon: 'time',
       color: baseColors.secondary.main,
       onPress: () => router.push('/(drawer)/history'),
-    },
-    {
-      id: 'profile',
-      title: 'プロフィール',
-      subtitle: 'アカウント設定',
-      icon: 'person',
-      color: baseColors.accent.orange,
-      onPress: () => router.push('/(drawer)/profile'),
     },
   ];
 
@@ -234,7 +234,7 @@ export default function HomeScreen() {
       >
         <View style={styles.header}>
           <View style={styles.welcomeSection}>
-            <Text style={[styles.welcomeText, { color: '#FFFFFF' }]}>おかえりなさい</Text>
+            <Text style={[styles.welcomeText, { color: '#FFFFFF' }]}>お疲れ様です。</Text>
             <Text style={[styles.appTitle, { color: '#FFFFFF' }]}>{ja.appName}</Text>
             <Text style={[styles.tagline, { color: 'rgba(255,255,255,0.8)' }]}>プロフェッショナル足場計算ツール</Text>
           </View>
@@ -286,45 +286,34 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* メインCTAボタン */}
-        <View style={styles.ctaSection}>
-          <TouchableOpacity
-            style={styles.primaryCTA}
-            onPress={() => router.push('/(drawer)/input')}
-          >
-            <LinearGradient
-              colors={[baseColors.secondary.main, baseColors.secondary.dark]}
-              style={styles.ctaGradient}
-            >
-              <Ionicons name="add-circle" size={24} color="#FFFFFF" />
-              <Text style={styles.ctaText}>新しい計算を開始</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
 
-        {/* 最近の活動 */}
+        {/* 直近の割付 */}
         <View style={styles.recentSection}>
           <View style={styles.sectionHeader}>
-            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>最近の活動</Text>
-            <TouchableOpacity onPress={() => router.push('/(drawer)/history')}>
-              <Text style={[styles.seeAllText, { color: baseColors.primary.main }]}>すべて見る</Text>
-            </TouchableOpacity>
+            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>直近の割付</Text>
           </View>
           
           {recentActivity ? (
-            <View style={[styles.recentCard, { backgroundColor: colors.background.card }]}>
+            <TouchableOpacity 
+              style={[styles.recentCard, { backgroundColor: colors.background.card }]}
+              onPress={() => {
+                // 履歴データを結果画面で表示
+                router.push(`/(drawer)/result?fromHistory=true&historyId=${recentActivity.id}`);
+              }}
+            >
               <View style={styles.recentItem}>
-                <Ionicons name="checkmark-circle" size={20} color={baseColors.secondary.main} />
+                <Ionicons name="folder" size={20} color={baseColors.secondary.main} />
                 <View style={styles.recentContent}>
                   <Text style={[styles.recentTitle, { color: colors.text.primary }]}>
-                    {HistoryStorage.getFrameSizeText(recentActivity.inputData)} 計算完了
+                    {recentActivity.title || `${HistoryStorage.getFrameSizeText(recentActivity.inputData)} プロジェクト`}
                   </Text>
                   <Text style={[styles.recentTime, { color: colors.text.secondary }]}>
                     {HistoryStorage.formatDate(recentActivity.createdAt)}
                   </Text>
                 </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.text.secondary} />
               </View>
-            </View>
+            </TouchableOpacity>
           ) : (
             <View style={[styles.recentCard, { backgroundColor: colors.background.card }]}>
               <View style={styles.recentItem}>
@@ -487,39 +476,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
-  // CTAセクション
-  ctaSection: {
-    paddingHorizontal: 20,
-    paddingTop: 32,
-  },
-  primaryCTA: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
-  },
-  ctaGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 18,
-    paddingHorizontal: 24,
-    gap: 12,
-  },
-  ctaText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
 
   // 最近のセクション
   recentSection: {
@@ -527,14 +483,7 @@ const styles = StyleSheet.create({
     paddingTop: 32,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     marginBottom: 16,
-  },
-  seeAllText: {
-    fontSize: 14,
-    fontWeight: '500',
   },
   recentCard: {
     padding: 16,

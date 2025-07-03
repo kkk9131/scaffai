@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,15 +18,17 @@ import { colors as baseColors } from '../../constants/colors';
 import { useTheme } from '../../context/ThemeContext';
 import { ja } from '../../constants/translations';
 import { useScaffold } from '../../context/ScaffoldContext';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthContext } from '../../context/AuthContext';
+import { HistoryStorage } from '../../utils/storage';
 
 export default function ResultScreen() {
   const { colors, isDark } = useTheme();
-  const { isLoading, error, calculationResult, saveToLocal, saveToCloud, isFromHistory, adjustGap, inputData } = useScaffold();
+  const { isLoading, error, calculationResult, saveToLocal, saveToCloud, isFromHistory, adjustGap, inputData, setCalculationResult, setInputValue } = useScaffold();
   const { user } = useAuthContext();
   const router = useRouter();
+  const params = useLocalSearchParams();
   
   const [showProjectNameDialog, setShowProjectNameDialog] = useState(false);
   const [showCompletionDialog, setShowCompletionDialog] = useState(false);
@@ -36,6 +38,40 @@ export default function ResultScreen() {
 
   // Debug logging
   console.log('ResultScreen render - isLoading:', isLoading, 'error:', error, 'hasResult:', !!calculationResult);
+
+  // 履歴からの遷移の場合、履歴データを読み込む
+  useEffect(() => {
+    const loadHistoryData = async () => {
+      if (params.fromHistory === 'true' && params.historyId) {
+        try {
+          console.log('Loading history data for ID:', params.historyId);
+          const history = await HistoryStorage.getHistory();
+          const historyItem = history.find(item => item.id === params.historyId);
+          
+          if (historyItem) {
+            console.log('Found history item:', historyItem);
+            
+            // 入力データを設定
+            // setInputValue の型に合わせてデータを設定する必要があります
+            // 簡単のため、全体的なデータ設定のヘルパー関数が必要かもしれません
+            
+            // 計算結果を設定
+            setCalculationResult(historyItem.result);
+            
+            console.log('History data loaded successfully');
+          } else {
+            console.error('History item not found for ID:', params.historyId);
+            Alert.alert('エラー', '履歴データが見つかりませんでした');
+          }
+        } catch (error) {
+          console.error('Error loading history data:', error);
+          Alert.alert('エラー', '履歴データの読み込みに失敗しました');
+        }
+      }
+    };
+
+    loadHistoryData();
+  }, [params.fromHistory, params.historyId, setCalculationResult]);
 
   // 保存処理関数
   const handleSaveWithProjectName = async (projectName: string) => {

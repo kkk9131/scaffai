@@ -146,6 +146,14 @@ export default function HomeScreen() {
       },
     },
     {
+      id: 'quick-allocation',
+      title: '簡易割付',
+      subtitle: '素早い割付計算',
+      icon: 'layers',
+      color: baseColors.primary.main,
+      onPress: () => router.push('/(drawer)/quick-allocation'),
+    },
+    {
       id: 'history',
       title: '履歴確認',
       subtitle: '過去の計算結果',

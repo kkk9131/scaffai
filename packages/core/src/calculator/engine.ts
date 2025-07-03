@@ -30,36 +30,36 @@ export function calculateAll(input: ScaffoldInputData): ScaffoldCalculationResul
     target_margin_N, target_margin_E, target_margin_S, target_margin_W
   } = input;
 
-  // 南北方向の計算（東面・西面の離れを決定）
-  // 個別の目標離れを考慮して計算（東=left, 西=right）
-  const targetMarginEast = target_margin_E;
-  const targetMarginWest = target_margin_W;
-    
-  const nsResult = calculateFaceDimensions(
-    width_NS,
-    eaves_E, eaves_W,  // 左=東、右=西
-    boundary_E, boundary_W,
-    use_150_NS, use_300_NS, use_355_NS,
-    NORMAL_PARTS,
-    targetMarginEast,
-    targetMarginWest,
-    "NS_direction (East/West gaps)"
-  );
-
-  // 東西方向の計算（北面・南面の離れを決定）
+  // 南北方向の計算（南面・北面の離れを決定）
   // 個別の目標離れを考慮して計算（南=left, 北=right）
   const targetMarginSouth = target_margin_S;
   const targetMarginNorth = target_margin_N;
     
-  const ewResult = calculateFaceDimensions(
-    width_EW,
+  const nsResult = calculateFaceDimensions(
+    width_NS,
     eaves_S, eaves_N,  // 左=南、右=北
     boundary_S, boundary_N,
-    use_150_EW, use_300_EW, use_355_EW,
+    use_150_NS, use_300_NS, use_355_NS,
     NORMAL_PARTS,
     targetMarginSouth,
     targetMarginNorth,
-    "EW_direction (North/South gaps)"
+    "NS_direction (South/North gaps)"
+  );
+
+  // 東西方向の計算（東面・西面の離れを決定）
+  // 個別の目標離れを考慮して計算（東=left, 西=right）
+  const targetMarginEast = target_margin_E;
+  const targetMarginWest = target_margin_W;
+    
+  const ewResult = calculateFaceDimensions(
+    width_EW,
+    eaves_E, eaves_W,  // 左=東、右=西
+    boundary_E, boundary_W,
+    use_150_EW, use_300_EW, use_355_EW,
+    NORMAL_PARTS,
+    targetMarginEast,
+    targetMarginWest,
+    "EW_direction (East/West gaps)"
   );
 
   // 段数とジャッキアップ高さ計算
@@ -130,10 +130,10 @@ export function calculateAll(input: ScaffoldInputData): ScaffoldCalculationResul
     ew_total_span: ewResult.total_span,
     ns_span_structure: nsResult.span_parts_text,
     ew_span_structure: ewResult.span_parts_text,
-    north_gap: ewResult.right_note,  // EW方向の右=北
-    south_gap: ewResult.left_note,   // EW方向の左=南
-    east_gap: nsResult.left_note,    // NS方向の左=東
-    west_gap: nsResult.right_note,   // NS方向の右=西
+    north_gap: nsResult.right_note,  // NS方向の右=北
+    south_gap: nsResult.left_note,   // NS方向の左=南  
+    east_gap: ewResult.left_note,    // EW方向の左=東
+    west_gap: ewResult.right_note,   // EW方向の右=西
     num_stages: numStages,
     modules_count: modulesCount,
     jack_up_height: jackUpHeight,

@@ -40,14 +40,27 @@ export function calculateInitialMargins(
   
   // 境界線がない場合の処理
   if (leftBoundaryVal === null && rightBoundaryVal === null) {
-    // 左右で異なる目標離れを考慮
+    // 左右で異なる目標離れを考慮した精密配分
     const totalTargetMargin = targetMarginLeftVal + targetMarginRightVal;
+    
+    if (debugPrints) {
+      console.log(`[DEBUG] calculateInitialMargins: total_target=${totalTargetMargin}, available=${availableMarginTotal}`);
+    }
     
     if (availableMarginTotal <= totalTargetMargin) {
       // 利用可能な余裕が目標離れの合計以下の場合、比例配分
-      const ratio = availableMarginTotal / totalTargetMargin;
-      leftGap = Math.floor(targetMarginLeftVal * ratio);
-      rightGap = availableMarginTotal - leftGap;
+      if (totalTargetMargin > 0) {
+        const ratio = availableMarginTotal / totalTargetMargin;
+        leftGap = Math.round(targetMarginLeftVal * ratio);
+        rightGap = availableMarginTotal - leftGap;
+      } else {
+        leftGap = Math.floor(availableMarginTotal / 2);
+        rightGap = availableMarginTotal - leftGap;
+      }
+      
+      if (debugPrints) {
+        console.log(`[DEBUG] calculateInitialMargins: proportional allocation (ratio=${availableMarginTotal / totalTargetMargin})`);
+      }
     } else {
       // 余裕が十分にある場合、目標離れを満たしてから余剰を配分
       leftGap = targetMarginLeftVal;
@@ -55,11 +68,22 @@ export function calculateInitialMargins(
       const surplus = availableMarginTotal - totalTargetMargin;
       
       if (surplus > 0) {
-        // 余剰を目標離れの比率で配分
-        const leftRatio = targetMarginLeftVal / totalTargetMargin;
-        const additionalLeft = Math.floor(surplus * leftRatio);
-        leftGap += additionalLeft;
-        rightGap += surplus - additionalLeft;
+        // 余剰を目標離れの比率で配分（より精密に）
+        if (totalTargetMargin > 0) {
+          const leftRatio = targetMarginLeftVal / totalTargetMargin;
+          const additionalLeft = Math.round(surplus * leftRatio);
+          leftGap += additionalLeft;
+          rightGap += surplus - additionalLeft;
+        } else {
+          // 両方とも目標0の場合は等分
+          const additionalEach = Math.floor(surplus / 2);
+          leftGap += additionalEach;
+          rightGap += surplus - additionalEach;
+        }
+      }
+      
+      if (debugPrints) {
+        console.log(`[DEBUG] calculateInitialMargins: target satisfied, surplus=${surplus} distributed`);
       }
     }
     
@@ -70,7 +94,7 @@ export function calculateInitialMargins(
     return [leftGap, rightGap];
   }
   
-  // 境界線制約の処理
+  // 境界線制約の処理（個別目標離れを考慮）
   const maxAllowedLeft = leftBoundaryVal !== null 
     ? Math.max(0, leftBoundaryVal - BOUNDARY_OFFSET) 
     : Infinity;
@@ -82,6 +106,36 @@ export function calculateInitialMargins(
     console.log(`[DEBUG] calculateInitialMargins: max_L_allow=${maxAllowedLeft}, max_R_allow=${maxAllowedRight}`);
   }
   
+  // 個別目標離れを考慮した初期分配
+  const totalTargetMargin = targetMarginLeftVal + targetMarginRightVal;
+  
+  if (totalTargetMargin > 0 && availableMarginTotal >= totalTargetMargin) {
+    // 目標離れが達成可能な場合、まず目標値を基準に分配
+    leftGap = targetMarginLeftVal;
+    rightGap = targetMarginRightVal;
+    
+    const surplus = availableMarginTotal - totalTargetMargin;
+    if (surplus > 0) {
+      const leftRatio = targetMarginLeftVal / totalTargetMargin;
+      const additionalLeft = Math.round(surplus * leftRatio);
+      leftGap += additionalLeft;
+      rightGap += surplus - additionalLeft;
+    }
+    
+    if (debugPrints) {
+      console.log(`[DEBUG] calculateInitialMargins: target-based allocation before boundary clip: L=${leftGap}, R=${rightGap}`);
+    }
+  } else {
+    // 従来通りの等分配
+    leftGap = Math.floor(availableMarginTotal / 2);
+    rightGap = availableMarginTotal - leftGap;
+    
+    if (debugPrints) {
+      console.log(`[DEBUG] calculateInitialMargins: equal allocation before boundary clip: L=${leftGap}, R=${rightGap}`);
+    }
+  }
+  
+  // 境界線制約でクリップ
   leftGap = Math.max(0, Math.min(leftGap, maxAllowedLeft));
   rightGap = Math.max(0, Math.min(rightGap, maxAllowedRight));
   
