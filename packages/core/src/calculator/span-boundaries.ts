@@ -61,12 +61,9 @@ export function calculateSpanWithBoundaries(
   let bestComboNormalParts: number[] = [];
   let minAbsDiffToTargetSumNormal = Infinity;
   
-  // 通常部材の組み合わせを探索（境界制約なしの場合は必要に応じて拡張）
+  // 通常部材の組み合わせを探索（境界制約なしの場合は上限を拡張）
   const hasNoBoundary = leftBoundary === null && rightBoundary === null;
-  // 理想的な部材数を計算（全て1800部材で構成した場合の必要数）
-  const idealPartCount = Math.ceil(targetSumForNormalPartsIdeal / STANDARD_PART_SIZE);
-  // 境界制約なしなら理想的な部材数+1まで、ありなら4個まで
-  const maxCombinations = hasNoBoundary ? Math.max(6, idealPartCount + 1) : 4;
+  const maxCombinations = hasNoBoundary ? 6 : 4;  // 境界制約なしなら6個まで
   
   for (let rCount = 0; rCount <= maxCombinations; rCount++) {
     const combinations = generateCombinations([...availableNormalPartsList], rCount);
