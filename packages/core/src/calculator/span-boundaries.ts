@@ -89,9 +89,9 @@ export function calculateSpanWithBoundaries(
           const best1800Count = bestComboNormalParts.filter(p => p === STANDARD_PART_SIZE).length;
           
           if (bestComboNormalParts.length === 0 || 
-              current1800Count > best1800Count ||
-              (current1800Count === best1800Count && currentSumNormal < bestSum) ||
-              (current1800Count === best1800Count && currentSumNormal === bestSum && 
+              currentSumNormal < bestSum ||
+              (currentSumNormal === bestSum && current1800Count > best1800Count) ||
+              (currentSumNormal === bestSum && current1800Count === best1800Count && 
                comboNormal.length < bestComboNormalParts.length)) {
             bestComboNormalParts = [...comboNormal];
           }
@@ -102,9 +102,9 @@ export function calculateSpanWithBoundaries(
           const current1800Count = comboNormal.filter(p => p === STANDARD_PART_SIZE).length;
           const best1800Count = bestComboNormalParts.filter(p => p === STANDARD_PART_SIZE).length;
           
-          if (current1800Count > best1800Count ||
-              (current1800Count === best1800Count && currentSumNormal > bestSum) ||
-              (current1800Count === best1800Count && currentSumNormal === bestSum && 
+          if (currentSumNormal > bestSum ||
+              (currentSumNormal === bestSum && current1800Count > best1800Count) ||
+              (currentSumNormal === bestSum && current1800Count === best1800Count && 
                comboNormal.length < bestComboNormalParts.length)) {
             bestComboNormalParts = [...comboNormal];
           }
