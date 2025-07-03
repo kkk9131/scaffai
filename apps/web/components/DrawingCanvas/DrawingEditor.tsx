@@ -2438,12 +2438,18 @@ export default function DrawingEditor({
       
       // 3. 簡易計算結果から各面の離れを取得
       const faceDistances = {
-        north: simpleResult.result.north_gap ? parseInt(simpleResult.result.north_gap.replace(' mm', '')) : 150,
-        east: simpleResult.result.east_gap ? parseInt(simpleResult.result.east_gap.replace(' mm', '')) : 150,
-        south: simpleResult.result.south_gap ? parseInt(simpleResult.result.south_gap.replace(' mm', '')) : 150,
-        west: simpleResult.result.west_gap ? parseInt(simpleResult.result.west_gap.replace(' mm', '')) : 150
+        north: simpleResult.result.north_gap ? parseFloat(simpleResult.result.north_gap.replace(/[^\d.]/g, '')) : 150,
+        east: simpleResult.result.east_gap ? parseFloat(simpleResult.result.east_gap.replace(/[^\d.]/g, '')) : 150,
+        south: simpleResult.result.south_gap ? parseFloat(simpleResult.result.south_gap.replace(/[^\d.]/g, '')) : 150,
+        west: simpleResult.result.west_gap ? parseFloat(simpleResult.result.west_gap.replace(/[^\d.]/g, '')) : 150
       };
-      console.log('各面の基本離れ:', faceDistances);
+      console.log('各面の基本離れ（簡易計算結果）:', faceDistances);
+      console.log('元の簡易計算結果:', {
+        north_gap: simpleResult.result.north_gap,
+        east_gap: simpleResult.result.east_gap,
+        south_gap: simpleResult.result.south_gap,
+        west_gap: simpleResult.result.west_gap
+      });
       
       // 4. 入隅辺を検出
       const insideCornerEdges = findInsideCornerEdges(buildingVertices, faceDistances);
@@ -2589,7 +2595,22 @@ export default function DrawingEditor({
       if (overallSuccess && successfulCalculations.length > 0) {
         try {
           console.log('=== 足場ライン生成開始 ===');
-          scaffoldLineData = generateScaffoldLine(buildingVertices, calculatedEdges);
+          
+          // 基準縮尺を計算（簡易計算結果と同じスケールを使用）
+          let baseScale = 0.3;
+          if (drawingData) {
+            const buildingWidthEW = drawingData.building.width;
+            const buildingWidthNS = drawingData.building.height;
+            const margin = 100;
+            const maxCanvasWidth = width - margin * 2;
+            const maxCanvasHeight = height - margin * 2;
+            const scaleX = maxCanvasWidth / buildingWidthEW;
+            const scaleY = maxCanvasHeight / buildingWidthNS;
+            baseScale = Math.min(scaleX, scaleY, 0.3);
+          }
+          
+          console.log('足場ライン生成時の基準縮尺:', baseScale);
+          scaffoldLineData = generateScaffoldLine(buildingVertices, calculatedEdges, baseScale);
           setScaffoldLineData(scaffoldLineData);
           console.log('=== 足場ライン生成完了 ===', scaffoldLineData);
         } catch (error) {

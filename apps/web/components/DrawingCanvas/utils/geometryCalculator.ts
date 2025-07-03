@@ -127,9 +127,9 @@ export function generateEdgeInfo(vertices: BuildingVertex[]): EdgeInfo[] {
     const startCornerAngle = calculateCornerAngle(prev, current, next);
     const endCornerAngle = calculateCornerAngle(current, next, nextNext);
     
-    // 入隅・出隅判定
-    const isInsideCorner = startCornerAngle < 180;  // 内角が180度未満は入隅
-    const isOutsideCorner = startCornerAngle > 180; // 内角が180度超は出隅
+    // 入隅・出隅判定（建築用語に従い修正）
+    const isInsideCorner = startCornerAngle > 180;  // 内角が180度超は入隅（建物が凹んでいる）
+    const isOutsideCorner = startCornerAngle < 180; // 内角が180度未満は出隅（建物が凸出している）
     
     edges.push({
       edgeIndex: i,

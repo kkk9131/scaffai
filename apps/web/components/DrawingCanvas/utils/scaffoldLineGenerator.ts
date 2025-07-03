@@ -134,11 +134,13 @@ function generateSpanMarkers(
  */
 export function generateScaffoldLine(
   buildingVertices: BuildingVertex[],
-  calculationResults: AdvancedCalculationResult[]
+  calculationResults: AdvancedCalculationResult[],
+  baseScale?: number // 基準縮尺を追加
 ): ScaffoldLineData {
   console.log('=== 足場ライン生成開始 ===');
   console.log('建物頂点:', buildingVertices);
   console.log('計算結果:', calculationResults);
+  console.log('基準縮尺:', baseScale);
   
   if (buildingVertices.length < 3) {
     console.warn('建物頂点が不足しています');
@@ -148,6 +150,9 @@ export function generateScaffoldLine(
       visible: true
     };
   }
+  
+  // 基準縮尺が指定されていない場合のデフォルト値
+  const scale = baseScale || 0.3;
   
   const scaffoldVertices: BuildingVertex[] = [];
   const scaffoldEdges: ScaffoldLineData['edges'] = [];
@@ -167,21 +172,24 @@ export function generateScaffoldLine(
     
     // この辺の計算結果を取得
     const calcResult = calculationResults.find(result => result.edgeIndex === i);
-    const distance = calcResult?.success ? (calcResult.resultDistance || 150) : 150;
+    const distanceMm = calcResult?.success ? (calcResult.resultDistance || 150) : 150;
     const spanConfig = calcResult?.success ? (calcResult.spanConfiguration || []) : [];
     
-    console.log(`辺${i}: 離れ距離=${distance}mm, スパン構成=`, spanConfig);
+    // 離れ距離をmm単位からピクセル単位に変換
+    const distancePixels = distanceMm * scale;
     
-    // 平行線を計算
-    const parallelLine = getParallelLine(currentVertex, nextVertex, distance, true);
+    console.log(`辺${i}: 離れ距離=${distanceMm}mm (${distancePixels.toFixed(1)}px), スパン構成=`, spanConfig);
     
-    parallelLines.push({
-      edgeIndex: i,
-      start: parallelLine.start,
-      end: parallelLine.end,
-      distance,
-      spanConfiguration: spanConfig
-    });
+    // 平行線を計算（ピクセル単位の距離を使用）
+    const parallelLine = getParallelLine(currentVertex, nextVertex, distancePixels, true);
+    
+          parallelLines.push({
+        edgeIndex: i,
+        start: parallelLine.start,
+        end: parallelLine.end,
+        distance: distanceMm, // mm単位の距離を保存
+        spanConfiguration: spanConfig
+      });
   }
   
   // 隣接する平行線の交点を計算して足場頂点を生成
