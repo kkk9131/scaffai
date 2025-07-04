@@ -3,13 +3,6 @@ import { calculateSpanWithBoundaries } from './span-boundaries';
 import { calculateInitialMargins } from './margins';
 import { formatSpanParts } from './utils';
 
-/**
- * 5mm単位で丸める関数（離れ専用）
- */
-function roundToNearest5mm(value: number): number {
-  return Math.round(value / 5) * 5;
-}
-
 const { 
   BOUNDARY_OFFSET, 
   EAVES_MARGIN_THRESHOLD_ADDITION, 
@@ -35,7 +28,7 @@ export function calculateFaceDimensions(
   faceName: string = "UnknownFace"
 ): FaceDimensionResult {
   
-  const debugPrints = true; // デバッグ出力の制御
+  const debugPrints = false; // デバッグ出力の制御
   
   if (debugPrints) {
     console.log(`\n--- Calculating for ${faceName} ---`);
@@ -55,7 +48,6 @@ export function calculateFaceDimensions(
   
   if (debugPrints) {
     console.log(`[DEBUG ${faceName}] Target margins: L=${targetMarginLeftVal} -> effective: ${effectiveTargetMarginLeft}, R=${targetMarginRightVal} -> effective: ${effectiveTargetMarginRight}`);
-    console.log(`[DEBUG ${faceName}] Individual targets enabled: L=${targetMarginLeftVal !== null}, R=${targetMarginRightVal !== null}`);
   }
   
   // 1. ユーザー指定の必須特殊部材リストを作成
@@ -82,7 +74,7 @@ export function calculateFaceDimensions(
     boundaryRightVal,
     effectiveTargetMarginLeft,
     effectiveTargetMarginRight,
-    true  // デバッグ強制有効
+    debugPrints
   );
   
   if (debugPrints) {
@@ -99,7 +91,7 @@ export function calculateFaceDimensions(
     effectiveTargetMarginRight,
     eavesLeftVal,
     eavesRightVal,
-    true  // デバッグ強制有効
+    debugPrints
   );
   
   if (debugPrints) {
@@ -288,6 +280,10 @@ export function calculateFaceDimensions(
   }
   
   // 離れを5mm単位に丸める
+  function roundToNearest5mm(value: number): number {
+    return Math.round(value / 5) * 5;
+  }
+  
   const originalLeftMargin = roundToNearest5mm(leftMargin);
   const originalRightMargin = roundToNearest5mm(rightMargin);
   
@@ -381,14 +377,6 @@ export function calculateFaceDimensions(
         spanPartsText = `${spanPartsText}, ${correctionPartVal}${suffixStr}`;
       }
     }
-  }
-  
-  // 🔍 重要：100mm誤差チェック - 常に表示
-  const calculatedSum = widthVal + originalLeftMargin + originalRightMargin;
-  if (calculatedSum !== totalVal) {
-    console.error(`❌ [${faceName}] 数学エラー: ${widthVal} + ${originalLeftMargin} + ${originalRightMargin} = ${calculatedSum} ≠ ${totalVal} (差: ${totalVal - calculatedSum}mm)`);
-  } else {
-    console.log(`✅ [${faceName}] 数学OK: ${widthVal} + ${originalLeftMargin} + ${originalRightMargin} = ${calculatedSum}`);
   }
   
   if (debugPrints) {
