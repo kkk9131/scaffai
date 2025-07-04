@@ -71,7 +71,8 @@ export function calculateCornerAngle(prev: BuildingVertex, current: BuildingVert
 }
 
 /**
- * 辺の法線ベクトル方向から面を判定
+ * 辺の法線ベクトル方向から面を判定（修正版）
+ * ユーザーの期待する面の定義に合わせて調整
  */
 export function getEdgeFaceDirection(startVertex: BuildingVertex, endVertex: BuildingVertex): 'north' | 'east' | 'south' | 'west' {
   // 辺のベクトル
@@ -80,25 +81,31 @@ export function getEdgeFaceDirection(startVertex: BuildingVertex, endVertex: Bui
     y: endVertex.y - startVertex.y
   };
   
-  // 外向き法線ベクトル（右回り：辺ベクトルを90度時計回り回転）
-  const normalVector = {
-    x: edgeVector.y,  // 90度時計回り回転
-    y: -edgeVector.x
-  };
+  // ベクトルの正規化
+  const length = Math.sqrt(edgeVector.x * edgeVector.x + edgeVector.y * edgeVector.y);
+  if (length === 0) {
+    return 'north'; // デフォルト
+  }
   
-  // 法線ベクトルの角度を計算
-  const angle = Math.atan2(normalVector.y, normalVector.x);
+  // 辺のベクトルの角度を計算（右方向が0度、時計回り）
+  const angle = Math.atan2(edgeVector.y, edgeVector.x);
   const degrees = (angle * 180 / Math.PI + 360) % 360;
   
-  // 角度による面判定
+  // 辺の方向に基づいて面を判定
+  // ユーザーの形状定義に合わせて：
+  // 東向きの辺 → 北面、南向きの辺 → 東面、西向きの辺 → 南面、北向きの辺 → 西面
   if (degrees >= 315 || degrees < 45) {
-    return 'east';
-  } else if (degrees >= 45 && degrees < 135) {
-    return 'south';
-  } else if (degrees >= 135 && degrees < 225) {
-    return 'west';
-  } else {
+    // 辺が東向き → 北面（建物の北側の辺）
     return 'north';
+  } else if (degrees >= 45 && degrees < 135) {
+    // 辺が南向き → 東面（建物の東側の辺）
+    return 'east';
+  } else if (degrees >= 135 && degrees < 225) {
+    // 辺が西向き → 南面（建物の南側の辺）
+    return 'south';
+  } else {
+    // 辺が北向き → 西面（建物の西側の辺）
+    return 'west';
   }
 }
 

@@ -1,4 +1,5 @@
 import type { BuildingVertex, ScaffoldLineData, AdvancedCalculationResult } from '../types/drawing';
+import { getEdgeFaceDirection } from './geometryCalculator';
 
 /**
  * 足場ライン生成ユーティリティ
@@ -98,7 +99,8 @@ function getLineIntersection(
 }
 
 /**
- * スパン境界点を生成
+ * スパン境界点を生成（修正版）
+ * ユーザーの期待する配置に合わせて調整
  */
 function generateSpanMarkers(
   edgeStart: BuildingVertex,
@@ -109,28 +111,49 @@ function generateSpanMarkers(
     return [];
   }
   
-  const totalLength = Math.sqrt(
+  // 辺の実際の長さを計算（ピクセル単位）
+  const pixelLength = Math.sqrt(
     Math.pow(edgeEnd.x - edgeStart.x, 2) + Math.pow(edgeEnd.y - edgeStart.y, 2)
   );
   
+  if (pixelLength === 0) {
+    return [];
+  }
+  
   const markers: { position: number; type: 'span-boundary' }[] = [];
+  
+  // スパン構成は実寸法（mm）で指定されているため、
+  // 現在の縮尺を考慮してピクセル長さとの比較を行う
+  const totalSpanLength = spanConfiguration.reduce((sum, span) => sum + span, 0);
+  
   let currentPosition = 0;
   
-  for (const span of spanConfiguration) {
+  for (let i = 0; i < spanConfiguration.length; i++) {
+    const span = spanConfiguration[i];
     currentPosition += span;
-    if (currentPosition < totalLength) {
-      markers.push({
-        position: currentPosition / totalLength, // 0-1の比率
-        type: 'span-boundary'
-      });
+    
+    // 最後のスパンでない場合のみマーカーを配置
+    if (i < spanConfiguration.length - 1) {
+      const relativePosition = currentPosition / totalSpanLength;
+      
+      // 0-1の範囲内であることを確認
+      if (relativePosition > 0 && relativePosition < 1) {
+        markers.push({
+          position: relativePosition,
+          type: 'span-boundary'
+        });
+      }
     }
   }
+  
+  console.log(`スパンマーカー生成: 構成=${spanConfiguration}, 総長=${totalSpanLength}mm, マーカー数=${markers.length}`);
   
   return markers;
 }
 
 /**
- * 足場ライン座標を生成
+ * 足場ライン座標を生成（修正版）
+ * 入隅計算の結果を正しい対象辺に適用
  */
 export function generateScaffoldLine(
   buildingVertices: BuildingVertex[],
@@ -166,30 +189,100 @@ export function generateScaffoldLine(
     spanConfiguration: number[];
   }[] = [];
   
+  // 入隅計算結果を面ごとに整理
+  const faceCalculations: { [face: string]: AdvancedCalculationResult[] } = {
+    north: [],
+    east: [],
+    south: [],
+    west: []
+  };
+  
+  // 各辺の面方向を調べて分類
   for (let i = 0; i < buildingVertices.length; i++) {
     const currentVertex = buildingVertices[i];
     const nextVertex = buildingVertices[(i + 1) % buildingVertices.length];
+    const faceDirection = getEdgeFaceDirection(currentVertex, nextVertex);
     
-    // この辺の計算結果を取得
     const calcResult = calculationResults.find(result => result.edgeIndex === i);
-    const distanceMm = calcResult?.success ? (calcResult.resultDistance || 150) : 150;
-    const spanConfig = calcResult?.success ? (calcResult.spanConfiguration || []) : [];
+    if (calcResult) {
+      faceCalculations[faceDirection].push(calcResult);
+    }
+  }
+  
+  console.log('面ごとの計算結果:', faceCalculations);
+  
+  for (let i = 0; i < buildingVertices.length; i++) {
+    const currentVertex = buildingVertices[i];
+    const nextVertex = buildingVertices[(i + 1) % buildingVertices.length];
+    const faceDirection = getEdgeFaceDirection(currentVertex, nextVertex);
+    
+    // この辺の計算結果を取得（修正版）
+    let distanceMm = 150; // デフォルト
+    let spanConfig: number[] = [];
+    
+    // 直接的な計算結果を確認
+    const directResult = calculationResults.find(result => result.edgeIndex === i);
+    
+    if (directResult?.success) {
+      // 直接の計算結果がある場合はそれを使用
+      distanceMm = directResult.resultDistance || 150;
+      spanConfig = directResult.spanConfiguration || [];
+      console.log(`辺${i}(${faceDirection}面): 直接計算結果使用 - 離れ=${distanceMm}mm, スパン構成=`, spanConfig);
+    } else {
+      // 同じ面の他の計算結果を探す
+      const sameFaceResults = faceCalculations[faceDirection].filter(result => result.success);
+      
+      if (sameFaceResults.length > 0) {
+        // 同じ面の成功した計算結果を適用
+        const targetResult = sameFaceResults[0]; // 最初の成功結果を使用
+        distanceMm = targetResult.resultDistance || 150;
+        
+        // スパン構成は元の計算結果を調整して適用
+        // ユーザーの要件：「総スパンから計算結果を引いたもの」
+        const originalSpanConfig = targetResult.spanConfiguration || [];
+        if (originalSpanConfig.length > 0) {
+          const totalOriginalSpan = originalSpanConfig.reduce((sum, span) => sum + span, 0);
+          
+          // 現在の辺の実寸法を計算（概算）
+          const pixelLength = Math.sqrt(
+            Math.pow(nextVertex.x - currentVertex.x, 2) + 
+            Math.pow(nextVertex.y - currentVertex.y, 2)
+          );
+          const edgeLengthMm = pixelLength / scale;
+          
+          // 残りスパン = 辺の長さ - 入隅部分
+          const remainingSpan = edgeLengthMm - totalOriginalSpan;
+          
+          if (remainingSpan > 0) {
+            // 残りスパンを適切に分割
+            spanConfig = [Math.round(remainingSpan)];
+            console.log(`辺${i}(${faceDirection}面): 調整されたスパン構成 - 元の構成=${originalSpanConfig}, 残り=${remainingSpan.toFixed(1)}mm`);
+          } else {
+            spanConfig = originalSpanConfig;
+          }
+        }
+        
+        console.log(`辺${i}(${faceDirection}面): 面内計算結果使用 - 離れ=${distanceMm}mm, 調整スパン構成=`, spanConfig);
+      } else {
+        console.log(`辺${i}(${faceDirection}面): デフォルト値使用 - 離れ=${distanceMm}mm`);
+      }
+    }
     
     // 離れ距離をmm単位からピクセル単位に変換
     const distancePixels = distanceMm * scale;
     
-    console.log(`辺${i}: 離れ距離=${distanceMm}mm (${distancePixels.toFixed(1)}px), スパン構成=`, spanConfig);
+    console.log(`辺${i}: 最終 - 離れ距離=${distanceMm}mm (${distancePixels.toFixed(1)}px), スパン構成=`, spanConfig);
     
     // 平行線を計算（ピクセル単位の距離を使用）
     const parallelLine = getParallelLine(currentVertex, nextVertex, distancePixels, true);
     
-          parallelLines.push({
-        edgeIndex: i,
-        start: parallelLine.start,
-        end: parallelLine.end,
-        distance: distanceMm, // mm単位の距離を保存
-        spanConfiguration: spanConfig
-      });
+    parallelLines.push({
+      edgeIndex: i,
+      start: parallelLine.start,
+      end: parallelLine.end,
+      distance: distanceMm, // mm単位の距離を保存
+      spanConfiguration: spanConfig
+    });
   }
   
   // 隣接する平行線の交点を計算して足場頂点を生成
