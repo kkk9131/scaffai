@@ -1,149 +1,223 @@
-# Claude Development Workflow for ScaffAI
+# CLAUDE.md
 
-## 📋 Standard Development Flow
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-This document outlines the standard development workflow for ScaffAI using Claude Code and various MCP tools.
+## 📋 Project Architecture
 
-### 🔄 Complete Development Cycle
+ScaffAI is a scaffold calculation and design platform built as a TypeScript monorepo with the following structure:
 
 ```
-User Instructions/GitHub Issues → Todo Creation → Implementation → Testing → Debugging → Verification → PR Creation → Next Steps
+scaffai/
+├── apps/
+│   ├── mobile/     # React Native (Expo) app
+│   └── web/        # Next.js web application
+├── packages/
+│   ├── core/       # Shared business logic & calculation engine
+│   └── ui/         # Shared UI components
+└── docs/           # Project documentation
 ```
 
-### Step-by-Step Process
+### Technology Stack
+- **Monorepo**: Turbo + pnpm workspace
+- **Mobile**: React Native + Expo (Router v7)
+- **Web**: Next.js 15 + React 18 + Tailwind CSS
+- **Backend**: Supabase (PostgreSQL + Auth + Storage)
+- **State Management**: Zustand + React Context
+- **UI Components**: Radix UI + class-variance-authority
+- **Drawing Engine**: Konva.js + React-Konva (Web only)
+- **Testing**: Jest + Playwright + React Testing Library
+- **Type Safety**: TypeScript + Zod validation
 
-#### 1. **Issue Analysis & Todo Creation**
-- Analyze user instructions or GitHub issues
-- Use `TodoWrite` tool to create structured task breakdown
-- Prioritize tasks and mark dependencies
-- Set clear acceptance criteria
+## 🔧 Development Commands
 
-#### 2. **Implementation Phase**
-- Mark todos as `in_progress` one at a time
-- Follow existing code conventions and patterns
-- Implement features incrementally
-- Mark todos as `completed` immediately upon finishing
-
-#### 3. **Testing with Playwright MCP**
-- Use `mcp__playwright__*` tools for end-to-end testing
-- Take screenshots and snapshots for verification
-- Test user flows and interactions
-- Verify responsive design across devices
-
-#### 4. **Debugging with Context7 MCP**
-- Use `mcp__Context7__resolve-library-id` to identify relevant documentation
-- Use `mcp__Context7__get-library-docs` for framework-specific troubleshooting
-- Reference official documentation for debugging complex issues
-- Apply best practices from library documentation
-
-#### 5. **Re-verification**
-- Run final tests after bug fixes
-- Verify all acceptance criteria are met
-- Check that no regressions were introduced
-- Ensure code quality standards
-
-#### 6. **Pull Request Creation**
-- Create comprehensive PR with clear description
-- Include testing screenshots/videos when applicable
-- Reference related issues and todos
-- Follow PR template guidelines
-
-#### 7. **Documentation Review & Next Steps**
-- Review `@docs` for project context
-- Update relevant documentation if needed
-- Propose logical next development steps
-- Suggest improvements or optimizations
-
-### 🛠️ Key Tools & Commands
-
-#### Todo Management
+### Root Level Commands
 ```bash
-TodoWrite  # Create and update task lists
-TodoRead   # Check current task status
+# Development
+pnpm dev              # Start all apps simultaneously
+pnpm dev:web          # Web app only (PORT 3048)
+pnpm dev:mobile       # Mobile app only
+
+# Quality Assurance
+pnpm lint            # ESLint across all packages
+pnpm typecheck       # TypeScript validation
+pnpm test            # Jest unit tests
+pnpm build           # Build all packages
+pnpm format          # Prettier formatting
 ```
 
-#### Testing & Verification
+### App-Specific Commands
 ```bash
-# Playwright MCP commands
-mcp__playwright__browser_navigate      # Navigate to pages
-mcp__playwright__browser_snapshot      # Capture page state
-mcp__playwright__browser_click         # Interact with elements
-mcp__playwright__browser_take_screenshot # Visual verification
+# Web App (apps/web/)
+npm run test:e2e     # Playwright E2E tests
+npm run test:e2e:ui  # Playwright UI mode
+npm run type-check   # TypeScript check
+
+# Mobile App (apps/mobile/)
+npm run dev:web      # Expo web development
+npm run build:web    # Export for web
 ```
 
-#### Documentation & Debugging
-```bash
-# Context7 MCP commands
-mcp__Context7__resolve-library-id      # Find library documentation
-mcp__Context7__get-library-docs        # Get specific framework docs
-```
+## 🏗️ Key Architecture Decisions
 
-#### Code Quality
-```bash
-npm run lint        # Code linting
-npm run typecheck   # TypeScript validation
-npm run test        # Run test suite
-```
+### Calculation Engine
+- **Location**: `packages/core/src/calculations/`
+- **Critical Rule**: The simple allocation calculation logic (`quickAllocationCalculator.ts`) is **PERFECT** and should **NEVER** be modified without explicit user confirmation
+- **Type Safety**: All calculations use strict TypeScript types with Zod validation
+- **Testing**: Maintains 100% accuracy match with original Python implementation
 
-### 📝 Best Practices
+### Component Architecture
+- **Separation Strategy**: Maximum component separation with single-responsibility principle
+- **Size Limit**: Keep components under 100 lines when possible
+- **Reusability**: Platform-specific implementations in `packages/ui/`
+- **Pattern**: Composition over inheritance
 
-#### Todo Management
-- Break complex features into 3-5 smaller tasks
-- Use clear, actionable descriptions
-- Mark only ONE task as `in_progress` at a time
-- Complete tasks immediately, don't batch completions
+### State Management
+- **Global State**: Zustand stores for cross-component data
+- **Local State**: React hooks for component-specific state
+- **Form State**: react-hook-form with Zod validation
+- **Session Data**: AsyncStorage (mobile) + localStorage (web)
 
-#### Implementation
-- Always check existing patterns before writing new code
-- Follow project's TypeScript and ESLint configurations
-- Write self-documenting code without excessive comments
-- Verify dependencies exist before using external libraries
+## 📱 Platform-Specific Features
 
-#### Testing Strategy
-- Test critical user paths with Playwright
-- Verify both mobile and web experiences
-- Check offline functionality where applicable
-- Test error states and edge cases
+### Mobile App (`apps/mobile/`)
+- **Navigation**: Expo Router with drawer navigation
+- **Offline Support**: AsyncStorage persistence
+- **Billing**: React Native Purchases (RevenueCat)
+- **Camera**: Expo Camera for photo uploads
+- **PWA**: Manifest + service worker support
 
-#### Documentation
-- Keep CLAUDE.md updated with new workflows
-- Reference specific file paths and line numbers
-- Update README.md for user-facing changes
-- Maintain clear commit messages
-- **Update docs/ checkboxes**: Mark checkboxes as completed in relevant docs files (roadmap.md, parallel-development-plan.md) when tasks are finished
+### Web App (`apps/web/`)
+- **Drawing Engine**: Konva.js for CAD-like functionality
+- **Multi-level Support**: Up to 5 scaffold levels
+- **Real-time Updates**: Immediate visual feedback
+- **Export Features**: PDF generation, screenshot capture
+- **Responsive Design**: Mobile-first approach
 
-#### Component Architecture
-- **Maximize component separation**: Break UI into small, focused, reusable components
-- Create single-responsibility components with clear interfaces
-- Separate business logic from presentation components
-- Use composition over inheritance patterns
-- Keep components small (< 100 lines when possible)
+## 🧪 Testing Strategy
 
-### 🔍 Quality Gates
+### E2E Testing (Playwright)
+- **Base URL**: `http://localhost:3048`
+- **Browser Support**: Chrome, Firefox, Safari, Mobile variants
+- **Screenshot Testing**: Automatic on failures
+- **Configuration**: Multi-browser parallel execution
 
-Before marking any feature as complete:
-- [ ] All related todos marked as `completed`
-- [ ] Playwright tests passing
-- [ ] No TypeScript errors
-- [ ] No linting violations
-- [ ] Manual testing completed
-- [ ] Documentation updated if needed
-- [ ] **docs/ checkboxes updated**: Relevant checkboxes in docs/roadmap.md and docs/parallel-development-plan.md marked as completed
+### Unit Testing (Jest)
+- **Coverage Target**: 80%+ code coverage
+- **Focus Areas**: Calculation accuracy, component logic
+- **Mock Strategy**: Supabase client mocking for API calls
 
-### 🚀 Deployment Checklist
+## 🔍 Code Quality Standards
 
-Before creating PR:
-- [ ] Feature fully implemented and tested
-- [ ] All dependencies properly installed
-- [ ] Build process succeeds
-- [ ] No console errors or warnings
-- [ ] Mobile and web platforms tested
-- [ ] Offline functionality verified (if applicable)
+### TypeScript Configuration
+- **Strict Mode**: Enabled across all packages
+- **Path Mapping**: Absolute imports configured
+- **Type Exports**: Shared types from `packages/core`
 
----
+### ESLint Rules
+- **Extends**: Next.js, React, React Hooks, React Native
+- **Custom Rules**: Component naming, import ordering
+- **Accessibility**: eslint-plugin-jsx-a11y for web
 
-*This workflow ensures consistent, high-quality development while leveraging Claude Code's full capabilities.*
+### File Naming Conventions
+- **Components**: PascalCase (`CalculatorForm.tsx`)
+- **Utilities**: camelCase (`quickAllocationCalculator.ts`)
+- **Types**: PascalCase (`QuickAllocationInput`)
+- **Constants**: UPPER_SNAKE_CASE (`STANDARD_PARTS`)
 
-## Development Notes
+## 🗃️ Database Schema (Supabase)
 
-- これで簡易計算のロジックは完璧なので今後は変更しないでください。どうしても変更が必要であればユーザーに確認してください。
+### Key Tables
+- `calculations` - Calculation history and results
+- `projects` - User project management
+- `drawing_data` - CAD drawing persistence
+- `user_sessions` - Session management
+
+### Row Level Security (RLS)
+- **Enabled**: All tables have RLS policies
+- **User Isolation**: Data scoped to authenticated users
+- **Public Access**: Limited to demo/sample data
+
+## 🎯 Development Workflow
+
+### Standard Process
+1. **Issue Analysis** → Create todos with TodoWrite
+2. **Implementation** → One task at a time, mark completed immediately
+3. **Testing** → Playwright for E2E, Jest for units
+4. **Quality Check** → Lint, typecheck, manual testing
+5. **Documentation** → Update roadmap.md checkboxes when complete
+
+### Critical Development Rules
+- **Port Usage**: Always use PORT 3048 for web development
+- **File Creation**: Prefer editing existing files over creating new ones
+- **Component Size**: Break large components into smaller, focused ones
+- **Documentation**: No proactive creation of .md files unless requested
+- **Calculation Logic**: Never modify simple allocation logic without user confirmation
+
+## 📊 Performance Considerations
+
+### Optimization Strategies
+- **Bundle Splitting**: Next.js automatic code splitting
+- **Image Optimization**: Next.js Image component
+- **State Updates**: Debounced inputs for real-time features
+- **Memory Management**: Proper cleanup of Konva objects
+
+### Monitoring
+- **Client-side**: Error boundaries + performance monitoring
+- **Server-side**: Supabase built-in analytics
+- **Build Analysis**: Bundle analyzer for size optimization
+
+## 🔒 Security Practices
+
+### Data Protection
+- **Environment Variables**: Separate for dev/prod
+- **API Keys**: Client-side keys only (anon key)
+- **Validation**: Server-side validation with Supabase RLS
+- **Secrets**: Never commit sensitive data
+
+### Authentication
+- **Provider**: Supabase Auth with email/password
+- **Session Management**: Automatic token refresh
+- **Route Protection**: Middleware-based auth checks
+
+## 📝 Important Notes
+
+### Billing Integration
+- **RevenueCat**: Mobile app billing (iOS + Android)
+- **Stripe**: Web app billing (under development)
+- **Plan Tiers**: Free, Plus (¥4,980), Pro (¥12,800), Max (¥24,800)
+
+### Drawing Engine Specifics
+- **Canvas Size**: Dynamic based on viewport
+- **Coordinate System**: Relative to canvas dimensions
+- **Performance**: Virtualization for large drawings
+- **Export**: PNG, PDF, SVG support
+
+### Deployment
+- **Mobile**: Expo Application Services (EAS)
+- **Web**: Vercel with Next.js optimization
+- **Database**: Supabase hosted PostgreSQL
+- **CDN**: Built-in with hosting providers
+
+## 🚨 Critical Constraints
+
+1. **Calculation Logic**: The simple allocation calculation is production-ready and should not be modified
+2. **Port Configuration**: Always use PORT 3048 for local web development
+3. **Component Architecture**: Maintain small, focused components with clear interfaces
+4. **Type Safety**: All new code must be fully typed with proper Zod validation
+5. **Testing**: All features must have corresponding Playwright E2E tests
+6. **Documentation**: Update docs/roadmap.md checkboxes when tasks are completed
+
+## 🔗 External Dependencies
+
+### Core Dependencies
+- **@supabase/supabase-js**: Database and auth client
+- **@tanstack/react-query**: Server state management
+- **react-hook-form**: Form handling with validation
+- **konva**: Canvas drawing engine (web only)
+- **expo**: Mobile app framework and services
+
+### Development Tools
+- **@playwright/test**: E2E testing framework
+- **turbo**: Monorepo task runner
+- **eslint**: Code linting and formatting
+- **typescript**: Static type checking

@@ -285,3 +285,75 @@ export function findAllocationEdge(
   console.warn(`辺${targetEdge.edgeIndex}は入隅ではありません`);
   return { edge: null, length: 0 };
 }
+
+/**
+ * 高度計算用の入隅検出
+ * ユーザー編集後の建物頂点から入隅を自動検出
+ */
+export interface InsideCornerEdge {
+  edgeIndex: number;
+  startVertex: BuildingVertex;
+  endVertex: BuildingVertex;
+  length: number;
+  adjacentEdgeIndex: number;
+  adjacentEdgeLength: number;
+  cornerVertex: BuildingVertex;
+}
+
+/**
+ * 建物頂点から入隅辺を検出
+ */
+export function detectInsideCornerEdges(vertices: BuildingVertex[]): InsideCornerEdge[] {
+  if (vertices.length < 3) {
+    console.warn('頂点数が不足しています');
+    return [];
+  }
+
+  const insideCornerEdges: InsideCornerEdge[] = [];
+  
+  // 各頂点で内角を計算し、入隅を検出
+  for (let i = 0; i < vertices.length; i++) {
+    const prevVertex = vertices[(i - 1 + vertices.length) % vertices.length];
+    const currentVertex = vertices[i];
+    const nextVertex = vertices[(i + 1) % vertices.length];
+    
+    // 内角を計算
+    const angle = calculateCornerAngle(prevVertex, currentVertex, nextVertex);
+    
+    // 180度未満の場合は入隅（内角が鋭角）
+    if (angle < 180) {
+      console.log(`頂点${i}は入隅です（角度: ${angle.toFixed(1)}度）`);
+      
+      // 入隅頂点に接続する2つの辺を入隅辺として登録
+      const prevEdgeIndex = (i - 1 + vertices.length) % vertices.length;
+      const currentEdgeIndex = i;
+      
+      // 前の辺（入る辺）
+      const prevEdgeLength = calculateDistance(prevVertex, currentVertex);
+      insideCornerEdges.push({
+        edgeIndex: prevEdgeIndex,
+        startVertex: prevVertex,
+        endVertex: currentVertex,
+        length: prevEdgeLength,
+        adjacentEdgeIndex: currentEdgeIndex,
+        adjacentEdgeLength: calculateDistance(currentVertex, nextVertex),
+        cornerVertex: currentVertex
+      });
+      
+      // 次の辺（出る辺）
+      const nextEdgeLength = calculateDistance(currentVertex, nextVertex);
+      insideCornerEdges.push({
+        edgeIndex: currentEdgeIndex,
+        startVertex: currentVertex,
+        endVertex: nextVertex,
+        length: nextEdgeLength,
+        adjacentEdgeIndex: prevEdgeIndex,
+        adjacentEdgeLength: prevEdgeLength,
+        cornerVertex: currentVertex
+      });
+    }
+  }
+  
+  console.log('検出された入隅辺:', insideCornerEdges);
+  return insideCornerEdges;
+}
