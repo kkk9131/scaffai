@@ -218,49 +218,55 @@ export default function PlanManagement() {
     </View>
   );
 
-    const CurrentPlanSection = () => (
-    <View style={[styles.section, dynamicStyles.section]}>
-      <Text style={[styles.sectionTitle, dynamicStyles.text]}>現在のプラン</Text>
-      
-      <View style={[
-        styles.currentPlanCard,
-        { borderColor: planDetails[userPlan as keyof typeof planDetails].color }
-      ]}>
-        <View style={styles.planHeader}>
-          <View style={[
-            styles.planBadge,
-            { backgroundColor: planDetails[userPlan as keyof typeof planDetails].color }
-          ]}>
-            <Text style={styles.planBadgeText}>{planDetails[userPlan as keyof typeof planDetails].name}</Text>
+    const CurrentPlanSection = () => {
+    // userPlanが有効でない場合のデフォルト値
+    const currentPlan = userPlan && planDetails[userPlan as keyof typeof planDetails] ? userPlan : 'free';
+    const currentPlanDetails = planDetails[currentPlan as keyof typeof planDetails];
+    
+    return (
+      <View style={[styles.section, dynamicStyles.section]}>
+        <Text style={[styles.sectionTitle, dynamicStyles.text]}>現在のプラン</Text>
+        
+        <View style={[
+          styles.currentPlanCard,
+          { borderColor: currentPlanDetails.color }
+        ]}>
+          <View style={styles.planHeader}>
+            <View style={[
+              styles.planBadge,
+              { backgroundColor: currentPlanDetails.color }
+            ]}>
+              <Text style={styles.planBadgeText}>{currentPlanDetails.name}</Text>
+            </View>
+            <View style={styles.planPricing}>
+              <Text style={[styles.planPrice, dynamicStyles.text]}>
+                {currentPlanDetails.price}
+              </Text>
+              <Text style={[styles.planPeriod, dynamicStyles.subText]}>
+                {currentPlanDetails.period}
+              </Text>
+            </View>
           </View>
-          <View style={styles.planPricing}>
-            <Text style={[styles.planPrice, dynamicStyles.text]}>
-              {planDetails[userPlan as keyof typeof planDetails].price}
-            </Text>
-            <Text style={[styles.planPeriod, dynamicStyles.subText]}>
-              {planDetails[userPlan as keyof typeof planDetails].period}
-            </Text>
-          </View>
-        </View>
 
-        <View style={styles.planFeatures}>
-          {planDetails[userPlan as keyof typeof planDetails].features.map((feature, index) => (
-            <View key={index} style={styles.featureItem}>
-              <Ionicons name="checkmark-circle" size={16} color={baseColors.success} />
-              <Text style={[styles.featureText, dynamicStyles.text]}>{feature}</Text>
-            </View>
-          ))}
-          
-          {planDetails[userPlan as keyof typeof planDetails].limitations?.map((limitation, index) => (
-            <View key={index} style={styles.featureItem}>
-              <Ionicons name="close-circle" size={16} color={baseColors.error} />
-              <Text style={[styles.featureText, dynamicStyles.subText]}>{limitation}</Text>
-            </View>
-          ))}
+          <View style={styles.planFeatures}>
+            {currentPlanDetails.features.map((feature, index) => (
+              <View key={index} style={styles.featureItem}>
+                <Ionicons name="checkmark-circle" size={16} color={baseColors.success} />
+                <Text style={[styles.featureText, dynamicStyles.text]}>{feature}</Text>
+              </View>
+            ))}
+            
+            {currentPlanDetails.limitations?.map((limitation, index) => (
+              <View key={index} style={styles.featureItem}>
+                <Ionicons name="close-circle" size={16} color={baseColors.error} />
+                <Text style={[styles.featureText, dynamicStyles.subText]}>{limitation}</Text>
+              </View>
+            ))}
+          </View>
         </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   const PlanComparisonSection = () => (
     <View style={[styles.section, dynamicStyles.section]}>
