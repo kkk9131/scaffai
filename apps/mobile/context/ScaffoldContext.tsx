@@ -7,7 +7,7 @@ import { HistoryStorage, CalculationStatsStorage } from '../utils/storage';
 import { CalculationHistory } from '../types/history';
 import { supabase } from '../lib/supabase';
 import { useAuthContext } from './AuthContext';
-import { UsageManager } from '../utils/usageManager';
+import { UsageManager, type UserPlan } from '../utils/usageManager';
 
 // roofShapeのマッピング
 const roofShapeMapping = {
@@ -250,6 +250,7 @@ type ScaffoldContextType = {
   saveToCloud: (title?: string) => Promise<void>; // クラウド保存専用
   saveCalculationToHistory: (title?: string) => Promise<void>; // 後方互換性のため追加
   checkUsageLimit: (actionType: 'calculations' | 'quickAllocations') => Promise<boolean>; // 使用制限チェック追加
+  upgradePlan: (newPlan: UserPlan) => Promise<void>; // プランアップグレード機能
 };
 
 // コンテキスト作成
@@ -750,6 +751,17 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
+  // プランアップグレード機能
+  const upgradePlan = useCallback(async (newPlan: UserPlan) => {
+    try {
+      await UsageManager.upgradePlan(newPlan);
+      console.log(`✅ [ScaffoldContext] Plan upgraded to: ${newPlan}`);
+    } catch (error) {
+      console.error('❌ [ScaffoldContext] Plan upgrade failed:', error);
+      throw error;
+    }
+  }, []);
+
   return (
     <ScaffoldContext.Provider
       value={{
@@ -769,6 +781,7 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
         saveToCloud,
         saveCalculationToHistory,
         checkUsageLimit,
+        upgradePlan,
       }}
     >
       {children}
