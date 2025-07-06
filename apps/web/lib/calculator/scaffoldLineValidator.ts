@@ -257,10 +257,10 @@ function calculateMaxAllowedDistance(
 /**
  * 面の方向を判定（建物形状に基づく）
  * テストケース形状での面定義：
- *   1---2    北面: 1-2, 3-4
- *   |   |    東面: 2-3, 4-5  
- *   |   3--4 南面: 5-6
- *   |      | 西面: 6-1
+ *   1---2    北面: 辺0(1-2), 辺2(3-4)
+ *   |   |    東面: 辺1(2-3), 辺3(4-5)  
+ *   |   3--4 南面: 辺4(5-6)
+ *   |      | 西面: 辺5(6-1)
  *   6------5
  */
 function determineFaceDirection(startVertex: BuildingVertex, endVertex: BuildingVertex, edgeIndex?: number): string {
@@ -284,29 +284,44 @@ function determineFaceDirection(startVertex: BuildingVertex, endVertex: Building
 }
 
 /**
+ * 辺インデックスから辺の説明を取得
+ */
+function getEdgeDescriptionFromIndex(edgeIndex: number): string {
+  switch (edgeIndex) {
+    case 0: return '辺0: 1→2 (北辺)';
+    case 1: return '辺1: 2→3 (東辺上部)';
+    case 2: return '辺2: 3→4 (中央水平辺)';
+    case 3: return '辺3: 4→5 (東辺下部)';
+    case 4: return '辺4: 5→6 (南辺)';
+    case 5: return '辺5: 6→1 (西辺)';
+    default: return `辺${edgeIndex}: 不明`;
+  }
+}
+
+/**
  * 辺インデックスに基づく面判定
  * 注意: この関数は特定の建物形状（L字型）を想定している
  */
 function determineFaceByEdgeIndex(edgeIndex: number): string {
-  // 実際の建物形状での辺と面の対応
+  // L字型建物での辺と面の対応
   // 形状: 
-  //   6--------5  
-  //   |        |
-  //   |    3---4
-  //   |    |
-  //   1----2
+  //   1---2
+  //   |   |
+  //   |   3--4
+  //   |      |
+  //   6------5
   switch (edgeIndex) {
-    case 0: // 1→2 (250,100)→(500,100) 下側の水平線 (南面)
-      return '南';
-    case 1: // 2→3 (500,100)→(500,150) 中央の垂直線 (西面)
-      return '西';
-    case 2: // 3→4 (500,150)→(750,150) 中段の水平線 (南面)
-      return '南';
-    case 3: // 4→5 (750,150)→(750,600) 右側の垂直線 (東面)
-      return '東';
-    case 4: // 5→6 (750,600)→(250,600) 上側の水平線 (北面)
+    case 0: // 1→2 北辺（東西方向）
       return '北';
-    case 5: // 6→1 (250,600)→(250,100) 左側の垂直線 (西面)
+    case 1: // 2→3 東辺上部（南北方向）
+      return '東';
+    case 2: // 3→4 中央水平辺（東西方向）
+      return '北'; // 内側の水平辺なので北面扱い
+    case 3: // 4→5 東辺下部（南北方向）
+      return '東';
+    case 4: // 5→6 南辺（東西方向）
+      return '南';
+    case 5: // 6→1 西辺（南北方向）
       return '西';
     default:
       console.warn(`予期しない辺インデックス: ${edgeIndex}`);
@@ -446,16 +461,30 @@ export function generateAdjustedScaffoldLine(
   simpleCalculationData?: { faceSpans: Record<string, number[]> },
   edgeSpanConfiguration?: Record<number, number[]>
 ): ScaffoldLineData {
-  console.log('=== 建物形状ベース足場ライン生成開始 ===');
-  console.log('入隅計算結果の詳細:');
-  insideCornerResults.forEach((r, index) => {
-    console.log(`  結果${index}:`, {
-      edgeIndex: r.edgeIndex,
-      success: r.success,
-      calculatedDistance: r.calculatedDistance,
-      spanConfiguration: r.spanConfiguration
-    });
+  console.log('');
+  console.log('🚀=== 建物形状ベース足場ライン生成開始 ===');
+  console.log('');
+  console.log('🏢 建物頂点の順序:');
+  buildingVertices.forEach((v, i) => {
+    const nextIndex = (i + 1) % buildingVertices.length;
+    const nextVertex = buildingVertices[nextIndex];
+    console.log(`  頂点${i+1}: (${v.x.toFixed(0)}, ${v.y.toFixed(0)}) → 頂点${nextIndex+1}: (${nextVertex.x.toFixed(0)}, ${nextVertex.y.toFixed(0)}) = 建物辺${i}`);
   });
+  console.log('');
+  console.log('📋 入隅計算結果の詳細:');
+  insideCornerResults.forEach((r, index) => {
+    console.log(`  結果${index}: 辺${r.edgeIndex} = ${r.success ? r.calculatedDistance + 'mm' : '失敗'} [${r.spanConfiguration?.join(', ') || 'なし'}]`);
+  });
+  console.log('');
+  console.log('📋 edgeSpanConfiguration（各辺の最終スパン構成）:');
+  if (edgeSpanConfiguration) {
+    for (const [edgeIndex, spans] of Object.entries(edgeSpanConfiguration)) {
+      console.log(`  辺${edgeIndex}: [${spans.join(', ')}]`);
+    }
+  } else {
+    console.log('  edgeSpanConfigurationがnull');
+  }
+  console.log('');
   
   if (buildingVertices.length < 3) {
     console.error('建物頂点が不足しています');
@@ -475,6 +504,7 @@ export function generateAdjustedScaffoldLine(
   // 建物の各辺から足場ラインを計算
   const scaffoldVertices: BuildingVertex[] = [];
   const parallelLines: {
+    buildingEdgeIndex: number;
     start: BuildingVertex;
     end: BuildingVertex;
     distance: number;
@@ -554,6 +584,7 @@ export function generateAdjustedScaffoldLine(
     };
     
     parallelLines.push({
+      buildingEdgeIndex: i,
       start: parallelStart,
       end: parallelEnd,
       distance: distance,
@@ -563,61 +594,114 @@ export function generateAdjustedScaffoldLine(
     console.log(`辺${i}平行線: (${parallelStart.x.toFixed(1)}, ${parallelStart.y.toFixed(1)}) → (${parallelEnd.x.toFixed(1)}, ${parallelEnd.y.toFixed(1)})`);
   }
   
-  // Step 2: 隣接する平行線の交点を計算して足場頂点を生成
-  for (let i = 0; i < parallelLines.length; i++) {
-    const currentLine = parallelLines[i];
-    const nextLine = parallelLines[(i + 1) % parallelLines.length];
+  // Step 2: 建物頂点と対応する足場頂点を計算
+  // 各建物頂点において、その頂点から出る2つの平行線の交点を計算
+  for (let i = 0; i < buildingVertices.length; i++) {
+    // 建物頂点iに接続する2つの辺を取得
+    const prevEdgeIndex = (i - 1 + buildingVertices.length) % buildingVertices.length;
+    const currentEdgeIndex = i;
     
-    // 交点を計算
+    const prevLine = parallelLines[prevEdgeIndex];
+    const currentLine = parallelLines[currentEdgeIndex];
+    
+    // 前の辺の平行線と現在の辺の平行線の交点を計算
     const intersection = calculateLineIntersection(
+      prevLine.start,
+      prevLine.end,
       currentLine.start,
-      currentLine.end,
-      nextLine.start,
-      nextLine.end
+      currentLine.end
     );
     
     if (intersection) {
       scaffoldVertices.push(intersection);
-      console.log(`足場頂点${i}: (${intersection.x.toFixed(1)}, ${intersection.y.toFixed(1)})`);
+      console.log(`足場頂点${i} (建物頂点${i+1}対応、辺${prevEdgeIndex}と辺${currentEdgeIndex}の交点): (${intersection.x.toFixed(1)}, ${intersection.y.toFixed(1)})`);
     } else {
-      // 交点が見つからない場合は現在の線の終点を使用
-      scaffoldVertices.push(currentLine.end);
-      console.warn(`交点が見つからないため辺${i}の終点を使用`);
+      // 交点が見つからない場合は現在の線の開始点を使用
+      scaffoldVertices.push(currentLine.start);
+      console.warn(`交点が見つからないため建物頂点${i+1}に対応する足場頂点として線の開始点を使用`);
     }
   }
   
-  // Step 3: 足場辺データを生成
-  const scaffoldEdges = scaffoldVertices.map((vertex, index) => {
-    const nextIndex = (index + 1) % scaffoldVertices.length;
-    const nextVertex = scaffoldVertices[nextIndex];
-    const parallelLine = parallelLines[index];
+  // Step 3: 足場辺データを生成（建物辺との直接対応）
+  const scaffoldEdges = [];
+  
+  for (let i = 0; i < buildingVertices.length; i++) {
+    // 建物辺iに対応する足場辺を作成
+    const buildingEdgeIndex = i;
+    const parallelLine = parallelLines[i];
+    
+    // 正しい対応：建物辺iに対応する足場頂点iとi+1を使用
+    const startVertexIndex = i;
+    const endVertexIndex = (i + 1) % scaffoldVertices.length;
+    
+    const startScaffoldVertex = scaffoldVertices[startVertexIndex];
+    const endScaffoldVertex = scaffoldVertices[endVertexIndex];
     
     // 足場辺の長さを計算（ピクセル単位）
     const edgeLengthPixels = Math.sqrt(
-      Math.pow(nextVertex.x - vertex.x, 2) + 
-      Math.pow(nextVertex.y - vertex.y, 2)
+      Math.pow(endScaffoldVertex.x - startScaffoldVertex.x, 2) + 
+      Math.pow(endScaffoldVertex.y - startScaffoldVertex.y, 2)
     );
     
-    console.log(`足場辺${index}: 長さ${edgeLengthPixels.toFixed(1)}px, スパン構成=[${parallelLine.spanConfiguration.join(',')}]`);
+    console.log(`建物辺${buildingEdgeIndex}に対応する足場辺: (${startScaffoldVertex.x.toFixed(1)}, ${startScaffoldVertex.y.toFixed(1)}) → (${endScaffoldVertex.x.toFixed(1)}, ${endScaffoldVertex.y.toFixed(1)}), 長さ${edgeLengthPixels.toFixed(1)}px`);
     
     // スパンマーカーを生成（辺の長さを渡す）
+    const spanConfiguration = parallelLine.spanConfiguration;
     const spanMarkers = generateSpanMarkersFromConfiguration(
-      parallelLine.spanConfiguration, 
+      spanConfiguration, 
       edgeLengthPixels
-    );
+    ).map(marker => ({ ...marker, type: 'span-boundary' as const }));
     
-    return {
-      edgeIndex: index,
-      startVertex: vertex,
-      endVertex: nextVertex,
-      spanConfiguration: parallelLine.spanConfiguration,
+    scaffoldEdges.push({
+      edgeIndex: buildingEdgeIndex, // 建物辺番号
+      startVertex: startScaffoldVertex,
+      endVertex: endScaffoldVertex,
+      spanConfiguration: spanConfiguration,
       spanMarkers
-    };
-  });
+    });
+  }
   
   console.log('=== 建物形状ベース足場ライン生成完了 ===');
   console.log('足場頂点数:', scaffoldVertices.length);
   console.log('足場頂点:', scaffoldVertices.map(v => `(${v.x.toFixed(1)}, ${v.y.toFixed(1)})`));
+  console.log('');
+  console.log('🔍=== 各辺のスパン構成詳細分析 ===');
+  console.log('');
+  console.log('📊 建物辺と足場辺の対応確認:');
+  buildingVertices.forEach((vertex, i) => {
+    const nextIndex = (i + 1) % buildingVertices.length;
+    const nextVertex = buildingVertices[nextIndex];
+    const scaffoldEdge = scaffoldEdges[i];
+    
+    console.log(`建物辺${i}: (${vertex.x.toFixed(1)}, ${vertex.y.toFixed(1)}) → (${nextVertex.x.toFixed(1)}, ${nextVertex.y.toFixed(1)})`);
+    console.log(`足場辺${i}: (${scaffoldEdge.startVertex.x.toFixed(1)}, ${scaffoldEdge.startVertex.y.toFixed(1)}) → (${scaffoldEdge.endVertex.x.toFixed(1)}, ${scaffoldEdge.endVertex.y.toFixed(1)})`);
+    console.log(`  対応チェック: ${scaffoldEdge.edgeIndex === i ? '✅ 正しい' : '❌ 間違い'}`);
+    console.log('');
+  });
+  
+  console.log('📍 各足場辺の詳細:');
+  scaffoldEdges.forEach((edge, index) => {
+    const spanSum = edge.spanConfiguration.reduce((sum, span) => sum + span, 0);
+    console.log(`📍 足場辺配列[${index}] → 建物辺${edge.edgeIndex}:`);
+    console.log(`   足場頂点: (${edge.startVertex.x.toFixed(1)}, ${edge.startVertex.y.toFixed(1)}) → (${edge.endVertex.x.toFixed(1)}, ${edge.endVertex.y.toFixed(1)})`);
+    console.log(`   スパン構成: [${edge.spanConfiguration.join(', ')}]`);
+    console.log(`   スパン合計: ${spanSum}mm`);
+    console.log(`   マーカー数: ${edge.spanMarkers.length}`);
+    console.log(`   建物辺の説明: ${getEdgeDescriptionFromIndex(edge.edgeIndex)}`);
+    console.log('');
+  });
+  
+  console.log('🎯=== L字型建物辺の期待される対応 ===');
+  console.log('建物辺0 (1→2): 北辺、水平');
+  console.log('建物辺1 (2→3): 東辺上部、垂直、短い ← 少ないマーカー期待');
+  console.log('建物辺2 (3→4): 中央水平辺');
+  console.log('建物辺3 (4→5): 東辺下部、垂直、長い ← 多いマーカー期待');
+  console.log('建物辺4 (5→6): 南辺、水平');
+  console.log('建物辺5 (6→1): 西辺、垂直');
+  console.log('');
+  console.log('❌=== 現在の問題 ===');
+  console.log('ユーザー報告: 辺1-2に辺5-6のマーカーが表示される（1つずれている）');
+  console.log('');
   
   return {
     vertices: scaffoldVertices,

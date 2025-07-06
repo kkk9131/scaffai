@@ -2691,20 +2691,20 @@ export default function DrawingEditor({
     // 南北方向のスパン（ns_total_span, ns_span_structure）
     if (simpleResult.result.ns_total_span && simpleResult.result.ns_span_structure) {
       const nsSpans = parseSpanStructure(simpleResult.result.ns_span_structure);
-      faceSpans['北'] = nsSpans;
+      faceSpans['東'] = nsSpans;  // 北面と東面を入れ替え
       faceSpans['南'] = nsSpans;
     } else {
-      faceSpans['北'] = [1800, 1800, 1200];
+      faceSpans['東'] = [1800, 1800, 1200];  // 北面と東面を入れ替え
       faceSpans['南'] = [1800, 1800, 1800];
     }
     
     // 東西方向のスパン（ew_total_span, ew_span_structure）
     if (simpleResult.result.ew_total_span && simpleResult.result.ew_span_structure) {
       const ewSpans = parseSpanStructure(simpleResult.result.ew_span_structure);
-      faceSpans['東'] = ewSpans;
+      faceSpans['北'] = ewSpans;  // 北面と東面を入れ替え
       faceSpans['西'] = ewSpans;
     } else {
-      faceSpans['東'] = [1800, 1500];
+      faceSpans['北'] = [1800, 1500];  // 北面と東面を入れ替え
       faceSpans['西'] = [1800, 1200];
     }
     
