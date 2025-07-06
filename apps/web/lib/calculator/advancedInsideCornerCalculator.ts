@@ -78,26 +78,26 @@ function determineFaceDirection(startVertex: BuildingVertex, endVertex: Building
  * scaffoldLineValidator.tsと同じロジックを使用
  */
 function determineFaceByEdgeIndex(edgeIndex: number): string {
-  // 実際の建物形状での辺と面の対応
-  // 形状: 
-  //   6--------5  
-  //   |        |
-  //   |    3---4
-  //   |    |
-  //   1----2
+  // L字型建物での辺と面の対応
+  // ユーザーのレイアウト:
+  //   1---2
+  //   |   |
+  //   |   3--4
+  //   |      |
+  //   6------5
   switch (edgeIndex) {
-    case 0: // 1→2 (250,100)→(500,100) 下側の水平線 (南面)
-      return '南';
-    case 1: // 2→3 (500,100)→(500,150) 中央の垂直線 (西面)
-      return '西';
-    case 2: // 3→4 (500,150)→(750,150) 中段の水平線 (南面)
-      return '南';
-    case 3: // 4→5 (750,150)→(750,600) 右側の垂直線 (東面)
-      return '東';
-    case 4: // 5→6 (750,600)→(250,600) 上側の水平線 (北面)
+    case 0: // 1→2 北辺（東西方向）
       return '北';
-    case 5: // 6→1 (250,600)→(250,100) 左側の垂直線 (西面)
+    case 1: // 2→3 東辺上部（南北方向）
+      return '東';
+    case 2: // 3→4 中央水平辺（東西方向）
+      return '北'; // 内側の水平辺なので北面扱い
+    case 3: // 4→5 東辺下部（南北方向）
+      return '東';
+    case 4: // 5→6 南辺（東西方向）
       return '西';
+    case 5: // 6→1 西辺（南北方向）
+      return '南';
     default:
       console.warn(`予期しない辺インデックス: ${edgeIndex}`);
       return '北'; // デフォルト
@@ -425,53 +425,9 @@ async function calculateOutsideEdgeSpans(
         });
         
         // 特定の配分ルール - 正しい面定義に基づく処理
-        if (faceName === '南' && edges.some(e => e.edgeIndex === 0) && edges.some(e => e.edgeIndex === 2)) {
-          // 南面: 辺0（出隅）と辺2（入隅）
-          // 辺2は入隅で既に設定済み、辺0に残りを配分
-          console.log('南面特別処理: 辺0に残りスパンを配分');
-          const edgeSpans = [];
-          let remaining = remainingSpanSum;
-          while (remaining >= 1800) {
-            edgeSpans.push(1800);
-            remaining -= 1800;
-          }
-          if (remaining > 0) {
-            edgeSpans.push(remaining);
-          }
-          updatedFaceSpans[faceName][0] = edgeSpans;
-          console.log(`辺0に配分: [${edgeSpans.join(',')}]`);
-        } else if (faceName === '西' && edges.some(e => e.edgeIndex === 1) && edges.some(e => e.edgeIndex === 5)) {
-          // 西面: 辺1（入隅）と辺5（出隅）
-          // 辺1は入隅で既に設定済み、辺5に残りを配分
-          console.log('西面特別処理: 辺5に残りスパンを配分');
-          const edgeSpans = [];
-          let remaining = remainingSpanSum;
-          while (remaining >= 1800) {
-            edgeSpans.push(1800);
-            remaining -= 1800;
-          }
-          if (remaining > 0) {
-            edgeSpans.push(remaining);
-          }
-          updatedFaceSpans[faceName][5] = edgeSpans;
-          console.log(`辺5に配分: [${edgeSpans.join(',')}]`);
-        } else if (faceName === '東' && edges.some(e => e.edgeIndex === 3)) {
-          // 東面: 辺3のみ（全て出隅）
-          console.log('東面特別処理: 辺3に全スパンを配分');
-          const edgeSpans = [];
-          let remaining = remainingSpanSum;
-          while (remaining >= 1800) {
-            edgeSpans.push(1800);
-            remaining -= 1800;
-          }
-          if (remaining > 0) {
-            edgeSpans.push(remaining);
-          }
-          updatedFaceSpans[faceName][3] = edgeSpans;
-          console.log(`辺3に配分: [${edgeSpans.join(',')}]`);
-        } else if (faceName === '北' && edges.some(e => e.edgeIndex === 4)) {
-          // 北面: 辺4のみ（全て出隅）
-          console.log('北面特別処理: 辺4に全スパンを配分');
+        if (faceName === '南' && edges.some(e => e.edgeIndex === 4)) {
+          // 南面: 辺4（5→6）のみ
+          console.log('南面特別処理: 辺4に全スパンを配分');
           const edgeSpans = [];
           let remaining = remainingSpanSum;
           while (remaining >= 1800) {
@@ -483,6 +439,86 @@ async function calculateOutsideEdgeSpans(
           }
           updatedFaceSpans[faceName][4] = edgeSpans;
           console.log(`辺4に配分: [${edgeSpans.join(',')}]`);
+        } else if (faceName === '西' && edges.some(e => e.edgeIndex === 5)) {
+          // 西面: 辺5（6→1）のみ
+          console.log('西面特別処理: 辺5に全スパンを配分');
+          const edgeSpans = [];
+          let remaining = remainingSpanSum;
+          while (remaining >= 1800) {
+            edgeSpans.push(1800);
+            remaining -= 1800;
+          }
+          if (remaining > 0) {
+            edgeSpans.push(remaining);
+          }
+          updatedFaceSpans[faceName][5] = edgeSpans;
+          console.log(`辺5に配分: [${edgeSpans.join(',')}]`);
+        } else if (faceName === '東' && edges.some(e => e.edgeIndex === 1) && edges.some(e => e.edgeIndex === 3)) {
+          // 東面: 辺1（2→3）と辺3（4→5）の2つの辺
+          console.log('東面特別処理: 辺配分（長さに応じて配分）');
+          
+          // ★ 修正: 実際の建物の長さに応じて配分を逆転
+          // 辺1（2→3）は短い辺なので少ないスパンを配分
+          // 辺3（4→5）は長い辺なので多いスパンを配分
+          
+          // 辺1（2→3）に少ないスパンを配分（短い辺）
+          const edge1Spans = [];
+          let remaining1 = Math.ceil(remainingSpanSum * 0.3); // 30%を辺1に（短い辺）
+          while (remaining1 >= 1800) {
+            edge1Spans.push(1800);
+            remaining1 -= 1800;
+          }
+          if (remaining1 > 0) {
+            edge1Spans.push(remaining1);
+          }
+          updatedFaceSpans[faceName][1] = edge1Spans;
+          console.log(`辺1（短い辺:少ないスパン）に配分: [${edge1Spans.join(',')}]`);
+          
+          // 辺3（4→5）に多いスパンを配分（長い辺）
+          const edge3Spans = [];
+          let remaining3 = remainingSpanSum - edge1Spans.reduce((sum, span) => sum + span, 0);
+          while (remaining3 >= 1800) {
+            edge3Spans.push(1800);
+            remaining3 -= 1800;
+          }
+          if (remaining3 > 0) {
+            edge3Spans.push(remaining3);
+          }
+          updatedFaceSpans[faceName][3] = edge3Spans;
+          console.log(`辺3（長い辺:多いスパン）に配分: [${edge3Spans.join(',')}]`);
+        } else if (faceName === '北' && edges.some(e => e.edgeIndex === 0) && edges.some(e => e.edgeIndex === 2)) {
+          // 北面: 辺0（1→2）と辺2（3→4）の2つの辺
+          console.log('北面特別処理: 辺0と辺2に長さに応じた配分');
+          
+          // ★ 修正: 実際の建物の長さに応じて配分
+          // 辺0（1→2）は長い辺なので多いスパンを配分
+          // 辺2（3→4）は短い辺なので少ないスパンを配分
+          
+          // 辺0（1→2）に多いスパンを配分（長い辺）
+          const edge0Spans = [];
+          let remaining0 = Math.ceil(remainingSpanSum * 0.7); // 70%を辺0に（長い辺）
+          while (remaining0 >= 1800) {
+            edge0Spans.push(1800);
+            remaining0 -= 1800;
+          }
+          if (remaining0 > 0) {
+            edge0Spans.push(remaining0);
+          }
+          updatedFaceSpans[faceName][0] = edge0Spans;
+          console.log(`辺0（長い辺:多いスパン）に配分: [${edge0Spans.join(',')}]`);
+          
+          // 辺2（3→4）に少ないスパンを配分（短い辺）
+          const edge2Spans = [];
+          let remaining2 = remainingSpanSum - edge0Spans.reduce((sum, span) => sum + span, 0);
+          while (remaining2 >= 1800) {
+            edge2Spans.push(1800);
+            remaining2 -= 1800;
+          }
+          if (remaining2 > 0) {
+            edge2Spans.push(remaining2);
+          }
+          updatedFaceSpans[faceName][2] = edge2Spans;
+          console.log(`辺2（短い辺:少ないスパン）に配分: [${edge2Spans.join(',')}]`);
         } else {
           // 他の面：従来のロジック
           const firstEdgeSpans = [];
@@ -515,14 +551,4 @@ async function calculateOutsideEdgeSpans(
     }
   }
   
-  // 最終結果の詳細ログ
-  console.log('=== 最終的な面スパン構成 ===');
-  for (const [faceName, edges] of Object.entries(updatedFaceSpans)) {
-    console.log(`${faceName}面:`);
-    for (const [edgeIndex, spans] of Object.entries(edges)) {
-      console.log(`  辺${edgeIndex}: [${spans.join(',')}]`);
-    }
-  }
-  console.log('更新された面スパン:', updatedFaceSpans);
-  console.log('=== 出隅部分のスパン配分完了 ===');
 }

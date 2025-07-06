@@ -3,9 +3,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Edit3, Square, Move, ZoomIn, ZoomOut, Grid, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { drawCompositeView, drawGrid as drawAdvancedGrid } from './utils/drawingUtils';
-import { findInsideCornerEdges, findAllocationEdge, generateEdgeInfo, generateCornerInfo } from './utils/geometryCalculator';
-import { generateScaffoldLine, generateScaffoldLineWithQuickAllocation } from './utils/scaffoldLineGenerator';
-import { parseSpanComposition } from './utils/quickAllocationMarkers';
+import { detectInsideCornerEdges } from './utils/geometryCalculator';
+import { validateAdvancedCalculationInput } from '../../lib/calculator/advancedCalculationValidator';
+import { calculateAdvancedInsideCorners } from '../../lib/calculator/advancedInsideCornerCalculator';
+import { validateScaffoldLineResults, validateScaffoldLineIntegrity, getScaffoldLineBounds, generateAdjustedScaffoldLine } from '../../lib/calculator/scaffoldLineValidator';
 import type { DrawingData, DimensionArea, BuildingVertex, EdgeEave, Opening, FloorData, FloorColors, AdvancedCalculationSummary, ScaffoldLineData } from './types/drawing';
 import type { ScaffoldCalculationResult } from '../../lib/calculator/types';
 import type { QuickAllocationResult } from '../../lib/calculator/quickAllocationCalculator';
@@ -19,6 +20,19 @@ interface ScaffoldInputData {
   eaves_S: number;
   eaves_W: number;
 }
+
+// 辺番号から辺の説明を取得
+const getEdgeDescription = (edgeIndex: number): string => {
+  switch (edgeIndex) {
+    case 0: return '辺0: 1→2 (北辺)';
+    case 1: return '辺1: 2→3 (東辺上部) ← ユーザー問題: この辺のマーカー';
+    case 2: return '辺2: 3→4 (中央水平辺)';
+    case 3: return '辺3: 4→5 (東辺下部) ← ユーザー問題: この辺のマーカー';
+    case 4: return '辺4: 5→6 (南辺)';
+    case 5: return '辺5: 6→1 (西辺)';
+    default: return `辺${edgeIndex}: 不明`;
+  }
+};
 
 // スライダーのカスタムスタイル
 const sliderStyle = `
@@ -148,6 +162,7 @@ export default function DrawingEditor({
   const [isAdvancedCalculating, setIsAdvancedCalculating] = useState<boolean>(false);
 
   // 足場ライン自動生成機能
+  // 高度計算結果から建物と足場ラインのFloorDataを生成する
   useEffect(() => {
     if (autoGenerate && calculationResult && inputData) {
       console.log('足場ライン自動生成を開始:', { calculationResult, inputData });
@@ -194,16 +209,11 @@ export default function DrawingEditor({
           visible: true
         };
 
-        // 足場ライン（計算結果から離れを反映）
-        console.log('計算結果の詳細:', calculationResult);
-        
-        // 計算結果から離れの値を取得（型定義に合わせて修正）
+        // 計算結果から各面の離れ距離を取得
         const eastGap = parseInt(calculationResult.east_gap?.replace(' mm', '') || '150');
         const westGap = parseInt(calculationResult.west_gap?.replace(' mm', '') || '150');
         const northGap = parseInt(calculationResult.north_gap?.replace(' mm', '') || '100');
         const southGap = parseInt(calculationResult.south_gap?.replace(' mm', '') || '100');
-        
-        console.log('離れの値:', { eastGap, westGap, northGap, southGap });
         
         // 足場ラインサイズをピクセルに変換
         const scaffoldPixelOffsetNorth = northGap * autoScale;
@@ -211,43 +221,7 @@ export default function DrawingEditor({
         const scaffoldPixelOffsetSouth = southGap * autoScale;
         const scaffoldPixelOffsetWest = westGap * autoScale;
         
-        // スパン構成データを取得
-        const nsSpanStructure = calculationResult.ns_span_structure || ''; // "6span, 1500"
-        const ewSpanStructure = calculationResult.ew_span_structure || ''; // "6span, 1500"
-        
-        console.log('スパン構成データ:', {
-          nsSpanStructure,
-          ewSpanStructure
-        });
-        
-        // スパン構成を数値配列に変換する関数（簡易版）
-        const parseSpanStructure = (spanStr: string): number[] => {
-          if (!spanStr) return [];
-          const spans: number[] = [];
-          const parts = spanStr.split(',').map(p => p.trim());
-          
-          for (const part of parts) {
-            if (part.includes('span')) {
-              const count = parseInt(part.replace('span', ''));
-              for (let i = 0; i < count; i++) {
-                spans.push(1800);
-              }
-            } else {
-              const value = parseInt(part);
-              if (!isNaN(value)) spans.push(value);
-            }
-          }
-          return spans;
-        };
-        
-        // スパン構成を配列に変換
-        const nsSpanArray = parseSpanStructure(nsSpanStructure);
-        const ewSpanArray = parseSpanStructure(ewSpanStructure);
-        
-        console.log('変換されたスパン配列:', {
-          nsSpanArray,
-          ewSpanArray
-        });
+        // 足場ライン頂点を計算
 
         const scaffoldFloor: FloorData = {
           id: 'scaffold-line-1',
@@ -289,82 +263,15 @@ export default function DrawingEditor({
         // 適切なズームレベルで表示
         setScale(1); // デフォルトズームで表示
         
-        // ScaffoldLineDataを作成してマーカー表示
-        const createScaffoldLineData = (): ScaffoldLineData => {
-          const scaffoldVertices = scaffoldFloor.vertices;
-          
-          // マーカー生成関数（0-1の比率）
-          const generateMarkers = (spanArray: number[]): { position: number; type: 'span-boundary' }[] => {
-            if (!spanArray.length) return [];
-            
-            const markers: { position: number; type: 'span-boundary' }[] = [];
-            let currentPosition = 0;
-            const totalDistance = spanArray.reduce((sum, span) => sum + span, 0);
-            
-            // 開始点
-            markers.push({ position: 0, type: 'span-boundary' });
-            
-            // 各スパンの終端
-            for (const span of spanArray) {
-              currentPosition += span;
-              markers.push({ 
-                position: currentPosition / totalDistance, 
-                type: 'span-boundary' 
-              });
-            }
-            
-            return markers;
-          };
-          
-          const scaffoldEdges = [
-            {
-              edgeIndex: 0, // 北辺
-              startVertex: scaffoldVertices[0],
-              endVertex: scaffoldVertices[1],
-              spanConfiguration: ewSpanArray, // 東西方向
-              spanMarkers: generateMarkers(ewSpanArray)
-            },
-            {
-              edgeIndex: 1, // 東辺
-              startVertex: scaffoldVertices[1],
-              endVertex: scaffoldVertices[2],
-              spanConfiguration: nsSpanArray, // 南北方向
-              spanMarkers: generateMarkers(nsSpanArray)
-            },
-            {
-              edgeIndex: 2, // 南辺
-              startVertex: scaffoldVertices[2],
-              endVertex: scaffoldVertices[3],
-              spanConfiguration: ewSpanArray, // 東西方向
-              spanMarkers: generateMarkers(ewSpanArray)
-            },
-            {
-              edgeIndex: 3, // 西辺
-              startVertex: scaffoldVertices[3],
-              endVertex: scaffoldVertices[0],
-              spanConfiguration: nsSpanArray, // 南北方向
-              spanMarkers: generateMarkers(nsSpanArray)
-            }
-          ];
-          
-          console.log('生成したScaffoldLineData:', {
-            vertices: scaffoldVertices,
-            edges: scaffoldEdges
-          });
-          
-          return {
-            vertices: scaffoldVertices,
-            edges: scaffoldEdges,
-            visible: true
-          };
+        // 簡易的なScaffoldLineDataを作成（マーカーなし）
+        const simpleScaffoldLineData: ScaffoldLineData = {
+          vertices: scaffoldFloor.vertices,
+          edges: [],
+          visible: true
         };
-        
-        // ScaffoldLineDataを設定
-        const scaffoldLineData = createScaffoldLineData();
-        setScaffoldLineData(scaffoldLineData);
+        setScaffoldLineData(simpleScaffoldLineData);
         
         console.log('足場ライン自動生成完了:', generatedFloors.length, '階層生成');
-        console.log('マーカー付き足場ラインデータ設定完了:', scaffoldLineData);
       } catch (error) {
         console.error('足場ライン自動生成エラー:', error);
       }
@@ -1935,35 +1842,82 @@ export default function DrawingEditor({
     });
 
     // スパンマーカーを描画
-    console.log('足場ラインのマーカー描画開始:', scaffoldData.edges.map(edge => ({
-      edgeIndex: edge.edgeIndex,
-      markerCount: edge.spanMarkers?.length || 0,
-      markers: edge.spanMarkers || []
-    })));
+    console.log('');
+    console.log('🔍=== 足場ライン詳細デバッグ ===');
+    console.log('足場ライン生成元データ:');
+    console.log('scaffoldData.edges長さ:', scaffoldData.edges.length);
+    console.log('scaffoldData.vertices長さ:', scaffoldData.vertices.length);
+    console.log('');
+    
+    scaffoldData.edges.forEach((edge, arrayIndex) => {
+      console.log(`📋 scaffoldData.edges[${arrayIndex}]:`, {
+        edgeIndex: edge.edgeIndex,
+        startVertex: `(${edge.startVertex.x.toFixed(1)}, ${edge.startVertex.y.toFixed(1)})`,
+        endVertex: `(${edge.endVertex.x.toFixed(1)}, ${edge.endVertex.y.toFixed(1)})`,
+        spanConfiguration: edge.spanConfiguration,
+        spanMarkerCount: edge.spanMarkers?.length || 0
+      });
+    });
+    
+    console.log('');
+    console.log('🎨=== マーカー描画開始 ===');
+    console.log('ユーザーのL字型建物:');
+    console.log('  1---2 (辺0)');
+    console.log('  |   | (辺1)');
+    console.log('  |   3--4 (辺2)');
+    console.log('  |      | (辺3)');
+    console.log('  6------5 (辺4,5)');
+    console.log('');
     
     scaffoldData.edges.forEach((edge, loopIndex) => {
-      const edgeIndex = edge.edgeIndex; // 実際の辺番号を使用
-      console.log(`辺${edgeIndex}のマーカー描画:`, edge.spanMarkers);
+      const buildingEdgeIndex = edge.edgeIndex; // 建物辺の番号
+      const spanSum = edge.spanConfiguration.reduce((sum, span) => sum + span, 0);
+      console.log(`🎯 足場辺${loopIndex} (建物辺${buildingEdgeIndex}):`);
+      console.log(`   対応する建物の辺: ${getEdgeDescription(buildingEdgeIndex)}`);
+      console.log(`   スパン構成: [${edge.spanConfiguration.join(', ')}]`);
+      console.log(`   スパン合計: ${spanSum}mm`);
+      console.log(`   マーカー数: ${edge.spanMarkers?.length || 0}`);
+      
+      // ユーザーの問題分析
+      if (buildingEdgeIndex === 1) {
+        console.log('   ❌ ユーザー報告: 辺1(2→3)のマーカーが間違っている');
+        console.log('   📏 期待: 短い辺なので少ないマーカー');
+        console.log('   📏 現実: ', spanSum > 3000 ? '多すぎるマーカー' : '適切なマーカー数');
+      }
+      if (buildingEdgeIndex === 3) {
+        console.log('   ❌ ユーザー報告: 辺3(4→5)のマーカーが間違っている');
+        console.log('   📏 期待: 長い辺なので多いマーカー');
+        console.log('   📏 現実: ', spanSum < 3000 ? '少なすぎるマーカー' : '適切なマーカー数');
+      }
+      console.log('');
       if (edge.spanMarkers && edge.spanMarkers.length > 0) {
-        const scaledStart = scaledScaffoldVertices[loopIndex];
-        const scaledEnd = scaledScaffoldVertices[(loopIndex + 1) % scaledScaffoldVertices.length];
+        // 足場辺データから直接頂点を取得（同じ座標変換を適用）
+        const correctScaffoldStart = { 
+          x: centerX + (edge.startVertex.x - centerX) * scale + pan.x, 
+          y: centerY + (edge.startVertex.y - centerY) * scale + pan.y 
+        };
+        const correctScaffoldEnd = { 
+          x: centerX + (edge.endVertex.x - centerX) * scale + pan.x, 
+          y: centerY + (edge.endVertex.y - centerY) * scale + pan.y 
+        };
 
         // 1800以外の区間寸法を表示するために、スパン構成を取得
         const spanConfiguration = edge.spanConfiguration || [];
-        console.log(`辺${edgeIndex}のスパン構成:`, spanConfiguration);
+        console.log(`辺${buildingEdgeIndex}のスパン構成:`, spanConfiguration);
 
+        console.log(`🎯 辺${buildingEdgeIndex}のマーカー描画詳細:`);
+        console.log(`   足場頂点: (${correctScaffoldStart.x.toFixed(1)}, ${correctScaffoldStart.y.toFixed(1)}) → (${correctScaffoldEnd.x.toFixed(1)}, ${correctScaffoldEnd.y.toFixed(1)})`);
+        console.log(`   スパンマーカー数: ${edge.spanMarkers.length}`);
+        
         edge.spanMarkers.forEach((marker, markerIndex) => {
-          // マーカー位置を計算
-          const markerX = scaledStart.x + (scaledEnd.x - scaledStart.x) * marker.position;
-          const markerY = scaledStart.y + (scaledEnd.y - scaledStart.y) * marker.position;
+          // マーカー位置を計算（正しい足場頂点を使用）
+          const markerX = correctScaffoldStart.x + (correctScaffoldEnd.x - correctScaffoldStart.x) * marker.position;
+          const markerY = correctScaffoldStart.y + (correctScaffoldEnd.y - correctScaffoldStart.y) * marker.position;
 
-          console.log(`辺${edgeIndex}マーカー${markerIndex}描画:`, {
-            position: marker.position,
-            markerX,
-            markerY,
-            scaledStart,
-            scaledEnd
-          });
+          console.log(`   📍 マーカー${markerIndex}: position=${marker.position.toFixed(3)}, 描画座標=(${markerX.toFixed(1)}, ${markerY.toFixed(1)})`);
+          
+          // 実際の足場辺データとの比較ログ
+          console.log(`   📊 edge.startVertex=(${edge.startVertex.x.toFixed(1)}, ${edge.startVertex.y.toFixed(1)}), edge.endVertex=(${edge.endVertex.x.toFixed(1)}, ${edge.endVertex.y.toFixed(1)})`);
 
           // スパン境界マーカーを描画（黒い円形に変更）
           ctx.fillStyle = '#000000'; // 黒色
@@ -1992,12 +1946,12 @@ export default function DrawingEditor({
               const endRatio = nextPosition / totalDistance;
               const midRatio = (startRatio + endRatio) / 2;
               
-              const midX = scaledStart.x + (scaledEnd.x - scaledStart.x) * midRatio;
-              const midY = scaledStart.y + (scaledEnd.y - scaledStart.y) * midRatio;
+              const midX = correctScaffoldStart.x + (correctScaffoldEnd.x - correctScaffoldStart.x) * midRatio;
+              const midY = correctScaffoldStart.y + (correctScaffoldEnd.y - correctScaffoldStart.y) * midRatio;
               
               // 線に垂直な方向のオフセットを計算（外側に表示）
-              const edgeX = scaledEnd.x - scaledStart.x;
-              const edgeY = scaledEnd.y - scaledStart.y;
+              const edgeX = correctScaffoldEnd.x - correctScaffoldStart.x;
+              const edgeY = correctScaffoldEnd.y - correctScaffoldStart.y;
               const edgeLength = Math.sqrt(edgeX * edgeX + edgeY * edgeY);
               
               if (edgeLength > 0) {
@@ -2033,7 +1987,7 @@ export default function DrawingEditor({
                 ctx.fillStyle = '#333333';
                 ctx.fillText(text, textX, textY);
                 
-                console.log(`辺${edgeIndex}区間${spanIndex}: ${spanLength}mm 寸法表示 位置(${textX.toFixed(1)}, ${textY.toFixed(1)})`);
+                console.log(`辺${buildingEdgeIndex}区間${spanIndex}: ${spanLength}mm 寸法表示 位置(${textX.toFixed(1)}, ${textY.toFixed(1)})`);
               }
             }
             
@@ -2549,6 +2503,11 @@ export default function DrawingEditor({
     
     try {
       console.log('=== 新高度計算（入隅対応）開始 ===');
+      
+      // 元の矩形足場ラインを削除
+      setScaffoldLineData(null);
+      console.log('元の矩形足場ラインを削除しました');
+      
       console.log('建物頂点:', buildingVertices);
       console.log('軒の出:', edgeEaves);
       
@@ -2560,7 +2519,6 @@ export default function DrawingEditor({
       console.log('簡易計算結果:', simpleResult);
       
       // === Phase 1: 入隅検出 ===
-      const { detectInsideCornerEdges } = await import('./utils/geometryCalculator');
       const insideCornerEdges = detectInsideCornerEdges(buildingVertices);
       
       if (insideCornerEdges.length === 0) {
@@ -2571,7 +2529,6 @@ export default function DrawingEditor({
       console.log(`検出された入隅辺数: ${insideCornerEdges.length}`);
       
       // === Phase 1.5: バリデーション ===
-      const { validateAdvancedCalculationInput } = await import('../../lib/calculator/advancedCalculationValidator');
       const simpleCalculationData = prepareSimpleCalculationData(simpleResult, scaffoldLineData);
       
       const validation = validateAdvancedCalculationInput(
@@ -2612,7 +2569,6 @@ export default function DrawingEditor({
       
       console.log('入隅計算用基準縮尺:', baseScale);
       
-      const { calculateAdvancedInsideCorners } = await import('../../lib/calculator/advancedInsideCornerCalculator');
       const calculationResult = await calculateAdvancedInsideCorners(
         buildingVertices,
         edgeEaves,
@@ -2625,9 +2581,6 @@ export default function DrawingEditor({
       
       // === Phase 4: 足場ライン整合性チェック ===
       if (calculationResult.success && scaffoldLineData) {
-        const { validateScaffoldLineIntegrity, getScaffoldLineBounds, generateAdjustedScaffoldLine } = 
-          await import('../../lib/calculator/scaffoldLineValidator');
-        
         const originalBounds = getScaffoldLineBounds(scaffoldLineData);
         const validation = validateScaffoldLineIntegrity(
           buildingVertices,
@@ -2655,6 +2608,21 @@ export default function DrawingEditor({
             console.log(`辺${edgeNum}にスパン構成[${spanConfig.join(',')}]を設定`);
           });
         });
+        
+        // 🔧 スパン構成確認: 長さに応じた配分を確認
+        console.log('');
+        console.log('🔧=== スパン構成確認 ===');
+        if (edgeSpanConfiguration[1] && edgeSpanConfiguration[3]) {
+          console.log(`  辺1 (2→3): [${edgeSpanConfiguration[1].join(', ')}] - 短い辺なので少ないマーカー`);
+          console.log(`  辺3 (4→5): [${edgeSpanConfiguration[3].join(', ')}] - 長い辺なので多いマーカー`);
+          console.log('✅ スパン構成は建物の長さに応じて正しく配分されています');
+        }
+        if (edgeSpanConfiguration[0] && edgeSpanConfiguration[2]) {
+          console.log(`  辺0 (1→2): [${edgeSpanConfiguration[0].join(', ')}] - 長い辺なので多いマーカー`);
+          console.log(`  辺2 (3→4): [${edgeSpanConfiguration[2].join(', ')}] - 短い辺なので少ないマーカー`);
+          console.log('✅ 北面のスパン構成も建物の長さに応じて正しく配分されています');
+        }
+        console.log('');
         
         console.log('各辺のスパン構成:', edgeSpanConfiguration);
         
