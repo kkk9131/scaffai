@@ -166,30 +166,21 @@ export default function SettingsScreen() {
             icon="shield-checkmark"
             title={ja.settings.privacyPolicy}
             description="プライバシーポリシーを確認します"
-            onPress={() => {
-              console.log('Privacy Policy pressed, Platform.OS:', Platform.OS);
-              showSimpleAlert('準備中', 'プライバシーポリシーは現在準備中です。後日公開予定です。');
-            }}
+            onPress={() => openURL('https://scaffai.github.io/legal/privacy-policy.html')}
           />
           
           <SettingsItem
             icon="document-text"
             title={ja.settings.termsOfService}
             description="利用規約を確認します"
-            onPress={() => {
-              console.log('Terms of Service pressed, Platform.OS:', Platform.OS);
-              showSimpleAlert('準備中', '利用規約は現在準備中です。後日公開予定です。');
-            }}
+            onPress={() => openURL('https://scaffai.github.io/legal/terms-of-service.html')}
           />
           
           <SettingsItem
             icon="library"
             title={ja.settings.licenses}
             description="オープンソースライセンスを確認します"
-            onPress={() => {
-              console.log('Licenses pressed, Platform.OS:', Platform.OS);
-              showSimpleAlert('準備中', 'ライセンス情報は現在準備中です。後日公開予定です。');
-            }}
+            onPress={() => openURL('https://scaffai.github.io/legal/licenses.html')}
           />
         </SettingsSection>
       </ScrollView>
