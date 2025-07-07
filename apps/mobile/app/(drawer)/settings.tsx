@@ -166,21 +166,21 @@ export default function SettingsScreen() {
             icon="shield-checkmark"
             title={ja.settings.privacyPolicy}
             description="プライバシーポリシーを確認します"
-            onPress={() => openURL('https://kkk9131.github.io/scaffai/legal/privacy-policy.html')}
+            onPress={() => openURL('https://kkk9131.github.io/scaffai/privacy-policy.html')}
           />
           
           <SettingsItem
             icon="document-text"
             title={ja.settings.termsOfService}
             description="利用規約を確認します"
-            onPress={() => openURL('https://kkk9131.github.io/scaffai/legal/terms-of-service.html')}
+            onPress={() => openURL('https://kkk9131.github.io/scaffai/terms-of-service.html')}
           />
           
           <SettingsItem
             icon="library"
             title={ja.settings.licenses}
             description="オープンソースライセンスを確認します"
-            onPress={() => openURL('https://kkk9131.github.io/scaffai/legal/licenses.html')}
+            onPress={() => openURL('https://kkk9131.github.io/scaffai/licenses.html')}
           />
         </SettingsSection>
       </ScrollView>

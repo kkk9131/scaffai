@@ -45,51 +45,51 @@ const planDetails = {
   },
   plus: {
     name: 'Plus',
-    price: '4,980円',
+    price: '¥500',
     period: '月額',
     color: baseColors.primary.main,
-    description: '現場作業を効率化する基本プラン',
+    description: 'お手軽な現場作業プラン',
     features: [
       '無制限計算・簡易割付',
-      '電卓機能（平面・立面）',
-      'クラウド保存・同期',
-      '基本的な音声入力',
-      '無制限履歴保存',
-      'モバイル版フル機能'
+      '基本的な電卓機能',
+      'ローカル保存',
+      '履歴保存（30日間）'
     ],
-    limitations: [],
+    limitations: [
+      'クラウド同期なし',
+      'Web版アクセスなし'
+    ],
     popular: true
   },
   pro: {
     name: 'Pro',
-    price: '12,800円',
+    price: '¥4,980',
     period: '月額',
     color: baseColors.accent.purple,
-    description: '本格的な設計作業に対応',
+    description: '本格的な設計作業プラン',
     features: [
       'Plusの全機能',
+      'クラウド保存・同期',
       'Web版アクセス',
       'アプリ内作図機能',
       'プロジェクト管理',
-      '高度な計算機能',
-      'データエクスポート'
+      '無制限履歴保存'
     ],
     limitations: [],
     popular: false
   },
   max: {
     name: 'Max',
-    price: '24,800円', 
+    price: '¥12,800', 
     period: '月額',
     color: baseColors.accent.orange,
-    description: '企業向け統合ソリューション',
+    description: 'エンタープライズプラン',
     features: [
       'Proの全機能',
       'CAD連携・出力',
       'API連携',
       '優先技術サポート',
-      '企業向け機能',
-      'チーム管理機能'
+      '企業向け機能'
     ],
     limitations: [],
     popular: false
@@ -209,8 +209,8 @@ export const PlanComparisonModal: React.FC<PlanComparisonModalProps> = ({
       { label: 'ローカル保存', free: true, plus: true, pro: true, max: true },
       { label: '無制限使用', free: false, plus: true, pro: true, max: true },
       { label: '電卓機能', free: false, plus: true, pro: true, max: true },
-      { label: 'クラウド同期', free: false, plus: true, pro: true, max: true },
-      { label: '音声入力', free: false, plus: true, pro: true, max: true },
+      { label: 'クラウド同期', free: false, plus: false, pro: true, max: true },
+      { label: '音声入力', free: false, plus: false, pro: true, max: true },
       { label: 'Web版アクセス', free: false, plus: false, pro: true, max: true },
       { label: '作図機能', free: false, plus: false, pro: true, max: true },
       { label: 'CAD連携', free: false, plus: false, pro: false, max: true },
@@ -344,17 +344,29 @@ export const PlanComparisonModal: React.FC<PlanComparisonModalProps> = ({
                     style={[
                       styles.selectButton,
                       isCurrentPlan 
-                        ? { backgroundColor: colors.border.main }
+                        ? { 
+                            backgroundColor: colors.background.paper,
+                            borderWidth: 2,
+                            borderColor: details.color,
+                          }
                         : { backgroundColor: details.color }
                     ]}
                     onPress={() => !isCurrentPlan && handleSelectPlan(plan)}
                     disabled={isCurrentPlan}
                   >
+                    {isCurrentPlan && (
+                      <Ionicons 
+                        name="checkmark-circle" 
+                        size={16} 
+                        color={details.color} 
+                        style={{ marginRight: 6 }} 
+                      />
+                    )}
                     <Text style={[
                       styles.selectButtonText,
-                      { color: isCurrentPlan ? colors.text.secondary : '#FFFFFF' }
+                      { color: isCurrentPlan ? details.color : '#FFFFFF' }
                     ]}>
-                      {isCurrentPlan ? '現在のプラン' : '選択する'}
+                      {isCurrentPlan ? '使用中' : '選択する'}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -469,8 +481,11 @@ const styles = StyleSheet.create({
   },
   selectButton: {
     paddingVertical: 14,
+    paddingHorizontal: 16,
     borderRadius: 12,
     alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
   },
   selectButtonText: {
     fontSize: 16,

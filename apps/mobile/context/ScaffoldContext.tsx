@@ -251,6 +251,10 @@ type ScaffoldContextType = {
   saveCalculationToHistory: (title?: string) => Promise<void>; // 後方互換性のため追加
   checkUsageLimit: (actionType: 'calculations' | 'quickAllocations') => Promise<boolean>; // 使用制限チェック追加
   upgradePlan: (newPlan: UserPlan) => Promise<void>; // プランアップグレード機能
+  // プラン関連の情報
+  userPlan: UserPlan | null;
+  remainingCalculations: number | null;
+  remainingQuickAllocations: number | null;
 };
 
 // コンテキスト作成
@@ -268,6 +272,10 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [isFromHistory, setIsFromHistory] = useState<boolean>(false);
+  // プラン関連の状態
+  const [userPlan, setUserPlan] = useState<UserPlan | null>(null);
+  const [remainingCalculations, setRemainingCalculations] = useState<number | null>(null);
+  const [remainingQuickAllocations, setRemainingQuickAllocations] = useState<number | null>(null);
   const router = useRouter();
   const { user } = useAuthContext();
 
@@ -751,16 +759,43 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
+  // プラン情報の読み込み
+  const loadPlanInfo = useCallback(async () => {
+    try {
+      const planData = await UsageManager.getUserPlan();
+      const remainingUsage = await UsageManager.getRemainingUsage();
+      
+      setUserPlan(planData.plan);
+      setRemainingCalculations(remainingUsage.calculations);
+      setRemainingQuickAllocations(remainingUsage.quickAllocations);
+      
+      console.log(`📊 [ScaffoldContext] Plan info loaded: ${planData.plan}`);
+    } catch (error) {
+      console.error('❌ [ScaffoldContext] Failed to load plan info:', error);
+      setUserPlan('free'); // デフォルトはfree
+      setRemainingCalculations(15);
+      setRemainingQuickAllocations(30);
+    }
+  }, []);
+
+  // 初期化時にプラン情報を読み込み
+  React.useEffect(() => {
+    loadPlanInfo();
+  }, [loadPlanInfo]);
+
   // プランアップグレード機能
   const upgradePlan = useCallback(async (newPlan: UserPlan) => {
     try {
       await UsageManager.upgradePlan(newPlan);
       console.log(`✅ [ScaffoldContext] Plan upgraded to: ${newPlan}`);
+      
+      // プラン情報を再読み込み
+      await loadPlanInfo();
     } catch (error) {
       console.error('❌ [ScaffoldContext] Plan upgrade failed:', error);
       throw error;
     }
-  }, []);
+  }, [loadPlanInfo]);
 
   return (
     <ScaffoldContext.Provider
@@ -782,6 +817,9 @@ export const ScaffoldProvider: React.FC<{ children: React.ReactNode }> = ({
         saveCalculationToHistory,
         checkUsageLimit,
         upgradePlan,
+        userPlan,
+        remainingCalculations,
+        remainingQuickAllocations,
       }}
     >
       {children}

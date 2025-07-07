@@ -39,38 +39,38 @@ export const revenueCatPlanConfig = {
     productId: PRODUCT_IDS.plus,
     entitlementId: ENTITLEMENT_IDS.plus,
     displayName: 'ScaffAI Plus',
-    description: '現場作業を効率化する基本プラン',
-    price: '¥4,980',
+    description: 'お手軽な現場作業プラン',
+    price: '¥500',
     period: 'P1M', // ISO 8601: 1ヶ月
     features: [
       '無制限計算・簡易割付',
-      '電卓機能（平面・立面）',
-      'クラウド保存・同期',
-      '基本的な音声入力',
-      '無制限履歴保存'
+      '基本的な電卓機能',
+      'ローカル保存',
+      '履歴保存（30日間）'
     ]
   },
   pro: {
     productId: PRODUCT_IDS.pro,
     entitlementId: ENTITLEMENT_IDS.pro,
     displayName: 'ScaffAI Pro',
-    description: '本格的な設計作業に対応',
-    price: '¥12,800',
+    description: '本格的な設計作業プラン',
+    price: '¥4,980',
     period: 'P1M', // ISO 8601: 1ヶ月
     features: [
       'Plusの全機能',
+      'クラウド保存・同期',
       'Web版アクセス',
       'アプリ内作図機能',
       'プロジェクト管理',
-      '高度な計算機能'
+      '無制限履歴保存'
     ]
   },
   max: {
     productId: PRODUCT_IDS.max,
     entitlementId: ENTITLEMENT_IDS.max,
     displayName: 'ScaffAI Max',
-    description: '企業向け統合ソリューション',
-    price: '¥24,800',
+    description: 'エンタープライズプラン',
+    price: '¥12,800',
     period: 'P1M', // ISO 8601: 1ヶ月
     features: [
       'Proの全機能',

@@ -97,10 +97,10 @@ export const PLAN_LIMITS: Record<UserPlan, PlanLimits> = {
     calculations: null, // unlimited
     quickAllocations: null, // unlimited
     hasCalculatorFunction: true,
-    hasCloudSync: true,
+    hasCloudSync: false, // Plus: クラウド同期なし
     hasWebAccess: false,
     hasCADExport: false,
-    hasVoiceInput: true,
+    hasVoiceInput: false, // Plus: 基本機能のみ
   },
   pro: {
     calculations: null, // unlimited
