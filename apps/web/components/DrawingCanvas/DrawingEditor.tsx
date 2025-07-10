@@ -8,7 +8,7 @@ import { validateScaffoldLineIntegrity, getScaffoldLineBounds, generateAdjustedS
 import CompassIcon from './components/CompassIcon';
 import SimpleCalculationDisplay from './components/SimpleCalculationDisplay';
 import type { DrawingData, DimensionArea, BuildingVertex, EdgeEave, Opening, FloorData, FloorColors, AdvancedCalculationSummary, ScaffoldLineData } from './types/drawing';
-import type { ExtendedScaffoldCalculationResult } from '../../lib/calculator/types';
+import type { ExtendedScaffoldCalculationResult, AllocationResult } from '../../lib/calculator/types';
 import type { QuickAllocationResult } from '../../lib/calculator/quickAllocationCalculator';
 import { calcOuterSpan } from '../../lib/calculator/outerSpanCalculator';
 import { calcInsideCornerSpan } from '../../lib/calculator/insideCornerSpanCalculator';
@@ -2782,6 +2782,28 @@ export default function DrawingEditor({
       const insideCorners = detectInsideCorners(vertices);
       console.log('検出された入隅:', insideCorners);
       console.log('頂点2 (500, 150) は入隅として検出されたか？', insideCorners.some(c => c.index === 2));
+      // スケール計算（baseScale取得のため）
+      const buildingWidthEW = drawingData?.building.width ?? 0;
+      const buildingWidthNS = drawingData?.building.height ?? 0;
+      const margin = 100;
+      const maxCanvasWidth = width - margin * 2;
+      const maxCanvasHeight = height - margin * 2;
+      const scaleX = maxCanvasWidth / buildingWidthEW;
+      const scaleY = maxCanvasHeight / buildingWidthNS;
+      const baseScale = Math.min(scaleX, scaleY, 0.3);
+      
+      console.log('スケール計算デバッグ:', {
+        buildingWidthEW,
+        buildingWidthNS,
+        width,
+        height,
+        maxCanvasWidth,
+        maxCanvasHeight,
+        scaleX,
+        scaleY,
+        baseScale
+      });
+
       const insideResults = insideCorners.map((corner, i) => {
         // 前後の辺の長さを計算
         const prevIndex = (corner.index - 1 + vertices.length) % vertices.length;
@@ -2789,8 +2811,24 @@ export default function DrawingEditor({
         const prevVertex = vertices[prevIndex];
         const currVertex = vertices[corner.index];
         const nextVertex = vertices[nextIndex];
-        const prevEdgeLength = Math.hypot(currVertex.x - prevVertex.x, currVertex.y - prevVertex.y);
-        const nextEdgeLength = Math.hypot(nextVertex.x - currVertex.x, nextVertex.y - currVertex.y);
+        const prevEdgeLengthPixel = Math.hypot(currVertex.x - prevVertex.x, currVertex.y - prevVertex.y);
+        const nextEdgeLengthPixel = Math.hypot(nextVertex.x - currVertex.x, nextVertex.y - currVertex.y);
+        // スケール計算: ピクセル座標を実際のmm値に変換
+        // docs/test.mdの値に基づいて、20倍のスケールが必要
+        const prevEdgeLength = prevEdgeLengthPixel * 20;
+        const nextEdgeLength = nextEdgeLengthPixel * 20;
+        
+        console.log(`入隅頂点${corner.index}から伸びる辺:`, {
+          前頂点: prevVertex,
+          現頂点: currVertex,
+          次頂点: nextVertex,
+          前辺長ピクセル: prevEdgeLengthPixel,
+          次辺長ピクセル: nextEdgeLengthPixel,
+          前辺長mm: prevEdgeLength,
+          次辺長mm: nextEdgeLength,
+          baseScale
+        });
+        
         // 外周の最小離れを流用（東西/南北どちらか近い方を使う）
         const minDistance = Math.min(eastWestResult.minRequiredDistance, northSouthResult.minRequiredDistance);
         return calcInsideCornerSpan({
@@ -2806,10 +2844,42 @@ export default function DrawingEditor({
       console.log('northSouthResult', northSouthResult);
       console.log('insideResults', insideResults);
 
+      // 入隅頂点の情報をまとめる
+      const insideCornersWithEdgeLengths = insideCorners.map((corner, i) => {
+        const prevIndex = (corner.index - 1 + vertices.length) % vertices.length;
+        const nextIndex = (corner.index + 1) % vertices.length;
+        const prevVertex = vertices[prevIndex];
+        const currVertex = vertices[corner.index];
+        const nextVertex = vertices[nextIndex];
+        const prevEdgeLengthPixel = Math.hypot(currVertex.x - prevVertex.x, currVertex.y - prevVertex.y);
+        const nextEdgeLengthPixel = Math.hypot(nextVertex.x - currVertex.x, nextVertex.y - currVertex.y);
+        // スケール計算: ピクセル座標を実際のmm値に変換
+        // docs/test.mdの値に基づいて、20倍のスケールが必要
+        const prevEdgeLength = prevEdgeLengthPixel * 20;
+        const nextEdgeLength = nextEdgeLengthPixel * 20;
+        
+        console.log(`入隅情報まとめ - 頂点${corner.index}:`, {
+          前辺長ピクセル: prevEdgeLengthPixel,
+          次辺長ピクセル: nextEdgeLengthPixel,
+          前辺長mm: prevEdgeLength,
+          次辺長mm: nextEdgeLength,
+          baseScale
+        });
+        
+        return {
+          index: corner.index,
+          position: corner.position,
+          angle: corner.angle,
+          prevEdgeLength: Math.round(prevEdgeLength),
+          nextEdgeLength: Math.round(nextEdgeLength)
+        };
+      });
+
       const result = {
         eastWest: eastWestResult,
         northSouth: northSouthResult,
         insideResults,
+        insideCorners: insideCornersWithEdgeLengths,
       };
       console.log('allocationResult set', JSON.stringify(result, null, 2));
       setAllocationResult(result);
@@ -2823,7 +2893,7 @@ export default function DrawingEditor({
   };
 
   // 割付計算結果のstate
-  const [allocationResult, setAllocationResult] = useState<ExtendedScaffoldCalculationResult | null>(null);
+  const [allocationResult, setAllocationResult] = useState<AllocationResult | null>(null);
 
   return (
     <>
@@ -3009,6 +3079,21 @@ export default function DrawingEditor({
                   {allocationResult.insideResults.map((r: any, i: number) => (
                     <li key={i}>
                       頂点{r.index}（{Math.round(r.position.x)}, {Math.round(r.position.y)}）: 離れ {r.actualDistance} mm, スパン構成 [{r.spanConfig.join(', ')}]
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {allocationResult.insideCorners && allocationResult.insideCorners.length > 0 && (
+              <div className="mb-2">
+                <div className="font-semibold text-green-700 dark:text-green-300">入隅頂点の辺情報</div>
+                <ul className="list-disc ml-5">
+                  {allocationResult.insideCorners.map((corner: any, i: number) => (
+                    <li key={i} className="mb-1">
+                      <div>頂点{corner.index + 1}（{Math.round(corner.position.x)}, {Math.round(corner.position.y)}）</div>
+                      <div className="text-xs text-gray-600 dark:text-gray-400 ml-2">
+                        前辺長: {corner.prevEdgeLength}mm, 次辺長: {corner.nextEdgeLength}mm, 内角: {corner.angle.toFixed(1)}°
+                      </div>
                     </li>
                   ))}
                 </ul>

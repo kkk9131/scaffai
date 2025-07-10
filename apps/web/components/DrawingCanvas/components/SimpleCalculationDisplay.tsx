@@ -89,6 +89,31 @@ export default function SimpleCalculationDisplay({
               </div>
             )}
 
+            {/* 入隅情報 */}
+            {calculationResult.insideCorners && calculationResult.insideCorners.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-gray-700">入隅頂点情報:</div>
+                <div className="text-xs space-y-2 pl-2">
+                  {calculationResult.insideCorners.map((corner, index) => (
+                    <div key={index} className="bg-gray-50 p-2 rounded">
+                      <div className="font-semibold text-gray-700">
+                        頂点{corner.index + 1} ({Math.round(corner.position.x)}, {Math.round(corner.position.y)})
+                      </div>
+                      <div className="text-gray-600 mt-1">
+                        内角: {corner.angle.toFixed(1)}度
+                      </div>
+                      <div className="text-gray-600">
+                        前辺長: {corner.prevEdgeLength}mm
+                      </div>
+                      <div className="text-gray-600">
+                        次辺長: {corner.nextEdgeLength}mm
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* 計算方法 */}
             <div className="space-y-2">
               <div className="text-xs font-semibold text-gray-700">計算方法:</div>

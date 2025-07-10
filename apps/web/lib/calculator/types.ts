@@ -47,4 +47,35 @@ export interface ExtendedScaffoldCalculationResult extends ScaffoldCalculationRe
     west: number[];
   };
   calculationMethod?: string;
+  insideCorners?: {
+    index: number;
+    position: { x: number; y: number };
+    angle: number;
+    prevEdgeLength: number;
+    nextEdgeLength: number;
+  }[];
+}
+
+// 割付計算結果の型
+export interface AllocationResult {
+  eastWest: {
+    totalSpan: number;
+    minRequiredDistance: number;
+    actualDistance: number;
+    spanConfig: number[];
+  };
+  northSouth: {
+    totalSpan: number;
+    minRequiredDistance: number;
+    actualDistance: number;
+    spanConfig: number[];
+  };
+  insideResults?: any[];
+  insideCorners?: {
+    index: number;
+    position: { x: number; y: number };
+    angle: number;
+    prevEdgeLength: number;
+    nextEdgeLength: number;
+  }[];
 }
