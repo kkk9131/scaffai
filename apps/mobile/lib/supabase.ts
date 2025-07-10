@@ -1,10 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 import { Database } from './types';
 
-const supabaseUrl = 'https://sqovgtupsgyalvuycyum.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNxb3ZndHVwc2d5YWx2dXljeXVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5NjMwMjQsImV4cCI6MjA2NDUzOTAyNH0.pkadOrtCFA-8L8qoCXuO3Abe-9vBe17us5HoYYdR9og';
+const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl || process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase environment variables. Please check your app.config.js or .env file.');
+}
 
 // Web用のlocalStorageアダプター
 const webStorage = {
