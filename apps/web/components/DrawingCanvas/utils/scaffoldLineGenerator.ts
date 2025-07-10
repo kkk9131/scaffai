@@ -1,6 +1,5 @@
 import type { BuildingVertex, ScaffoldLineData, AdvancedCalculationResult } from '../types/drawing';
 import type { QuickAllocationResult } from '@/lib/calculator/quickAllocationCalculator';
-import { generateSpanMarkerData, parseSpanComposition } from './quickAllocationMarkers';
 
 /**
  * 足場ライン生成ユーティリティ
@@ -138,60 +137,6 @@ function getLineIntersection(
   };
 }
 
-/**
- * スパン境界点を生成
- */
-function generateSpanMarkers(
-  edgeStart: BuildingVertex,
-  edgeEnd: BuildingVertex,
-  spanConfiguration: number[]
-): { position: number; type: 'span-boundary' }[] {
-  if (!spanConfiguration || spanConfiguration.length === 0) {
-    console.log('スパン構成が空です');
-    return [];
-  }
-  
-  console.log('generateSpanMarkers実行:', {
-    spanConfiguration,
-    edgeStart,
-    edgeEnd
-  });
-  
-  const markers: { position: number; type: 'span-boundary' }[] = [];
-  let currentPosition = 0;
-  
-  // 開始点マーカー（0の位置）
-  markers.push({
-    position: 0,
-    type: 'span-boundary'
-  });
-  
-  // 各スパンの終端位置を計算
-  for (const span of spanConfiguration) {
-    currentPosition += span;
-    markers.push({
-      position: currentPosition, // 実際のmm位置で保存
-      type: 'span-boundary'
-    });
-  }
-  
-  // 総距離を計算
-  const totalSpanDistance = spanConfiguration.reduce((sum, span) => sum + span, 0);
-  
-  // 0-1の比率に変換
-  const normalizedMarkers = markers.map(marker => ({
-    position: marker.position / totalSpanDistance,
-    type: marker.type as 'span-boundary'
-  }));
-  
-  console.log('生成されたマーカー:', {
-    rawMarkers: markers,
-    normalizedMarkers,
-    totalSpanDistance
-  });
-  
-  return normalizedMarkers;
-}
 
 /**
  * 簡易計算結果から足場ラインにマーカーを追加
@@ -289,43 +234,15 @@ export function generateScaffoldLineWithQuickAllocation(
       result.success && result.spanConfiguration
     );
     
-    let spanMarkers: { position: number; type: 'span-boundary' }[] = [];
-    
-    console.log(`足場辺${i}のマーカー生成開始:`, {
-      quickResultFound: !!quickResult,
-      spanConfiguration: quickResult?.spanConfiguration,
-      spanComposition: quickResult?.spanComposition
-    });
-    
-    if (quickResult && quickResult.spanConfiguration && quickResult.spanConfiguration.length > 0) {
-      console.log('マーカーデータ生成を実行');
-      const markerData = generateSpanMarkerData(quickResult);
-      console.log('生成されたマーカーデータ:', markerData);
-      
-      if (markerData && markerData.markerPositions.length > 0) {
-        // マーカー位置を0-1の比率に変換
-        const totalDistance = markerData.totalDistance;
-        spanMarkers = markerData.markerPositions.map(marker => ({
-          position: marker.position / totalDistance,
-          type: 'span-boundary' as const
-        }));
-        console.log('変換されたスパンマーカー:', spanMarkers);
-      } else {
-        console.warn('マーカーデータが空です');
-      }
-    } else {
-      console.warn('簡易計算結果が無効です');
-    }
     
     scaffoldEdges.push({
       edgeIndex: i,
       startVertex,
       endVertex,
-      spanConfiguration: parallelLine.spanConfiguration,
-      spanMarkers
+      spanConfiguration: parallelLine.spanConfiguration
     });
     
-    console.log(`足場辺${i}: スパン数=${parallelLine.spanConfiguration.length}, マーカー数=${spanMarkers.length}, マーカー詳細:`, spanMarkers);
+    console.log(`足場辺${i}: スパン数=${parallelLine.spanConfiguration.length}`);
   }
   
   console.log('=== 簡易計算足場ライン生成完了 ===');
@@ -441,22 +358,14 @@ export function generateScaffoldLine(
     const endVertex = scaffoldVertices[(i + 1) % scaffoldVertices.length];
     const parallelLine = parallelLines[i];
     
-    // スパンマーカーを生成
-    const spanMarkers = generateSpanMarkers(
-      startVertex,
-      endVertex,
-      parallelLine.spanConfiguration
-    );
-    
     scaffoldEdges.push({
       edgeIndex: i,
       startVertex,
       endVertex,
-      spanConfiguration: parallelLine.spanConfiguration,
-      spanMarkers
+      spanConfiguration: parallelLine.spanConfiguration
     });
     
-    console.log(`足場辺${i}: スパン数=${parallelLine.spanConfiguration.length}, マーカー数=${spanMarkers.length}`);
+    console.log(`足場辺${i}: スパン数=${parallelLine.spanConfiguration.length}`);
   }
   
   console.log('=== 足場ライン生成完了 ===');

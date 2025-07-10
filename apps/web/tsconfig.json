@@ -26,7 +26,8 @@
       "@/lib/*": ["./lib/*"],
       "@/types/*": ["./types/*"],
       "@/styles/*": ["./styles/*"]
-    }
+    },
+    "types": ["jest", "node"]  // ← ここに入れる！
   },
   "include": [
     "next-env.d.ts",

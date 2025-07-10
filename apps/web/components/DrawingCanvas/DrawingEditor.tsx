@@ -3,13 +3,16 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Edit3, Square, Move, ZoomIn, ZoomOut, Grid, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { drawCompositeView, drawGrid as drawAdvancedGrid } from './utils/drawingUtils';
-import { detectInsideCornerEdges } from './utils/geometryCalculator';
 import { validateAdvancedCalculationInput } from '../../lib/calculator/advancedCalculationValidator';
-import { calculateAdvancedInsideCorners } from '../../lib/calculator/advancedInsideCornerCalculator';
-import { validateScaffoldLineResults, validateScaffoldLineIntegrity, getScaffoldLineBounds, generateAdjustedScaffoldLine } from '../../lib/calculator/scaffoldLineValidator';
+import { validateScaffoldLineIntegrity, getScaffoldLineBounds, generateAdjustedScaffoldLine } from '../../lib/calculator/scaffoldLineValidator';
+import CompassIcon from './components/CompassIcon';
+import SimpleCalculationDisplay from './components/SimpleCalculationDisplay';
 import type { DrawingData, DimensionArea, BuildingVertex, EdgeEave, Opening, FloorData, FloorColors, AdvancedCalculationSummary, ScaffoldLineData } from './types/drawing';
-import type { ScaffoldCalculationResult } from '../../lib/calculator/types';
+import type { ExtendedScaffoldCalculationResult } from '../../lib/calculator/types';
 import type { QuickAllocationResult } from '../../lib/calculator/quickAllocationCalculator';
+import { calcOuterSpan } from '../../lib/calculator/outerSpanCalculator';
+import { calcInsideCornerSpan } from '../../lib/calculator/insideCornerSpanCalculator';
+import { detectInsideCorners } from '../../lib/calculator/insideCornerDetector';
 // import { convertToFloorData, generateDrawingMetadata, type ScaffoldInputData } from '../../lib/drawing/scaffoldGenerator';
 
 interface ScaffoldInputData {
@@ -160,6 +163,71 @@ export default function DrawingEditor({
   const [scaffoldLineData, setScaffoldLineData] = useState<ScaffoldLineData | null>(null);
   const [showBuildingDimensions, setShowBuildingDimensions] = useState<boolean>(true);
   const [isAdvancedCalculating, setIsAdvancedCalculating] = useState<boolean>(false);
+  const [showSimpleCalculationResult, setShowSimpleCalculationResult] = useState<boolean>(true);
+  
+  // 簡易計算結果用のステート
+  const [simpleCalculationResult, setSimpleCalculationResult] = useState<ExtendedScaffoldCalculationResult | null>(null);
+
+  // セッションストレージから簡易計算結果を取得してstateに設定
+  useEffect(() => {
+    const loadSimpleCalculationResult = () => {
+      if (typeof window === 'undefined') return;
+      
+      try {
+        const savedResult = sessionStorage.getItem('scaffoldCalculationResult');
+        const savedInput = sessionStorage.getItem('scaffoldInputData');
+        
+        if (savedResult && savedInput) {
+          const result = JSON.parse(savedResult);
+          const input = JSON.parse(savedInput);
+          
+          // ExtendedScaffoldCalculationResult形式に変換
+          const extendedResult: ExtendedScaffoldCalculationResult = {
+            ...result,
+            success: true, // 計算が完了していればsuccess = true
+            buildingDimensions: {
+              width_EW: input.width_EW || 0,
+              width_NS: input.width_NS || 0,
+            },
+            eaveDistances: {
+              north: input.eaves_N || 0,
+              east: input.eaves_E || 0,
+              south: input.eaves_S || 0,
+              west: input.eaves_W || 0,
+            },
+            totalSpans: {
+              eastWest: result.ew_total_span || 0,
+              northSouth: result.ns_total_span || 0,
+            },
+            faceDistances: {
+              north: parseFloat(result.north_gap?.replace(/[^\d.]/g, '') || '0'),
+              east: parseFloat(result.east_gap?.replace(/[^\d.]/g, '') || '0'),
+              south: parseFloat(result.south_gap?.replace(/[^\d.]/g, '') || '0'),
+              west: parseFloat(result.west_gap?.replace(/[^\d.]/g, '') || '0'),
+            },
+            spanConfigurations: {
+              north: result.ew_span_structure ? parseSpanStructure(result.ew_span_structure) : [],
+              east: result.ns_span_structure ? parseSpanStructure(result.ns_span_structure) : [],
+              south: result.ew_span_structure ? parseSpanStructure(result.ew_span_structure) : [],
+              west: result.ns_span_structure ? parseSpanStructure(result.ns_span_structure) : [],
+            },
+            calculationMethod: '簡易計算',
+          };
+          
+          setSimpleCalculationResult(extendedResult);
+          console.log('簡易計算結果をstateに設定:', extendedResult);
+        } else {
+          console.log('セッションストレージに簡易計算結果が見つかりません');
+          setSimpleCalculationResult(null);
+        }
+      } catch (error) {
+        console.error('簡易計算結果の読み込みエラー:', error);
+        setSimpleCalculationResult(null);
+      }
+    };
+
+    loadSimpleCalculationResult();
+  }, []); // マウント時のみ実行
 
   // 足場ライン自動生成機能
   // 高度計算結果から建物と足場ラインのFloorDataを生成する
@@ -794,24 +862,8 @@ export default function DrawingEditor({
   };
 
   // 頂点を削除
-  const deleteVertex = (index: number) => {
-    if (buildingVertices.length <= 3) {
-      alert('最低3つの頂点が必要です');
-      return;
-    }
-
-    setBuildingVertices(prev => prev.filter((_, i) => i !== index));
-    setSelectedVertexIndex(null);
-
-    // 対応する辺の軒の出を削除
-    setEdgeEaves(prev => {
-      const filteredEaves = prev.filter((_, i) => i !== index);
-      // インデックスを更新
-      return filteredEaves.map((edge, i) => ({
-        ...edge,
-        edgeIndex: i
-      }));
-    });
+  const deleteVertex = (vertexIndex: number) => {
+    setBuildingVertices(prev => prev.filter((_, i) => i !== vertexIndex));
   };
 
   // 頂点位置を更新（100mm単位グリッド吸着）
@@ -1854,8 +1906,7 @@ export default function DrawingEditor({
         edgeIndex: edge.edgeIndex,
         startVertex: `(${edge.startVertex.x.toFixed(1)}, ${edge.startVertex.y.toFixed(1)})`,
         endVertex: `(${edge.endVertex.x.toFixed(1)}, ${edge.endVertex.y.toFixed(1)})`,
-        spanConfiguration: edge.spanConfiguration,
-        spanMarkerCount: edge.spanMarkers?.length || 0
+        spanConfiguration: edge.spanConfiguration
       });
     });
     
@@ -1876,125 +1927,7 @@ export default function DrawingEditor({
       console.log(`   対応する建物の辺: ${getEdgeDescription(buildingEdgeIndex)}`);
       console.log(`   スパン構成: [${edge.spanConfiguration.join(', ')}]`);
       console.log(`   スパン合計: ${spanSum}mm`);
-      console.log(`   マーカー数: ${edge.spanMarkers?.length || 0}`);
-      
-      // ユーザーの問題分析
-      if (buildingEdgeIndex === 1) {
-        console.log('   ❌ ユーザー報告: 辺1(2→3)のマーカーが間違っている');
-        console.log('   📏 期待: 短い辺なので少ないマーカー');
-        console.log('   📏 現実: ', spanSum > 3000 ? '多すぎるマーカー' : '適切なマーカー数');
-      }
-      if (buildingEdgeIndex === 3) {
-        console.log('   ❌ ユーザー報告: 辺3(4→5)のマーカーが間違っている');
-        console.log('   📏 期待: 長い辺なので多いマーカー');
-        console.log('   📏 現実: ', spanSum < 3000 ? '少なすぎるマーカー' : '適切なマーカー数');
-      }
       console.log('');
-      if (edge.spanMarkers && edge.spanMarkers.length > 0) {
-        // 足場辺データから直接頂点を取得（同じ座標変換を適用）
-        const correctScaffoldStart = { 
-          x: centerX + (edge.startVertex.x - centerX) * scale + pan.x, 
-          y: centerY + (edge.startVertex.y - centerY) * scale + pan.y 
-        };
-        const correctScaffoldEnd = { 
-          x: centerX + (edge.endVertex.x - centerX) * scale + pan.x, 
-          y: centerY + (edge.endVertex.y - centerY) * scale + pan.y 
-        };
-
-        // 1800以外の区間寸法を表示するために、スパン構成を取得
-        const spanConfiguration = edge.spanConfiguration || [];
-        console.log(`辺${buildingEdgeIndex}のスパン構成:`, spanConfiguration);
-
-        console.log(`🎯 辺${buildingEdgeIndex}のマーカー描画詳細:`);
-        console.log(`   足場頂点: (${correctScaffoldStart.x.toFixed(1)}, ${correctScaffoldStart.y.toFixed(1)}) → (${correctScaffoldEnd.x.toFixed(1)}, ${correctScaffoldEnd.y.toFixed(1)})`);
-        console.log(`   スパンマーカー数: ${edge.spanMarkers.length}`);
-        
-        edge.spanMarkers.forEach((marker, markerIndex) => {
-          // マーカー位置を計算（正しい足場頂点を使用）
-          const markerX = correctScaffoldStart.x + (correctScaffoldEnd.x - correctScaffoldStart.x) * marker.position;
-          const markerY = correctScaffoldStart.y + (correctScaffoldEnd.y - correctScaffoldStart.y) * marker.position;
-
-          console.log(`   📍 マーカー${markerIndex}: position=${marker.position.toFixed(3)}, 描画座標=(${markerX.toFixed(1)}, ${markerY.toFixed(1)})`);
-          
-          // 実際の足場辺データとの比較ログ
-          console.log(`   📊 edge.startVertex=(${edge.startVertex.x.toFixed(1)}, ${edge.startVertex.y.toFixed(1)}), edge.endVertex=(${edge.endVertex.x.toFixed(1)}, ${edge.endVertex.y.toFixed(1)})`);
-
-          // スパン境界マーカーを描画（黒い円形に変更）
-          ctx.fillStyle = '#000000'; // 黒色
-          ctx.strokeStyle = '#000000';
-          ctx.lineWidth = 1;
-          ctx.setLineDash([]); // 実線
-
-          // 円形マーカーを描画
-          ctx.beginPath();
-          ctx.arc(markerX, markerY, 4, 0, 2 * Math.PI); // 半径4pxの円
-          ctx.fill();
-          ctx.stroke();
-        });
-
-        // 1800以外の区間寸法を線の外側に表示
-        if (spanConfiguration.length > 0) {
-          let currentPosition = 0;
-          spanConfiguration.forEach((spanLength, spanIndex) => {
-            const nextPosition = currentPosition + spanLength;
-            
-            // 1800以外の寸法のみ表示
-            if (spanLength !== 1800) {
-              // 区間の中点を計算
-              const totalDistance = spanConfiguration.reduce((sum, span) => sum + span, 0);
-              const startRatio = currentPosition / totalDistance;
-              const endRatio = nextPosition / totalDistance;
-              const midRatio = (startRatio + endRatio) / 2;
-              
-              const midX = correctScaffoldStart.x + (correctScaffoldEnd.x - correctScaffoldStart.x) * midRatio;
-              const midY = correctScaffoldStart.y + (correctScaffoldEnd.y - correctScaffoldStart.y) * midRatio;
-              
-              // 線に垂直な方向のオフセットを計算（外側に表示）
-              const edgeX = correctScaffoldEnd.x - correctScaffoldStart.x;
-              const edgeY = correctScaffoldEnd.y - correctScaffoldStart.y;
-              const edgeLength = Math.sqrt(edgeX * edgeX + edgeY * edgeY);
-              
-              if (edgeLength > 0) {
-                // 外向きの法線ベクトル
-                const normalX = edgeY / edgeLength;
-                const normalY = -edgeX / edgeLength;
-                
-                // 寸法テキストの位置（線から25px外側）
-                const offset = 25;
-                const textX = midX + normalX * offset;
-                const textY = midY + normalY * offset;
-                
-                // 寸法テキストを描画
-                ctx.fillStyle = '#333333';
-                ctx.font = '12px Arial';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                
-                // 背景を描画（視認性向上）
-                const text = `${spanLength}mm`;
-                const textMetrics = ctx.measureText(text);
-                const textWidth = textMetrics.width;
-                const textHeight = 16;
-                
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-                ctx.fillRect(textX - textWidth/2 - 2, textY - textHeight/2 - 1, textWidth + 4, textHeight + 2);
-                
-                ctx.strokeStyle = '#333333';
-                ctx.lineWidth = 1;
-                ctx.strokeRect(textX - textWidth/2 - 2, textY - textHeight/2 - 1, textWidth + 4, textHeight + 2);
-                
-                // テキストを描画
-                ctx.fillStyle = '#333333';
-                ctx.fillText(text, textX, textY);
-                
-                console.log(`辺${buildingEdgeIndex}区間${spanIndex}: ${spanLength}mm 寸法表示 位置(${textX.toFixed(1)}, ${textY.toFixed(1)})`);
-              }
-            }
-            
-            currentPosition = nextPosition;
-          });
-        }
-      }
     });
 
     // スパン寸法表示は削除
@@ -2568,6 +2501,7 @@ export default function DrawingEditor({
       }
       
       console.log('入隅計算用基準縮尺:', baseScale);
+      setCalculationBaseScale(baseScale);
       
       const calculationResult = await calculateAdvancedInsideCorners(
         buildingVertices,
@@ -2780,8 +2714,116 @@ export default function DrawingEditor({
     return spans;
   };
 
+  // ステート追加
+  const [isAllocating, setIsAllocating] = useState(false);
+  const [allocationError, setAllocationError] = useState<string | null>(null);
+  const [allocationSuccess, setAllocationSuccess] = useState<string | null>(null);
 
+  // 割付ボタンonClickハンドラ
+  const handleAllocation = async () => {
+    console.log('handleAllocation called');
+    console.log('vertices', buildingVertices);
+    setIsAllocating(true);
+    setAllocationError(null);
+    setAllocationSuccess(null);
+    try {
+      // 実際のstateを使う
+      const vertices = buildingVertices;
+      const eaves = edgeEaves;
+      const openingsData = openings;
+      const width = drawingData?.building.width ?? 0;
+      const height = drawingData?.building.height ?? 0;
 
+      // 入力値の確認
+      const eaveN = eaves[0]?.distance ?? 0;
+      const eaveS = eaves[2]?.distance ?? 0;
+      const eaveE = eaves[1]?.distance ?? 0;
+      const eaveW = eaves[3]?.distance ?? 0;
+      console.log('width', width, 'height', height);
+      console.log('eaveN', eaveN, 'eaveS', eaveS, 'eaveE', eaveE, 'eaveW', eaveW);
+
+      // --- 矩形建物の外周スパン計算 ---
+      // 東西方向（北・南面）
+      const eastWestResult = calcOuterSpan({ buildingLength: width, eave: Math.max(eaveN, eaveS) });
+      // 南北方向（東・西面）
+      const northSouthResult = calcOuterSpan({ buildingLength: height, eave: Math.max(eaveE, eaveW) });
+
+      // 入隅検出・計算
+      console.log('vertices', vertices);
+      console.log('L字型建物の頂点数:', vertices.length);
+      console.log('頂点詳細:', vertices.map((v, i) => `${i}: (${v.x}, ${v.y})`));
+      
+      // 建物の実際の形状を確認
+      console.log('建物形状確認:');
+      console.log('  幅(width):', width, 'mm');
+      console.log('  高さ(height):', height, 'mm');
+      
+      // 各頂点の内角を詳細に確認
+      for (let i = 0; i < vertices.length; i++) {
+        const prev = vertices[(i - 1 + vertices.length) % vertices.length];
+        const curr = vertices[i];
+        const next = vertices[(i + 1) % vertices.length];
+        
+        // ベクトル計算
+        const v1 = { x: prev.x - curr.x, y: prev.y - curr.y }; // curr→prev
+        const v2 = { x: next.x - curr.x, y: next.y - curr.y }; // curr→next
+        
+        const dot = v1.x * v2.x + v1.y * v2.y;
+        const cross = v1.x * v2.y - v1.y * v2.x;
+        
+        let angle = Math.atan2(Math.abs(cross), dot) * 180 / Math.PI;
+        if (cross < 0) {
+          angle = 360 - angle;
+        }
+        
+        console.log(`  頂点${i} (${curr.x}, ${curr.y}): 内角=${angle.toFixed(1)}度, cross=${cross}, ${angle > 180 ? '入隅' : '通常'}`);
+      }
+      
+      const insideCorners = detectInsideCorners(vertices);
+      console.log('検出された入隅:', insideCorners);
+      console.log('頂点2 (500, 150) は入隅として検出されたか？', insideCorners.some(c => c.index === 2));
+      const insideResults = insideCorners.map((corner, i) => {
+        // 前後の辺の長さを計算
+        const prevIndex = (corner.index - 1 + vertices.length) % vertices.length;
+        const nextIndex = (corner.index + 1) % vertices.length;
+        const prevVertex = vertices[prevIndex];
+        const currVertex = vertices[corner.index];
+        const nextVertex = vertices[nextIndex];
+        const prevEdgeLength = Math.hypot(currVertex.x - prevVertex.x, currVertex.y - prevVertex.y);
+        const nextEdgeLength = Math.hypot(nextVertex.x - currVertex.x, nextVertex.y - currVertex.y);
+        // 外周の最小離れを流用（東西/南北どちらか近い方を使う）
+        const minDistance = Math.min(eastWestResult.minRequiredDistance, northSouthResult.minRequiredDistance);
+        return calcInsideCornerSpan({
+          insideCorner: corner,
+          prevEdgeLength,
+          nextEdgeLength,
+          minDistance,
+        });
+      });
+
+      // 計算結果の確認
+      console.log('eastWestResult', eastWestResult);
+      console.log('northSouthResult', northSouthResult);
+      console.log('insideResults', insideResults);
+
+      const result = {
+        eastWest: eastWestResult,
+        northSouth: northSouthResult,
+        insideResults,
+      };
+      console.log('allocationResult set', JSON.stringify(result, null, 2));
+      setAllocationResult(result);
+      setAllocationSuccess('割付計算が正常に完了しました');
+    } catch (e: any) {
+      console.error('handleAllocation error', e);
+      setAllocationError('割付計算中にエラーが発生しました');
+    } finally {
+      setIsAllocating(false);
+    }
+  };
+
+  // 割付計算結果のstate
+  const [allocationResult, setAllocationResult] = useState<ExtendedScaffoldCalculationResult | null>(null);
 
   return (
     <>
@@ -2888,6 +2930,18 @@ export default function DrawingEditor({
               display: 'block'
             }}
           />
+          
+          {/* 方角アイコン（画面右上） */}
+          <div className="absolute top-4 right-4 z-10">
+            <CompassIcon size={60} />
+          </div>
+          
+          {/* 簡易計算結果表示（画面左上） */}
+          <SimpleCalculationDisplay 
+            calculationResult={simpleCalculationResult}
+            visible={showSimpleCalculationResult}
+            onToggle={() => setShowSimpleCalculationResult(!showSimpleCalculationResult)}
+          />
         </div>
       </div>
 
@@ -2914,21 +2968,67 @@ export default function DrawingEditor({
           </button>
         </div>
 
+        {/* --- 割付ボタン追加 --- */}
+        {!rightPanelCollapsed && (
+          <div className="px-4 pt-4">
+            <button
+              onClick={handleAllocation}
+              className="w-full flex items-center justify-center gap-2 py-3 mb-6 rounded-xl bg-gradient-to-r from-blue-500 via-blue-400 to-blue-600 text-white text-lg font-bold shadow-lg hover:scale-105 hover:shadow-xl transition-all duration-200 active:scale-95 border-2 border-blue-400"
+              style={{letterSpacing: '0.1em'}}
+              disabled={isAllocating}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              {isAllocating ? '計算中...' : '割付'}
+            </button>
+          </div>
+        )}
+        {/* --- 割付計算結果パネル --- */}
+        {!rightPanelCollapsed && allocationResult && (
+          <div className="px-4 pb-4 mt-2 text-xs text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+            <div className="font-bold mb-1">割付計算結果</div>
+            <div className="mb-2">
+              <div className="font-semibold text-blue-700 dark:text-blue-300">東西方向（北・南面）</div>
+              <div>総スパン: {allocationResult.eastWest?.totalSpan} mm</div>
+              <div>最小離れ: {allocationResult.eastWest?.minRequiredDistance} mm</div>
+              <div>実際の離れ: {allocationResult.eastWest?.actualDistance} mm</div>
+              <div>スパン構成: {allocationResult.eastWest?.spanConfig?.join(', ')} mm</div>
+            </div>
+            <div className="mb-2">
+              <div className="font-semibold text-blue-700 dark:text-blue-300">南北方向（東・西面）</div>
+              <div>総スパン: {allocationResult.northSouth?.totalSpan} mm</div>
+              <div>最小離れ: {allocationResult.northSouth?.minRequiredDistance} mm</div>
+              <div>実際の離れ: {allocationResult.northSouth?.actualDistance} mm</div>
+              <div>スパン構成: {allocationResult.northSouth?.spanConfig?.join(', ')} mm</div>
+            </div>
+            {allocationResult.insideResults && allocationResult.insideResults.length > 0 && (
+              <div className="mb-2">
+                <div className="font-semibold text-blue-700 dark:text-blue-300">入隅部分</div>
+                <ul className="list-disc ml-5">
+                  {allocationResult.insideResults.map((r: any, i: number) => (
+                    <li key={i}>
+                      頂点{r.index}（{Math.round(r.position.x)}, {Math.round(r.position.y)}）: 離れ {r.actualDistance} mm, スパン構成 [{r.spanConfig.join(', ')}]
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
         {!rightPanelCollapsed && (
           <div className="p-4">
-            {/* 高度計算セクション */}
+            {/* 簡易計算結果表示セクション */}
             <div className="mb-6">
-              <button
-                onClick={executeAdvancedCalculation}
-                disabled={isAdvancedCalculating}
-                className={`w-full p-3 rounded-lg font-medium transition-colors ${
-                  isAdvancedCalculating
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-green-600 text-white hover:bg-green-700'
-                }`}
-              >
-                {isAdvancedCalculating ? '計算中...' : '🔧 高度計算'}
-              </button>
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <div className="text-sm font-medium text-blue-800 mb-2">
+                  📊 簡易計算結果表示
+                </div>
+                <div className="text-xs text-blue-600">
+                  画面左上に簡易計算の結果が表示されます
+                </div>
+              </div>
               
               
               {/* 建物寸法線表示切り替え */}
@@ -2945,61 +3045,19 @@ export default function DrawingEditor({
                 </label>
               </div>
               
-              {/* 計算結果の詳細表示 */}
-              {advancedCalculationResult && (
-                <div className="mt-3 p-3 bg-slate-50 dark:bg-slate-800 rounded text-xs space-y-2">
-                  <div className="text-slate-600 dark:text-slate-400 font-medium">
-                    高度計算結果: {advancedCalculationResult.success ? '✅ 成功' : '❌ 失敗'}
-                  </div>
-                  
-                  {advancedCalculationResult.calculatedEdges.length > 0 && (
-                    <div className="space-y-1">
-                      <div className="text-slate-600 dark:text-slate-400">
-                        処理済み辺: {advancedCalculationResult.calculatedEdges.length}件
-                      </div>
-                      
-                      {/* 成功した辺の詳細 */}
-                      {advancedCalculationResult.calculatedEdges.filter(edge => edge.success).map(edge => (
-                        <div key={edge.edgeIndex} className="bg-green-50 dark:bg-green-900 p-2 rounded">
-                          <div className="text-green-700 dark:text-green-300 font-medium">
-                            辺{edge.edgeIndex + 1}: ✅ 成功
-                          </div>
-                          <div className="text-green-600 dark:text-green-400 text-xs">
-                            離れ: {edge.resultDistance?.toFixed(1)}mm
-                          </div>
-                          <div className="text-green-600 dark:text-green-400 text-xs">
-                            構成: {edge.spanComposition}
-                          </div>
-                        </div>
-                      ))}
-                      
-                      {/* 失敗した辺のエラー表示 */}
-                      {advancedCalculationResult.calculatedEdges.filter(edge => !edge.success).map(edge => (
-                        <div key={edge.edgeIndex} className="bg-red-50 dark:bg-red-900 p-2 rounded">
-                          <div className="text-red-700 dark:text-red-300 font-medium">
-                            辺{edge.edgeIndex + 1}: ❌ 失敗
-                          </div>
-                          <div className="text-red-600 dark:text-red-400 text-xs">
-                            {edge.errorMessage}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {/* 全体エラーの表示 */}
-                  {advancedCalculationResult.totalErrors.length > 0 && (
-                    <div className="pt-2 border-t border-slate-200 dark:border-slate-600">
-                      <div className="text-red-600 dark:text-red-400 font-medium">エラー一覧:</div>
-                      {advancedCalculationResult.totalErrors.map((error, index) => (
-                        <div key={index} className="text-red-500 dark:text-red-400 text-xs">
-                          • {error}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* 簡易計算結果表示の切り替え */}
+              <div className="mt-3 flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="simple-calculation-toggle"
+                  checked={showSimpleCalculationResult}
+                  onChange={(e) => setShowSimpleCalculationResult(e.target.checked)}
+                  className="rounded"
+                />
+                <label htmlFor="simple-calculation-toggle" className="text-sm text-slate-700 dark:text-slate-300">
+                  簡易計算結果表示
+                </label>
+              </div>
             </div>
 
             {/* 階層管理 */}

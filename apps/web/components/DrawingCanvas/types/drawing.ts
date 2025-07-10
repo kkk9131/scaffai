@@ -1,7 +1,8 @@
+// 建物全体のデータ
 export interface DrawingData {
   building: {
-    width: number;
-    height: number;
+    width: number; // 東西方向の長さ（mm）
+    height: number; // 南北方向の長さ（mm）
   };
   eaves: {
     north: number;
@@ -9,57 +10,55 @@ export interface DrawingData {
     south: number;
     west: number;
   };
-  timestamp: number;
+  timestamp?: number;
 }
 
-export interface DimensionArea {
-  type: 'building' | 'eave' | 'vertex' | 'opening';
-  direction: 'width' | 'height' | 'north' | 'east' | 'south' | 'west' | 'vertex';
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  value: number;
-  vertexIndex?: number;
-  openingId?: string;  // 開口部IDを追加
-}
-
+// 建物の頂点
 export interface BuildingVertex {
+  id: string;
   x: number;
   y: number;
-  id: string;
 }
 
+// 各辺の軒の出
 export interface EdgeEave {
   edgeIndex: number;
-  distance: number;
+  distance: number; // mm
 }
 
+// 開口部
 export interface Opening {
   id: string;
-  edgeIndex: number;        // どの辺に配置されているか
-  startPosition: number;    // 辺の開始点からの距離（0-1の比率）
-  endPosition: number;      // 辺の開始点からの距離（0-1の比率）
-  width: number;           // 開口幅（mm）
-  type: 'entrance' | 'back_door' | 'sliding_window' | 'garage' | 'passage';
+  edgeIndex: number;
+  startPosition: number; // 0~1
+  endPosition: number;   // 0~1
+  type?: 'entrance' | 'back_door' | 'sliding_window' | 'garage' | 'passage';
 }
 
+// 階層データ
 export interface FloorData {
   id: string;
   name: string;
   height: number;
   vertices: BuildingVertex[];
   eaves: EdgeEave[];
-  openings: Opening[];      // 開口部データ
+  openings: Opening[];
   visible: boolean;
 }
 
-export interface FloorColors {
-  building: string;
-  eaves: string;
-  vertex: string;
+// 寸法エリア（UI用）
+export interface DimensionArea {
+  type: 'building' | 'eave';
+  direction: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  value: number;
+  vertexIndex: number;
 }
 
+// ドラッグハンドル（UI用）
 export interface DragHandle {
   id: string;
   type: 'building' | 'eave';
@@ -69,73 +68,65 @@ export interface DragHandle {
   radius: number;
 }
 
-export interface DrawingEditorProps {
-  width?: number;
-  height?: number;
+// 階層カラー
+export interface FloorColors {
+  building: string;
+  eaves: string;
+  vertex: string;
 }
 
-// 階層カラーパレット
 export const FLOOR_COLORS: Record<number, FloorColors> = {
-  1: { building: '#22C55E', eaves: '#16A34A', vertex: '#22C55E' }, // 緑+ダークグリーン
-  2: { building: '#3B82F6', eaves: '#1E40AF', vertex: '#3B82F6' }, // 青+ダークブルー
-  3: { building: '#8B5CF6', eaves: '#5B21B6', vertex: '#8B5CF6' }, // 紫+ダークパープル
-  4: { building: '#F59E0B', eaves: '#D97706', vertex: '#F59E0B' }, // 黄+ダークオレンジ
-  5: { building: '#EF4444', eaves: '#B91C1C', vertex: '#EF4444' }  // 赤+ダークレッド
+  1: { building: '#22C55E', eaves: '#16A34A', vertex: '#22C55E' },
+  2: { building: '#3B82F6', eaves: '#1E40AF', vertex: '#3B82F6' },
+  3: { building: '#8B5CF6', eaves: '#5B21B6', vertex: '#8B5CF6' },
+  4: { building: '#F59E0B', eaves: '#D97706', vertex: '#F59E0B' },
+  5: { building: '#EF4444', eaves: '#B91C1C', vertex: '#EF4444' }
 };
 
-// === 高度計算用の型定義 ===
-
+// --- 高度計算用型 ---
 export interface EdgeInfo {
   edgeIndex: number;
   startVertex: BuildingVertex;
   endVertex: BuildingVertex;
   length: number;
-  direction: 'north' | 'east' | 'south' | 'west';
-  angle: number;
+  direction: string; // '北'|'東'|'南'|'西' など
   isInsideCorner: boolean;
-  isOutsideCorner: boolean;
 }
 
 export interface CornerInfo {
   vertexIndex: number;
-  vertex: BuildingVertex;
-  cornerType: 'inside' | 'outside' | 'straight';
+  position: BuildingVertex;
   angle: number;
-  incomingEdge: EdgeInfo;
-  outgoingEdge: EdgeInfo;
+  type: 'inside' | 'outside' | 'straight';
 }
 
 export interface AdvancedCalculationInput {
-  edgeInfo: EdgeInfo;
-  baseDistance: number;    // 対応する面の基本離れ
-  allocationDistance: number;  // 入隅方向辺の長さ
-  eaveDistance: number;    // この辺の軒の出
+  buildingVertices: BuildingVertex[];
+  edgeEaves: EdgeEave[];
+  insideCornerEdges: number[];
+  simpleCalculationData: any; // 必要に応じて詳細型を定義
 }
 
 export interface AdvancedCalculationResult {
   edgeIndex: number;
   success: boolean;
-  resultDistance: number | null;
-  spanConfiguration: number[] | null;
-  spanComposition: string | null;
-  errorMessage?: string;
+  resultDistance: number; // mm
+  spanConfiguration: number[] | string; // ex: [1800, 1800, 1200] or "6span, 1500"
 }
 
 export interface ScaffoldLineData {
   vertices: BuildingVertex[];
-  edges: {
+  edges: Array<{
     edgeIndex: number;
     startVertex: BuildingVertex;
     endVertex: BuildingVertex;
     spanConfiguration: number[];
-    spanMarkers: { position: number; type: 'span-boundary' }[];
-  }[];
+  }>;
   visible: boolean;
 }
 
 export interface AdvancedCalculationSummary {
+  insideCornerResults: AdvancedCalculationResult[];
+  updatedFaceSpans: Record<string, Record<number, number[]>>;
   success: boolean;
-  calculatedEdges: AdvancedCalculationResult[];
-  scaffoldLine: ScaffoldLineData | null;
-  totalErrors: string[];
-}
+} 

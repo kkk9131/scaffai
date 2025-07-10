@@ -376,74 +376,6 @@ function subtractSpansFromOriginal(originalSpans: number[], usedSpans: number[])
   return remaining;
 }
 
-/**
- * スパン構成からスパンマーカーを生成
- * 実際の足場辺の長さに基づいて正確な位置を計算
- */
-function generateSpanMarkersFromConfiguration(
-  spanConfiguration: number[], 
-  scaffoldEdgeLength?: number
-): Array<{ position: number }> {
-  console.log('=== スパンマーカー生成 ===');
-  console.log('スパン構成:', spanConfiguration);
-  console.log('足場辺長さ(px):', scaffoldEdgeLength);
-  
-  // スパン構成が空の場合は開始点と終了点のみ作成
-  if (spanConfiguration.length === 0) {
-    console.log('スパン構成が空のため、開始・終了点のみ作成');
-    return [
-      { position: 0 },
-      { position: 1.0 }
-    ];
-  }
-  
-  const markers: Array<{ position: number }> = [];
-  
-  // スパン構成の総長さ（mm）
-  const totalSpanLengthMm = spanConfiguration.reduce((sum, span) => sum + span, 0);
-  console.log('スパン構成総長さ(mm):', totalSpanLengthMm);
-  
-  if (totalSpanLengthMm === 0) {
-    console.log('スパン構成総長さが0のため、開始・終了点のみ作成');
-    return [
-      { position: 0 },
-      { position: 1.0 }
-    ];
-  }
-  
-  // 実際のスパン寸法に比例してマーカーを配置
-  let currentPositionMm = 0;
-  
-  // 開始位置マーカー（0の位置）
-  markers.push({ position: 0 });
-  
-  // 各スパンの境界位置にマーカーを配置
-  for (let i = 0; i < spanConfiguration.length; i++) {
-    currentPositionMm += spanConfiguration[i];
-    
-    // 最後のスパンの終端は足場辺の終点なので、position: 1.0に設定
-    if (i === spanConfiguration.length - 1) {
-      markers.push({ position: 1.0 });
-    } else {
-      // 中間マーカーはスパン寸法の比率で計算
-      const ratio = currentPositionMm / totalSpanLengthMm;
-      markers.push({ position: ratio });
-      console.log(`マーカー${i+1}: ${currentPositionMm}mm / ${totalSpanLengthMm}mm = ${ratio.toFixed(3)} (スパン: ${spanConfiguration[i]}mm)`);
-    }
-  }
-  
-  // 足場辺の長さが指定されている場合は、実際の辺長との比較をログ出力
-  if (scaffoldEdgeLength && scaffoldEdgeLength > 0) {
-    const edgeLengthMm = scaffoldEdgeLength / 0.3; // ピクセルからmmに変換（仮想的）
-    console.log(`足場辺長さ: ${scaffoldEdgeLength}px (約${edgeLengthMm.toFixed(1)}mm), スパン構成総長さ: ${totalSpanLengthMm}mm`);
-    if (Math.abs(edgeLengthMm - totalSpanLengthMm) > 100) {
-      console.warn('足場辺長さとスパン構成総長さに大きな差があります');
-    }
-  }
-  
-  console.log('生成されたマーカー位置:', markers.map(m => m.position.toFixed(3)));
-  return markers;
-}
 
 /**
  * 調整された計算結果で足場ラインデータを生成
@@ -623,7 +555,12 @@ export function generateAdjustedScaffoldLine(
   }
   
   // Step 3: 足場辺データを生成（建物辺との直接対応）
-  const scaffoldEdges = [];
+  const scaffoldEdges: Array<{
+    edgeIndex: number;
+    startVertex: BuildingVertex;
+    endVertex: BuildingVertex;
+    spanConfiguration: number[];
+  }> = [];
   
   for (let i = 0; i < buildingVertices.length; i++) {
     // 建物辺iに対応する足場辺を作成
@@ -645,19 +582,14 @@ export function generateAdjustedScaffoldLine(
     
     console.log(`建物辺${buildingEdgeIndex}に対応する足場辺: (${startScaffoldVertex.x.toFixed(1)}, ${startScaffoldVertex.y.toFixed(1)}) → (${endScaffoldVertex.x.toFixed(1)}, ${endScaffoldVertex.y.toFixed(1)}), 長さ${edgeLengthPixels.toFixed(1)}px`);
     
-    // スパンマーカーを生成（辺の長さを渡す）
+    // スパン構成を取得
     const spanConfiguration = parallelLine.spanConfiguration;
-    const spanMarkers = generateSpanMarkersFromConfiguration(
-      spanConfiguration, 
-      edgeLengthPixels
-    ).map(marker => ({ ...marker, type: 'span-boundary' as const }));
     
     scaffoldEdges.push({
       edgeIndex: buildingEdgeIndex, // 建物辺番号
       startVertex: startScaffoldVertex,
       endVertex: endScaffoldVertex,
-      spanConfiguration: spanConfiguration,
-      spanMarkers
+      spanConfiguration: spanConfiguration
     });
   }
   
@@ -686,7 +618,6 @@ export function generateAdjustedScaffoldLine(
     console.log(`   足場頂点: (${edge.startVertex.x.toFixed(1)}, ${edge.startVertex.y.toFixed(1)}) → (${edge.endVertex.x.toFixed(1)}, ${edge.endVertex.y.toFixed(1)})`);
     console.log(`   スパン構成: [${edge.spanConfiguration.join(', ')}]`);
     console.log(`   スパン合計: ${spanSum}mm`);
-    console.log(`   マーカー数: ${edge.spanMarkers.length}`);
     console.log(`   建物辺の説明: ${getEdgeDescriptionFromIndex(edge.edgeIndex)}`);
     console.log('');
   });
