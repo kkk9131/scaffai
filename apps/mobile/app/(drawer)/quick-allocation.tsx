@@ -804,7 +804,6 @@ export default function QuickAllocation() {
               <Text style={[styles.resultLabel, dynamicStyles.resultLabel]}>割付先の離れ</Text>
               <Text style={[styles.resultValue, dynamicStyles.resultValue]}>
                 {result.resultDistance}mm
-                {result.correctionAmount && ` (+${result.correctionAmount}mm)`}
               </Text>
             </View>
 
@@ -812,6 +811,15 @@ export default function QuickAllocation() {
               <Text style={[styles.resultLabel, dynamicStyles.resultLabel]}>割付スパン構成</Text>
               <Text style={[styles.resultValue, dynamicStyles.resultValue]}>{result.spanComposition}</Text>
             </View>
+
+            {result.correctionParts && result.correctionParts.length > 0 && (
+              <View style={[styles.resultCard, dynamicStyles.resultCard, { backgroundColor: baseColors.secondary.main + '20' }]}>
+                <Text style={[styles.resultLabel, { color: baseColors.secondary.main }]}>補正部材</Text>
+                <Text style={[styles.resultValue, { color: baseColors.secondary.main }]}>
+                  {result.correctionParts.join(' + ')}mm (合計: {result.correctionAmount}mm)
+                </Text>
+              </View>
+            )}
 
             {result.needsCorrection && result.correctionMessage && (
               <View style={[styles.resultCard, dynamicStyles.resultCard, { backgroundColor: baseColors.warning + '20' }]}>
