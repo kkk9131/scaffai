@@ -1906,7 +1906,8 @@ export default function DrawingEditor({
         edgeIndex: edge.edgeIndex,
         startVertex: `(${edge.startVertex.x.toFixed(1)}, ${edge.startVertex.y.toFixed(1)})`,
         endVertex: `(${edge.endVertex.x.toFixed(1)}, ${edge.endVertex.y.toFixed(1)})`,
-        spanConfiguration: edge.spanConfiguration
+        spanConfiguration: edge.spanConfiguration,
+        markersCount: edge.markers?.length || 0
       });
     });
     
@@ -1927,10 +1928,28 @@ export default function DrawingEditor({
       console.log(`   対応する建物の辺: ${getEdgeDescription(buildingEdgeIndex)}`);
       console.log(`   スパン構成: [${edge.spanConfiguration.join(', ')}]`);
       console.log(`   スパン合計: ${spanSum}mm`);
+      console.log(`   マーカー数: ${edge.markers?.length || 0}個`);
+      
+      // マーカーを描画
+      if (edge.markers && edge.markers.length > 0) {
+        edge.markers.forEach((marker, markerIndex) => {
+          const scaledMarkerX = centerX + (marker.position.x - centerX) * scale + pan.x;
+          const scaledMarkerY = centerY + (marker.position.y - centerY) * scale + pan.y;
+          
+          console.log(`     マーカー${markerIndex}: (${marker.position.x.toFixed(1)}, ${marker.position.y.toFixed(1)}) → スケール後(${scaledMarkerX.toFixed(1)}, ${scaledMarkerY.toFixed(1)}) タイプ=${marker.type} 距離=${marker.distance}mm`);
+          
+          // マーカー描画（統一スタイル）
+          ctx.fillStyle = '#000000';
+          ctx.strokeStyle = '#FFFFFF';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(scaledMarkerX, scaledMarkerY, 4, 0, 2 * Math.PI);
+          ctx.fill();
+          ctx.stroke();
+        });
+      }
       console.log('');
     });
-
-    // スパン寸法表示は削除
 
     console.log('足場ライン描画完了:', {
       vertices: scaledScaffoldVertices.length,
@@ -2719,6 +2738,442 @@ export default function DrawingEditor({
   const [allocationError, setAllocationError] = useState<string | null>(null);
   const [allocationSuccess, setAllocationSuccess] = useState<string | null>(null);
 
+  // すべての入隅パターンに対応した汎用計算関数
+  const calculateInsideCornerForAllPatterns = (
+    prevEdge: any, nextEdge: any,
+    prevEdgeIndex: number, nextEdgeIndex: number,
+    outerDistances: { northDistance: number; eastDistance: number; southDistance: number; westDistance: number },
+    eaves: EdgeEave[]
+  ) => {
+    const { northDistance, eastDistance, southDistance, westDistance } = outerDistances;
+    
+    // 軒の出を取得
+    const prevEave = eaves.find(e => e.edgeIndex === prevEdgeIndex)?.distance ?? 1000;
+    const nextEave = eaves.find(e => e.edgeIndex === nextEdgeIndex)?.distance ?? 1000;
+    
+    // 各パターンの外周距離マッピング
+    const directionToOuterDistance = {
+      '北': northDistance,
+      '東': eastDistance,
+      '南': southDistance,
+      '西': westDistance
+    };
+    
+    const prevOuterDistance = directionToOuterDistance[prevEdge.direction];
+    const nextOuterDistance = directionToOuterDistance[nextEdge.direction];
+    
+    if (!prevOuterDistance || !nextOuterDistance) {
+      return {
+        success: false,
+        error: `未対応の方向: ${prevEdge.direction}→${nextEdge.direction}`
+      };
+    }
+    
+    console.log(`入隅計算パターン: ${prevEdge.direction}(${prevOuterDistance}mm)→${nextEdge.direction}(${nextOuterDistance}mm)`);
+    
+    try {
+      // Step 1: 前辺のスパン構成を決定（次辺の離れ制約から）
+      const nextMinDistance = nextEave + 80;
+      const nextTargetDistance = nextOuterDistance + prevEdge.length;
+      const prevSpanConfig = findOptimalSpanForInsideCorner(nextTargetDistance, nextMinDistance);
+      const prevTotalSpan = prevSpanConfig.reduce((a, b) => a + b, 0);
+      const nextActualDistance = nextTargetDistance - prevTotalSpan;
+      
+      // Step 2: 次辺のスパン構成を決定（前辺の離れ制約から）
+      const prevMinDistance = prevEave + 80;
+      const prevTargetDistance = prevOuterDistance + nextEdge.length;
+      const nextSpanConfig = findOptimalSpanForInsideCorner(prevTargetDistance, prevMinDistance);
+      const nextTotalSpan = nextSpanConfig.reduce((a, b) => a + b, 0);
+      const prevActualDistance = prevTargetDistance - nextTotalSpan;
+      
+      // 安全性チェック
+      if (prevActualDistance < prevMinDistance || nextActualDistance < nextMinDistance) {
+        console.warn(`入隅計算で安全距離を確保できません:`, {
+          prevActualDistance,
+          prevMinDistance,
+          nextActualDistance,
+          nextMinDistance
+        });
+      }
+      
+      return {
+        success: true,
+        prevEdgeSpanConfig: prevSpanConfig,
+        prevEdgeTotalSpan: prevTotalSpan,
+        prevEdgeDistance: Math.round(prevActualDistance),
+        nextEdgeSpanConfig: nextSpanConfig,
+        nextEdgeTotalSpan: nextTotalSpan,
+        nextEdgeDistance: Math.round(nextActualDistance)
+      };
+      
+    } catch (error) {
+      return {
+        success: false,
+        error: `計算エラー: ${error instanceof Error ? error.message : '不明なエラー'}`
+      };
+    }
+  };
+  
+  // 外周計算結果を入隅辺に適用するフォールバック関数
+  const applyOuterCalculationFallback = (
+    prevEdge: any, nextEdge: any,
+    eastWestResult: any, northSouthResult: any
+  ) => {
+    console.log('入隅計算フォールバック: 外周計算結果を使用');
+    
+    // 方向に基づいて適切な外周計算結果を選択
+    const getOuterResult = (direction: string) => {
+      if (direction === '北' || direction === '南') {
+        return {
+          spanConfig: northSouthResult.spanConfig,
+          totalSpan: northSouthResult.totalSpan,
+          actualDistance: Math.round(northSouthResult.actualDistance)
+        };
+      } else {
+        return {
+          spanConfig: eastWestResult.spanConfig,
+          totalSpan: eastWestResult.totalSpan,
+          actualDistance: Math.round(eastWestResult.actualDistance)
+        };
+      }
+    };
+    
+    const prevResult = getOuterResult(prevEdge.direction);
+    const nextResult = getOuterResult(nextEdge.direction);
+    
+    // 前辺に適用
+    prevEdge.spanConfig = prevResult.spanConfig;
+    prevEdge.totalSpan = prevResult.totalSpan;
+    prevEdge.actualDistance = prevResult.actualDistance;
+    
+    // 次辺に適用
+    nextEdge.spanConfig = nextResult.spanConfig;
+    nextEdge.totalSpan = nextResult.totalSpan;
+    nextEdge.actualDistance = nextResult.actualDistance;
+    
+    console.log('フォールバック適用完了:', {
+      前辺: { direction: prevEdge.direction, ...prevResult },
+      次辺: { direction: nextEdge.direction, ...nextResult }
+    });
+  };
+
+  // 入隅用のスパン最適化関数
+  const findOptimalSpanForInsideCorner = (targetDistance: number, minDistance: number): number[] => {
+    // targetDistance - [スパン合計] >= minDistance
+    // つまり、[スパン合計] <= targetDistance - minDistance
+    const maxSpanTotal = targetDistance - minDistance;
+    
+    const STANDARD_PARTS = [1800, 1500, 1200, 900, 600];
+    let bestConfig: number[] = [];
+    let bestTotal = 0;
+    
+    // 最大スパン合計以下で最大の組み合わせを探す
+    for (let count = 1; count <= 10; count++) {
+      const combos = generateCombinations(STANDARD_PARTS, count);
+      for (const combo of combos) {
+        const total = combo.reduce((a, b) => a + b, 0);
+        if (total <= maxSpanTotal && total > bestTotal) {
+          bestTotal = total;
+          bestConfig = combo;
+        }
+      }
+      if (bestConfig.length > 0 && count > 3) break; // 十分な解が見つかったら終了
+    }
+    
+    return bestConfig.length > 0 ? bestConfig : [900]; // デフォルトは900
+  };
+  
+  // 組み合わせ生成（重複あり）
+  const generateCombinations = (parts: number[], count: number): number[][] => {
+    if (count === 1) return parts.map(p => [p]);
+    const result: number[][] = [];
+    for (const p of parts) {
+      for (const sub of generateCombinations(parts, count - 1)) {
+        result.push([p, ...sub]);
+      }
+    }
+    return result;
+  };
+
+  // 2つの線分の交点を計算する関数
+  const calculateLineIntersection = (
+    p1: { x: number; y: number },
+    p2: { x: number; y: number },
+    p3: { x: number; y: number },
+    p4: { x: number; y: number }
+  ): { x: number; y: number } | null => {
+    const x1 = p1.x, y1 = p1.y;
+    const x2 = p2.x, y2 = p2.y;
+    const x3 = p3.x, y3 = p3.y;
+    const x4 = p4.x, y4 = p4.y;
+    
+    const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+    
+    // 平行な場合
+    if (Math.abs(denom) < 0.0001) {
+      return null;
+    }
+    
+    const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+    
+    return {
+      x: x1 + t * (x2 - x1),
+      y: y1 + t * (y2 - y1)
+    };
+  };
+
+  // 割付計算結果から足場ラインを生成する関数
+  const generateScaffoldLineFromAllocation = (
+    vertices: BuildingVertex[],
+    allocation: AllocationResult,
+    drawing: DrawingData,
+    canvasWidth: number,
+    canvasHeight: number
+  ): ScaffoldLineData => {
+    console.log('📐 足場ライン生成開始');
+    console.log('建物頂点:', vertices.map(v => `(${v.x}, ${v.y})`));
+    console.log('各辺の計算結果:', allocation.edgeCalculations);
+    
+    // 建物寸法から基準縮尺を計算（正しい対応）
+    // drawing.building.width = 東西方向の寸法（width_EW）
+    // drawing.building.height = 南北方向の寸法（width_NS）
+    const buildingWidthEW = drawing.building.width;   // 東西方向の寸法
+    const buildingWidthNS = drawing.building.height;  // 南北方向の寸法
+    const margin = 100;
+    const maxCanvasWidth = canvasWidth - margin * 2;
+    const maxCanvasHeight = canvasHeight - margin * 2;
+    const scaleX = maxCanvasWidth / buildingWidthEW;
+    const scaleY = maxCanvasHeight / buildingWidthNS;
+    const baseScale = Math.min(scaleX, scaleY, 0.3);
+    
+    console.log('基準縮尺:', baseScale);
+    
+    // 各辺から足場線を計算（辺ごとに処理）
+    const scaffoldVertices: BuildingVertex[] = [];
+    
+    // まず各辺の法線と離れを計算
+    const edgeNormals: Array<{x: number, y: number, distance: number}> = [];
+    
+    for (let i = 0; i < vertices.length; i++) {
+      const edgeCalc = allocation.edgeCalculations?.find((e: any) => e.edgeIndex === i);
+      if (!edgeCalc) {
+        edgeNormals.push({x: 0, y: 0, distance: 0});
+        continue;
+      }
+      
+      const currentVertex = vertices[i];
+      const nextVertex = vertices[(i + 1) % vertices.length];
+      
+      // 辺の方向ベクトルを計算
+      const edgeVector = {
+        x: nextVertex.x - currentVertex.x,
+        y: nextVertex.y - currentVertex.y
+      };
+      
+      // 辺の長さ
+      const edgeLength = Math.sqrt(edgeVector.x * edgeVector.x + edgeVector.y * edgeVector.y);
+      
+      // 正規化
+      const normalizedEdge = {
+        x: edgeVector.x / edgeLength,
+        y: edgeVector.y / edgeLength
+      };
+      
+      // 外向き法線ベクトル（右手系で90度回転）
+      const outwardNormal = {
+        x: -normalizedEdge.y,
+        y: normalizedEdge.x
+      };
+      
+      // 建物の中心を計算
+      const centerX = vertices.reduce((sum, v) => sum + v.x, 0) / vertices.length;
+      const centerY = vertices.reduce((sum, v) => sum + v.y, 0) / vertices.length;
+      
+      // 辺の中点
+      const midX = (currentVertex.x + nextVertex.x) / 2;
+      const midY = (currentVertex.y + nextVertex.y) / 2;
+      
+      // 中心から中点へのベクトル
+      const toMidX = midX - centerX;
+      const toMidY = midY - centerY;
+      
+      // 内積で外向きかどうか判定
+      const isOutward = outwardNormal.x * toMidX + outwardNormal.y * toMidY > 0;
+      
+      // 外向きでない場合は法線を反転
+      const finalNormal = {
+        x: isOutward ? outwardNormal.x : -outwardNormal.x,
+        y: isOutward ? outwardNormal.y : -outwardNormal.y
+      };
+      
+      // 離れの距離（mm）をピクセルに変換
+      const offsetDistance = (edgeCalc.actualDistance || 0) * baseScale;
+      
+      edgeNormals.push({
+        x: finalNormal.x,
+        y: finalNormal.y,
+        distance: offsetDistance
+      });
+    }
+    
+    // 各頂点の足場位置を計算（前後の辺の交点として）
+    for (let i = 0; i < vertices.length; i++) {
+      const prevEdgeIndex = (i - 1 + vertices.length) % vertices.length;
+      const currentEdgeIndex = i;
+      
+      const prevEdgeNormal = edgeNormals[prevEdgeIndex];
+      const currentEdgeNormal = edgeNormals[currentEdgeIndex];
+      
+      const vertex = vertices[i];
+      const prevVertex = vertices[prevEdgeIndex];
+      const nextVertex = vertices[(i + 1) % vertices.length];
+      
+      // 前の辺の延長線（オフセット付き）
+      const prevEdgeStart = {
+        x: prevVertex.x + prevEdgeNormal.x * prevEdgeNormal.distance,
+        y: prevVertex.y + prevEdgeNormal.y * prevEdgeNormal.distance
+      };
+      const prevEdgeEnd = {
+        x: vertex.x + prevEdgeNormal.x * prevEdgeNormal.distance,
+        y: vertex.y + prevEdgeNormal.y * prevEdgeNormal.distance
+      };
+      
+      // 現在の辺の延長線（オフセット付き）
+      const currentEdgeStart = {
+        x: vertex.x + currentEdgeNormal.x * currentEdgeNormal.distance,
+        y: vertex.y + currentEdgeNormal.y * currentEdgeNormal.distance
+      };
+      const currentEdgeEnd = {
+        x: nextVertex.x + currentEdgeNormal.x * currentEdgeNormal.distance,
+        y: nextVertex.y + currentEdgeNormal.y * currentEdgeNormal.distance
+      };
+      
+      // 2つの線分の交点を計算
+      const intersection = calculateLineIntersection(
+        prevEdgeStart, prevEdgeEnd,
+        currentEdgeStart, currentEdgeEnd
+      );
+      
+      if (intersection) {
+        scaffoldVertices.push({
+          x: intersection.x,
+          y: intersection.y,
+          index: i
+        });
+      } else {
+        // 交点が見つからない場合は頂点をそのまま使用
+        scaffoldVertices.push({
+          x: vertex.x + currentEdgeNormal.x * currentEdgeNormal.distance,
+          y: vertex.y + currentEdgeNormal.y * currentEdgeNormal.distance,
+          index: i
+        });
+      }
+    }
+    
+    // 各辺のマーカー情報を生成
+    const edges = [];
+    for (let i = 0; i < scaffoldVertices.length; i++) {
+      const edgeCalc = allocation.edgeCalculations?.find((e: any) => e.edgeIndex === i);
+      if (!edgeCalc) continue;
+      
+      const startVertex = scaffoldVertices[i];
+      const endVertex = scaffoldVertices[(i + 1) % scaffoldVertices.length];
+      
+      // スパン構成からマーカーを生成
+      const markers = generateMarkersFromSpanConfig(
+        startVertex,
+        endVertex,
+        edgeCalc.spanConfig || [],
+        baseScale
+      );
+      
+      edges.push({
+        edgeIndex: i,
+        startVertex,
+        endVertex,
+        spanConfiguration: edgeCalc.spanConfig || [],
+        markers
+      });
+    }
+    
+    return {
+      vertices: scaffoldVertices,
+      edges,
+      visible: true
+    };
+  };
+  
+  // スパン構成からマーカーを生成する関数（改良版）
+  const generateMarkersFromSpanConfig = (
+    startVertex: BuildingVertex,
+    endVertex: BuildingVertex,
+    spanConfig: number[],
+    baseScale: number
+  ): Array<{ position: { x: number; y: number }; distance: number; type: 'span' | 'vertex' }> => {
+    const markers = [];
+    
+    // 辺の方向ベクトル
+    const edgeVector = {
+      x: endVertex.x - startVertex.x,
+      y: endVertex.y - startVertex.y
+    };
+    
+    // 辺の長さ
+    const edgeLength = Math.sqrt(edgeVector.x * edgeVector.x + edgeVector.y * edgeVector.y);
+    
+    // 正規化
+    const normalizedEdge = {
+      x: edgeVector.x / edgeLength,
+      y: edgeVector.y / edgeLength
+    };
+    
+    console.log(`マーカー生成: 辺長=${edgeLength.toFixed(1)}px, スパン構成=[${spanConfig.join(', ')}]mm`);
+    
+    // 開始点マーカー（頂点マーカー）
+    markers.push({
+      position: { x: startVertex.x, y: startVertex.y },
+      distance: 0,
+      type: 'vertex' as const
+    });
+    
+    // 累積距離
+    let cumulativeDistance = 0;
+    
+    // 各スパンに対してマーカーを配置
+    for (let i = 0; i < spanConfig.length; i++) {
+      const span = spanConfig[i];
+      cumulativeDistance += span;
+      
+      // 距離をピクセルに変換
+      const pixelDistance = cumulativeDistance * baseScale;
+      
+      console.log(`  スパン${i + 1}: ${span}mm, 累積=${cumulativeDistance}mm, ピクセル=${pixelDistance.toFixed(1)}px`);
+      
+      // 辺の長さを超えない範囲でマーカーを配置
+      if (pixelDistance <= edgeLength + 0.1) { // 微小な誤差を許容
+        const markerPosition = {
+          x: startVertex.x + normalizedEdge.x * pixelDistance,
+          y: startVertex.y + normalizedEdge.y * pixelDistance
+        };
+        
+        // 最後のスパンで終点に到達する場合は頂点マーカーとして扱う
+        const isEndVertex = (i === spanConfig.length - 1) && (Math.abs(pixelDistance - edgeLength) < 1.0);
+        
+        markers.push({
+          position: markerPosition,
+          distance: cumulativeDistance,
+          type: isEndVertex ? 'vertex' : 'span'
+        });
+        
+        console.log(`    配置: (${markerPosition.x.toFixed(1)}, ${markerPosition.y.toFixed(1)}) タイプ=${isEndVertex ? 'vertex' : 'span'}`);
+      } else {
+        console.log(`    スキップ: 辺の長さを超過`);
+      }
+    }
+    
+    return markers;
+  };
+
   // 割付ボタンonClickハンドラ
   const handleAllocation = async () => {
     console.log('handleAllocation called');
@@ -2726,27 +3181,47 @@ export default function DrawingEditor({
     setIsAllocating(true);
     setAllocationError(null);
     setAllocationSuccess(null);
+    
+    // 既存の足場ラインを消去
+    setScaffoldLineData(null);
+    
+    // floorsから足場ラインを削除
+    setFloors(prev => prev.filter(floor => floor.name !== '足場ライン'));
     try {
       // 実際のstateを使う
       const vertices = buildingVertices;
       const eaves = edgeEaves;
       const openingsData = openings;
-      const width = drawingData?.building.width ?? 0;
-      const height = drawingData?.building.height ?? 0;
+      // 建物寸法を取得（正しい対応）
+      // drawingData.building.width = 東西方向の寸法（width_EW）
+      // drawingData.building.height = 南北方向の寸法（width_NS）
+      const width_EW = drawingData?.building.width ?? 0;  // 東西方向の寸法
+      const width_NS = drawingData?.building.height ?? 0; // 南北方向の寸法
 
       // 入力値の確認
       const eaveN = eaves[0]?.distance ?? 0;
       const eaveS = eaves[2]?.distance ?? 0;
       const eaveE = eaves[1]?.distance ?? 0;
       const eaveW = eaves[3]?.distance ?? 0;
-      console.log('width', width, 'height', height);
+      console.log('width_EW', width_EW, 'width_NS', width_NS);
       console.log('eaveN', eaveN, 'eaveS', eaveS, 'eaveE', eaveE, 'eaveW', eaveW);
 
       // --- 矩形建物の外周スパン計算 ---
-      // 東西方向（北・南面）
-      const eastWestResult = calcOuterSpan({ buildingLength: width, eave: Math.max(eaveN, eaveS) });
-      // 南北方向（東・西面）
-      const northSouthResult = calcOuterSpan({ buildingLength: height, eave: Math.max(eaveE, eaveW) });
+      console.log('🔍 計算パラメータ詳細（正しい対応）:');
+      console.log('  建物寸法: width_EW(東西)=' + width_EW + 'mm, width_NS(南北)=' + width_NS + 'mm');
+      console.log('  軒の出: 北=' + eaveN + 'mm, 東=' + eaveE + 'mm, 南=' + eaveS + 'mm, 西=' + eaveW + 'mm');
+      console.log('  東西計算用軒の出最大値: Math.max(東=' + eaveE + ', 西=' + eaveW + ') = ' + Math.max(eaveE, eaveW));
+      console.log('  南北計算用軒の出最大値: Math.max(北=' + eaveN + ', 南=' + eaveS + ') = ' + Math.max(eaveN, eaveS));
+
+      // 東西方向の計算 → 東面・西面の離れを決定  
+      // 修正：実際にはwidth_NSを東西方向として使用（表示と計算の対応を合わせる）
+      const eastWestResult = calcOuterSpan({ buildingLength: width_NS, eave: Math.max(eaveN, eaveS) });
+      console.log('🔍 東西方向計算結果 (buildingLength=' + width_NS + ', eave=Math.max(' + eaveN + ',' + eaveS + ')=' + Math.max(eaveN, eaveS) + '): ', eastWestResult);
+      
+      // 南北方向の計算 → 北面・南面の離れを決定
+      // 修正：実際にはwidth_EWを南北方向として使用（表示と計算の対応を合わせる）
+      const northSouthResult = calcOuterSpan({ buildingLength: width_EW, eave: Math.max(eaveE, eaveW) });
+      console.log('🔍 南北方向計算結果 (buildingLength=' + width_EW + ', eave=Math.max(' + eaveE + ',' + eaveW + ')=' + Math.max(eaveE, eaveW) + '): ', northSouthResult);
 
       // 入隅検出・計算
       console.log('vertices', vertices);
@@ -2755,8 +3230,8 @@ export default function DrawingEditor({
       
       // 建物の実際の形状を確認
       console.log('建物形状確認:');
-      console.log('  幅(width):', width, 'mm');
-      console.log('  高さ(height):', height, 'mm');
+      console.log('  東西方向(width_EW):', width_EW, 'mm');
+      console.log('  南北方向(width_NS):', width_NS, 'mm');
       
       // 各頂点の内角を詳細に確認
       for (let i = 0; i < vertices.length; i++) {
@@ -2782,9 +3257,11 @@ export default function DrawingEditor({
       const insideCorners = detectInsideCorners(vertices);
       console.log('検出された入隅:', insideCorners);
       console.log('頂点2 (500, 150) は入隅として検出されたか？', insideCorners.some(c => c.index === 2));
-      // スケール計算（baseScale取得のため）
-      const buildingWidthEW = drawingData?.building.width ?? 0;
-      const buildingWidthNS = drawingData?.building.height ?? 0;
+      // スケール計算（baseScale取得のため）（正しい対応）
+      // drawingData.building.width = 東西方向の寸法（width_EW）
+      // drawingData.building.height = 南北方向の寸法（width_NS）
+      const buildingWidthEW = drawingData?.building.width ?? 0;  // 東西方向の寸法
+      const buildingWidthNS = drawingData?.building.height ?? 0; // 南北方向の寸法
       const margin = 100;
       const maxCanvasWidth = width - margin * 2;
       const maxCanvasHeight = height - margin * 2;
@@ -2844,6 +3321,193 @@ export default function DrawingEditor({
       console.log('northSouthResult', northSouthResult);
       console.log('insideResults', insideResults);
 
+      // L字型建物の各辺計算
+      const edgeCalculations = [];
+      
+      // 入隅に関連する辺のインデックスを特定
+      const insideCornerEdges = new Set();
+      insideCorners.forEach(corner => {
+        const prevEdgeIndex = (corner.index - 1 + vertices.length) % vertices.length;
+        const nextEdgeIndex = corner.index;
+        insideCornerEdges.add(prevEdgeIndex);
+        insideCornerEdges.add(nextEdgeIndex);
+      });
+      
+      for (let i = 0; i < vertices.length; i++) {
+        const currentVertex = vertices[i];
+        const nextVertex = vertices[(i + 1) % vertices.length];
+        const edgeLength = Math.hypot(nextVertex.x - currentVertex.x, nextVertex.y - currentVertex.y) * 20; // ピクセル→mm変換
+        
+        // この辺に対応する軒の出を取得
+        const eave = eaves.find(e => e.edgeIndex === i);
+        const eaveDistance = eave?.distance ?? 1000; // デフォルト1000mm
+        
+        // 入隅の辺かどうかで計算を分ける
+        let edgeResult;
+        if (insideCornerEdges.has(i)) {
+          // 入隅の辺の場合は後で特別な計算を行うため、仮の値を設定
+          edgeResult = {
+            spanConfig: [],
+            totalSpan: 0,
+            actualDistance: 0,
+            minRequiredDistance: eaveDistance + 80
+          };
+        } else {
+          // 外周の辺の場合、簡易計算の結果を使用
+          // 辺の方向を先に判定（後で使うため）
+          const dx = nextVertex.x - currentVertex.x;
+          const dy = nextVertex.y - currentVertex.y;
+          const centerX = vertices.reduce((sum, v) => sum + v.x, 0) / vertices.length;
+          const centerY = vertices.reduce((sum, v) => sum + v.y, 0) / vertices.length;
+          const midX = (currentVertex.x + nextVertex.x) / 2;
+          const midY = (currentVertex.y + nextVertex.y) / 2;
+          const normalX = -dy;
+          const normalY = dx;
+          const toMidX = midX - centerX;
+          const toMidY = midY - centerY;
+          const isOutward = normalX * toMidX + normalY * toMidY > 0;
+          const outwardNormalX = isOutward ? normalX : -normalX;
+          const outwardNormalY = isOutward ? normalY : -normalY;
+          let tempDirection = '';
+          if (Math.abs(outwardNormalX) > Math.abs(outwardNormalY)) {
+            tempDirection = outwardNormalX > 0 ? '東' : '西';
+          } else {
+            tempDirection = outwardNormalY > 0 ? '南' : '北';
+          }
+          
+          // 簡易計算の結果を使用
+          if (tempDirection === '北' || tempDirection === '南') {
+            edgeResult = {
+              spanConfig: northSouthResult.spanConfig,    // 北面・南面は南北方向の計算結果を使用
+              totalSpan: northSouthResult.totalSpan,
+              actualDistance: Math.round(northSouthResult.actualDistance),
+              minRequiredDistance: northSouthResult.minRequiredDistance
+            };
+          } else {
+            edgeResult = {
+              spanConfig: eastWestResult.spanConfig,      // 東面・西面は東西方向の計算結果を使用
+              totalSpan: eastWestResult.totalSpan,
+              actualDistance: Math.round(eastWestResult.actualDistance),
+              minRequiredDistance: eastWestResult.minRequiredDistance
+            };
+          }
+        }
+        
+        // 辺の方向を座標から判定
+        const dx = nextVertex.x - currentVertex.x;
+        const dy = nextVertex.y - currentVertex.y;
+        let direction = '';
+        
+        // 建物の外側がどちらかを判定するため、多角形の中心を計算
+        const centerX = vertices.reduce((sum, v) => sum + v.x, 0) / vertices.length;
+        const centerY = vertices.reduce((sum, v) => sum + v.y, 0) / vertices.length;
+        
+        // 辺の中点
+        const midX = (currentVertex.x + nextVertex.x) / 2;
+        const midY = (currentVertex.y + nextVertex.y) / 2;
+        
+        // 辺の法線ベクトル（外向き）
+        const normalX = -dy;
+        const normalY = dx;
+        
+        // 中心から辺の中点へのベクトル
+        const toMidX = midX - centerX;
+        const toMidY = midY - centerY;
+        
+        // 内積で外向きかどうか判定
+        const isOutward = normalX * toMidX + normalY * toMidY > 0;
+        
+        // 外向きでない場合は法線を反転
+        const outwardNormalX = isOutward ? normalX : -normalX;
+        const outwardNormalY = isOutward ? normalY : -normalY;
+        
+        // 方向を判定
+        if (Math.abs(outwardNormalX) > Math.abs(outwardNormalY)) {
+          direction = outwardNormalX > 0 ? '東' : '西';
+        } else {
+          direction = outwardNormalY > 0 ? '南' : '北';
+        }
+        
+        edgeCalculations.push({
+          edgeIndex: i,
+          edgeName: `${i + 1}-${((i + 1) % vertices.length) + 1}`,
+          direction,
+          length: Math.round(edgeLength),
+          eaveDistance,
+          spanConfig: edgeResult.spanConfig,
+          totalSpan: edgeResult.totalSpan,
+          actualDistance: Math.round(edgeResult.actualDistance),
+          isInsideCorner: insideCornerEdges.has(i)
+        });
+      }
+
+      // 入隅の辺の計算（auto_span_calculation_logic.mdに基づく）
+      if (insideCorners.length > 0) {
+        console.log('入隅辺の特別計算開始');
+        
+        // 簡易計算の結果から外周の離れを取得
+        const northDistance = Math.round(northSouthResult.actualDistance);  // 北面・南面の離れ
+        const southDistance = Math.round(northSouthResult.actualDistance);  // 北面・南面の離れ
+        const eastDistance = Math.round(eastWestResult.actualDistance);     // 東面・西面の離れ
+        const westDistance = Math.round(eastWestResult.actualDistance);     // 東面・西面の離れ
+        
+        console.log('外周の離れ:', {
+          northDistance,
+          eastDistance,
+          southDistance,
+          westDistance
+        });
+        
+        // 入隅の辺を計算
+        insideCorners.forEach(corner => {
+          const prevEdgeIndex = (corner.index - 1 + vertices.length) % vertices.length;
+          const nextEdgeIndex = corner.index;
+          
+          const prevEdge = edgeCalculations.find(e => e.edgeIndex === prevEdgeIndex);
+          const nextEdge = edgeCalculations.find(e => e.edgeIndex === nextEdgeIndex);
+          
+          if (prevEdge && nextEdge && prevEdge.isInsideCorner && nextEdge.isInsideCorner) {
+            console.log(`入隅計算開始 - 頂点${corner.index}: ${prevEdge.direction}→${nextEdge.direction}`);
+            
+            // 汎用入隅計算関数を呼び出し
+            const result = calculateInsideCornerForAllPatterns(
+              prevEdge, nextEdge, 
+              prevEdgeIndex, nextEdgeIndex,
+              { northDistance, eastDistance, southDistance, westDistance },
+              eaves
+            );
+            
+            if (result.success) {
+              // 計算結果を適用
+              prevEdge.spanConfig = result.prevEdgeSpanConfig;
+              prevEdge.totalSpan = result.prevEdgeTotalSpan;
+              prevEdge.actualDistance = result.prevEdgeDistance;
+              
+              nextEdge.spanConfig = result.nextEdgeSpanConfig;
+              nextEdge.totalSpan = result.nextEdgeTotalSpan;
+              nextEdge.actualDistance = result.nextEdgeDistance;
+              
+              console.log(`入隅計算成功 - ${prevEdge.direction}→${nextEdge.direction}:`, {
+                [`辺${prevEdgeIndex}`]: {
+                  spanConfig: result.prevEdgeSpanConfig,
+                  totalSpan: result.prevEdgeTotalSpan,
+                  actualDistance: result.prevEdgeDistance
+                },
+                [`辺${nextEdgeIndex}`]: {
+                  spanConfig: result.nextEdgeSpanConfig,
+                  totalSpan: result.nextEdgeTotalSpan,
+                  actualDistance: result.nextEdgeDistance
+                }
+              });
+            } else {
+              console.warn(`入隅計算失敗 - ${prevEdge.direction}→${nextEdge.direction}: ${result.error}`);
+              // フォールバック: 外周計算結果を使用
+              applyOuterCalculationFallback(prevEdge, nextEdge, eastWestResult, northSouthResult);
+            }
+          }
+        });
+      }
+
       // 入隅頂点の情報をまとめる
       const insideCornersWithEdgeLengths = insideCorners.map((corner, i) => {
         const prevIndex = (corner.index - 1 + vertices.length) % vertices.length;
@@ -2858,11 +3522,23 @@ export default function DrawingEditor({
         const prevEdgeLength = prevEdgeLengthPixel * 20;
         const nextEdgeLength = nextEdgeLengthPixel * 20;
         
+        // 入隅頂点から伸びる辺のインデックスを計算
+        const prevEdgeIndex = (corner.index - 1 + vertices.length) % vertices.length;
+        const nextEdgeIndex = corner.index;
+        
+        // 対応する軒の出を取得
+        const prevEave = eaves.find(e => e.edgeIndex === prevEdgeIndex);
+        const nextEave = eaves.find(e => e.edgeIndex === nextEdgeIndex);
+        
         console.log(`入隅情報まとめ - 頂点${corner.index}:`, {
           前辺長ピクセル: prevEdgeLengthPixel,
           次辺長ピクセル: nextEdgeLengthPixel,
           前辺長mm: prevEdgeLength,
           次辺長mm: nextEdgeLength,
+          前辺インデックス: prevEdgeIndex,
+          次辺インデックス: nextEdgeIndex,
+          前辺軒の出: prevEave?.distance ?? 0,
+          次辺軒の出: nextEave?.distance ?? 0,
           baseScale
         });
         
@@ -2871,7 +3547,11 @@ export default function DrawingEditor({
           position: corner.position,
           angle: corner.angle,
           prevEdgeLength: Math.round(prevEdgeLength),
-          nextEdgeLength: Math.round(nextEdgeLength)
+          nextEdgeLength: Math.round(nextEdgeLength),
+          prevEdgeIndex: prevEdgeIndex,
+          nextEdgeIndex: nextEdgeIndex,
+          prevEaveDistance: prevEave?.distance ?? 0,
+          nextEaveDistance: nextEave?.distance ?? 0
         };
       });
 
@@ -2880,9 +3560,23 @@ export default function DrawingEditor({
         northSouth: northSouthResult,
         insideResults,
         insideCorners: insideCornersWithEdgeLengths,
+        edgeCalculations,
       };
       console.log('allocationResult set', JSON.stringify(result, null, 2));
       setAllocationResult(result);
+      
+      // 割付計算結果から足場ラインを生成
+      if (drawingData) {
+        const newScaffoldLineData = generateScaffoldLineFromAllocation(
+          vertices,
+          result,
+          drawingData,
+          width,
+          height
+        );
+        setScaffoldLineData(newScaffoldLineData);
+      }
+      
       setAllocationSuccess('割付計算が正常に完了しました');
     } catch (e: any) {
       console.error('handleAllocation error', e);
@@ -3059,14 +3753,14 @@ export default function DrawingEditor({
           <div className="px-4 pb-4 mt-2 text-xs text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
             <div className="font-bold mb-1">割付計算結果</div>
             <div className="mb-2">
-              <div className="font-semibold text-blue-700 dark:text-blue-300">東西方向（北・南面）</div>
+              <div className="font-semibold text-blue-700 dark:text-blue-300">東西方向（東・西面）</div>
               <div>総スパン: {allocationResult.eastWest?.totalSpan} mm</div>
               <div>最小離れ: {allocationResult.eastWest?.minRequiredDistance} mm</div>
               <div>実際の離れ: {allocationResult.eastWest?.actualDistance} mm</div>
               <div>スパン構成: {allocationResult.eastWest?.spanConfig?.join(', ')} mm</div>
             </div>
             <div className="mb-2">
-              <div className="font-semibold text-blue-700 dark:text-blue-300">南北方向（東・西面）</div>
+              <div className="font-semibold text-blue-700 dark:text-blue-300">南北方向（北・南面）</div>
               <div>総スパン: {allocationResult.northSouth?.totalSpan} mm</div>
               <div>最小離れ: {allocationResult.northSouth?.minRequiredDistance} mm</div>
               <div>実際の離れ: {allocationResult.northSouth?.actualDistance} mm</div>
@@ -3094,8 +3788,73 @@ export default function DrawingEditor({
                       <div className="text-xs text-gray-600 dark:text-gray-400 ml-2">
                         前辺長: {corner.prevEdgeLength}mm, 次辺長: {corner.nextEdgeLength}mm, 内角: {corner.angle.toFixed(1)}°
                       </div>
+                      <div className="text-xs text-blue-600 dark:text-blue-400 ml-2">
+                        前辺軒の出: {corner.prevEaveDistance}mm, 次辺軒の出: {corner.nextEaveDistance}mm
+                      </div>
                     </li>
                   ))}
+                </ul>
+              </div>
+            )}
+            {allocationResult.edgeCalculations && allocationResult.edgeCalculations.length > 0 && (
+              <div className="mb-2">
+                <div className="font-semibold text-purple-700 dark:text-purple-300">各辺の計算結果</div>
+                <ul className="list-disc ml-5">
+                  {allocationResult.edgeCalculations.map((edge: any, i: number) => {
+                    // スパン構成文字列を作成（test.mdの形式に合わせる）
+                    let spanText = '';
+                    if (edge.spanConfig.length === 1) {
+                      // 単一スパンの場合：900
+                      spanText = `${edge.spanConfig[0]}`;
+                    } else {
+                      // 複数スパンの場合
+                      const counts = {};
+                      edge.spanConfig.forEach(span => {
+                        counts[span] = (counts[span] || 0) + 1;
+                      });
+                      
+                      const parts = [];
+                      // 同じ値が複数ある場合は "Nspan" 形式で表示
+                      for (const [span, count] of Object.entries(counts)) {
+                        if (count > 1 && span === edge.spanConfig[0]) {
+                          parts.push(`${count}span`);
+                        }
+                      }
+                      
+                      // 残りの異なる値を追加
+                      const uniqueSpans = [];
+                      const seenSpans = new Set();
+                      edge.spanConfig.forEach((span, idx) => {
+                        if (!seenSpans.has(span) || (counts[span] === 1)) {
+                          if (counts[span] === 1 || idx > 0) {
+                            uniqueSpans.push(span);
+                          }
+                          seenSpans.add(span);
+                        }
+                      });
+                      
+                      // フォーマット作成
+                      if (parts.length > 0 && uniqueSpans.length > 0) {
+                        spanText = `${parts[0]},${uniqueSpans.join(',')}(${edge.totalSpan})`;
+                      } else if (parts.length > 0) {
+                        spanText = `${parts[0]}(${edge.totalSpan})`;
+                      } else {
+                        spanText = `${uniqueSpans.join(',')}(${edge.totalSpan})`;
+                      }
+                    }
+                    
+                    return (
+                      <li key={i} className="mb-1">
+                        <div className="font-medium text-sm">辺{edge.edgeName} ({edge.direction}面, {edge.length}mm)</div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400 ml-2">
+                          スパン構成: {spanText}
+                        </div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400 ml-2">
+                          離れ: {edge.actualDistance}mm
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             )}

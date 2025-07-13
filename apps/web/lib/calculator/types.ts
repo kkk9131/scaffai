@@ -53,6 +53,20 @@ export interface ExtendedScaffoldCalculationResult extends ScaffoldCalculationRe
     angle: number;
     prevEdgeLength: number;
     nextEdgeLength: number;
+    prevEdgeIndex: number;
+    nextEdgeIndex: number;
+    prevEaveDistance: number;
+    nextEaveDistance: number;
+  }[];
+  edgeCalculations?: {
+    edgeIndex: number;
+    edgeName: string;
+    direction: string;
+    length: number;
+    eaveDistance: number;
+    spanConfig: number[];
+    totalSpan: number;
+    actualDistance: number;
   }[];
 }
 
@@ -77,5 +91,19 @@ export interface AllocationResult {
     angle: number;
     prevEdgeLength: number;
     nextEdgeLength: number;
+    prevEdgeIndex: number;
+    nextEdgeIndex: number;
+    prevEaveDistance: number;
+    nextEaveDistance: number;
+  }[];
+  edgeCalculations?: {
+    edgeIndex: number;
+    edgeName: string;
+    direction: string;
+    length: number;
+    eaveDistance: number;
+    spanConfig: number[];
+    totalSpan: number;
+    actualDistance: number;
   }[];
 }
