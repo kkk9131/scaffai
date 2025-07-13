@@ -18,6 +18,7 @@ export interface BuildingVertex {
   id: string;
   x: number;
   y: number;
+  index?: number; // 配列内での順序を保持するためのオプショナルプロパティ
 }
 
 // 各辺の軒の出

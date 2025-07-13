@@ -1,12 +1,16 @@
 // 足場計算エンジンの型定義
 
 // coreパッケージから基本型をインポート
-export type {
-  ScaffoldInputData,
-  ScaffoldCalculationResult,
+import type {
+  ScaffoldInputData as CoreScaffoldInputData,
+  ScaffoldCalculationResult as CoreScaffoldCalculationResult,
   FaceDimensionResult,
   SpanCalculationResult
 } from '../../../../packages/core/src/calculator/types';
+
+export type ScaffoldInputData = CoreScaffoldInputData;
+export type ScaffoldCalculationResult = CoreScaffoldCalculationResult;
+export type { FaceDimensionResult, SpanCalculationResult };
 
 export {
   SCAFFOLD_CONSTANTS,

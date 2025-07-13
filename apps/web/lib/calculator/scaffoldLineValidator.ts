@@ -4,7 +4,16 @@
  */
 
 import type { BuildingVertex, ScaffoldLineData } from '../../components/DrawingCanvas/types/drawing';
-import type { InsideCornerCalculationResult } from './advancedInsideCornerCalculator';
+// import type { InsideCornerCalculationResult } from './advancedInsideCornerCalculator';
+
+interface InsideCornerCalculationResult {
+  edgeIndex: number;
+  success: boolean;
+  calculatedDistance: number;
+  spanConfiguration: number[];
+  startVertex: BuildingVertex;
+  endVertex: BuildingVertex;
+}
 
 /**
  * 足場ライン境界

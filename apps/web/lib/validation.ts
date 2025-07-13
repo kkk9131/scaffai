@@ -18,21 +18,21 @@ export function validateMobileScaffoldInput(data: InputData) {
   }
 
   // 軒の出のバリデーション
-  if (data.eaveOverhang.north < 0) {
+  if ((data.eaveOverhang.north ?? 0) < 0) {
     errors['eaveOverhang.north'] = '0以上の数値を入力してください';
   }
-  if (data.eaveOverhang.east < 0) {
+  if ((data.eaveOverhang.east ?? 0) < 0) {
     errors['eaveOverhang.east'] = '0以上の数値を入力してください';
   }
-  if (data.eaveOverhang.south < 0) {
+  if ((data.eaveOverhang.south ?? 0) < 0) {
     errors['eaveOverhang.south'] = '0以上の数値を入力してください';
   }
-  if (data.eaveOverhang.west < 0) {
+  if ((data.eaveOverhang.west ?? 0) < 0) {
     errors['eaveOverhang.west'] = '0以上の数値を入力してください';
   }
 
   // 軒先手摺のバリデーション
-  if (data.eavesHandrails < 0) {
+  if ((data.eavesHandrails ?? 0) < 0) {
     errors['eavesHandrails'] = '0以上の数値を入力してください';
   }
 
