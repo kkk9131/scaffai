@@ -255,7 +255,10 @@ export default function CalculatorForm() {
                         [direction]: e.target.checked
                       },
                       propertyLineDistance: {
-                        ...(inputData.propertyLineDistance || {}),
+                        north: inputData.propertyLineDistance?.north ?? null,
+                        east: inputData.propertyLineDistance?.east ?? null,
+                        south: inputData.propertyLineDistance?.south ?? null,
+                        west: inputData.propertyLineDistance?.west ?? null,
                         [direction]: e.target.checked ? 0 : null
                       }
                     })}
@@ -283,10 +286,13 @@ export default function CalculatorForm() {
                     <div className="relative">
                       <input
                         type="number"
-                        value={inputData.propertyLineDistance[direction] || ''}
+                        value={inputData.propertyLineDistance?.[direction] || ''}
                         onChange={(e) => handleInputChange({
                           propertyLineDistance: {
-                            ...(inputData.propertyLineDistance || {}),
+                            north: inputData.propertyLineDistance?.north ?? null,
+                            east: inputData.propertyLineDistance?.east ?? null,
+                            south: inputData.propertyLineDistance?.south ?? null,
+                            west: inputData.propertyLineDistance?.west ?? null,
                             [direction]: e.target.value ? parseInt(e.target.value) : null
                           }
                         })}

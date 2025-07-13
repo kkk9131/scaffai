@@ -32,8 +32,8 @@ export default function DrawingCanvas({
     ctx.fillRect(0, 0, width, height);
 
     // 建物寸法を取得（mm単位）
-    const buildingWidthNS = inputData.frameWidth.northSouth; // 南北
-    const buildingWidthEW = inputData.frameWidth.eastWest;   // 東西
+    const buildingWidthNS = inputData.frameWidth.northSouth ?? 1000; // 南北
+    const buildingWidthEW = inputData.frameWidth.eastWest ?? 1000;   // 東西
 
     // スケール計算（Canvas内に収まるように）
     const margin = 100; // 余白
@@ -63,10 +63,10 @@ export default function DrawingCanvas({
     ctx.strokeRect(startX, startY, canvasBuildingWidth, canvasBuildingHeight);
 
     // 軒の出情報を取得
-    const eaveNorth = inputData.eaveOverhang.north * scale;
-    const eaveEast = inputData.eaveOverhang.east * scale;
-    const eaveSouth = inputData.eaveOverhang.south * scale;
-    const eaveWest = inputData.eaveOverhang.west * scale;
+    const eaveNorth = (inputData.eaveOverhang.north ?? 0) * scale;
+    const eaveEast = (inputData.eaveOverhang.east ?? 0) * scale;
+    const eaveSouth = (inputData.eaveOverhang.south ?? 0) * scale;
+    const eaveWest = (inputData.eaveOverhang.west ?? 0) * scale;
 
     // 軒の出エリアの座標計算
     const eaveStartX = startX - eaveWest;
@@ -109,34 +109,34 @@ export default function DrawingCanvas({
     ctx.font = '12px Arial';
     
     // 北側の軒の出
-    if (inputData.eaveOverhang.north > 0) {
+    if ((inputData.eaveOverhang.north ?? 0) > 0) {
       ctx.textAlign = 'center';
-      ctx.fillText(`軒 ${inputData.eaveOverhang.north}mm`, startX + canvasBuildingWidth / 2, eaveStartY - 8);
+      ctx.fillText(`軒 ${inputData.eaveOverhang.north ?? 0}mm`, startX + canvasBuildingWidth / 2, eaveStartY - 8);
     }
     
     // 南側の軒の出
-    if (inputData.eaveOverhang.south > 0) {
+    if ((inputData.eaveOverhang.south ?? 0) > 0) {
       ctx.textAlign = 'center';
-      ctx.fillText(`軒 ${inputData.eaveOverhang.south}mm`, startX + canvasBuildingWidth / 2, eaveStartY + eaveHeight + 18);
+      ctx.fillText(`軒 ${inputData.eaveOverhang.south ?? 0}mm`, startX + canvasBuildingWidth / 2, eaveStartY + eaveHeight + 18);
     }
     
     // 東側の軒の出
-    if (inputData.eaveOverhang.east > 0) {
+    if ((inputData.eaveOverhang.east ?? 0) > 0) {
       ctx.save();
       ctx.translate(eaveStartX + eaveWidth + 12, startY + canvasBuildingHeight / 2);
       ctx.rotate(-Math.PI / 2);
       ctx.textAlign = 'center';
-      ctx.fillText(`軒 ${inputData.eaveOverhang.east}mm`, 0, 0);
+      ctx.fillText(`軒 ${inputData.eaveOverhang.east ?? 0}mm`, 0, 0);
       ctx.restore();
     }
     
     // 西側の軒の出
-    if (inputData.eaveOverhang.west > 0) {
+    if ((inputData.eaveOverhang.west ?? 0) > 0) {
       ctx.save();
       ctx.translate(eaveStartX - 12, startY + canvasBuildingHeight / 2);
       ctx.rotate(-Math.PI / 2);
       ctx.textAlign = 'center';
-      ctx.fillText(`軒 ${inputData.eaveOverhang.west}mm`, 0, 0);
+      ctx.fillText(`軒 ${inputData.eaveOverhang.west ?? 0}mm`, 0, 0);
       ctx.restore();
     }
 
@@ -167,15 +167,15 @@ export default function DrawingCanvas({
         </div>
         
         {/* 軒の出情報 */}
-        {(inputData.eaveOverhang.north > 0 || inputData.eaveOverhang.east > 0 || 
-          inputData.eaveOverhang.south > 0 || inputData.eaveOverhang.west > 0) && (
+        {((inputData.eaveOverhang.north ?? 0) > 0 || (inputData.eaveOverhang.east ?? 0) > 0 || 
+          (inputData.eaveOverhang.south ?? 0) > 0 || (inputData.eaveOverhang.west ?? 0) > 0) && (
           <div className="border-t pt-2">
             <p className="text-orange-600 font-medium">軒の出:</p>
             <div className="grid grid-cols-2 gap-x-4 text-xs mt-1">
-              {inputData.eaveOverhang.north > 0 && <span>北: {inputData.eaveOverhang.north}mm</span>}
-              {inputData.eaveOverhang.east > 0 && <span>東: {inputData.eaveOverhang.east}mm</span>}
-              {inputData.eaveOverhang.south > 0 && <span>南: {inputData.eaveOverhang.south}mm</span>}
-              {inputData.eaveOverhang.west > 0 && <span>西: {inputData.eaveOverhang.west}mm</span>}
+              {(inputData.eaveOverhang.north ?? 0) > 0 && <span>北: {inputData.eaveOverhang.north}mm</span>}
+              {(inputData.eaveOverhang.east ?? 0) > 0 && <span>東: {inputData.eaveOverhang.east}mm</span>}
+              {(inputData.eaveOverhang.south ?? 0) > 0 && <span>南: {inputData.eaveOverhang.south}mm</span>}
+              {(inputData.eaveOverhang.west ?? 0) > 0 && <span>西: {inputData.eaveOverhang.west}mm</span>}
             </div>
           </div>
         )}

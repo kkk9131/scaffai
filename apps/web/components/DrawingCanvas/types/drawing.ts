@@ -18,6 +18,7 @@ export interface BuildingVertex {
   id: string;
   x: number;
   y: number;
+  index?: number; // 配列内での順序を保持するためのオプショナルプロパティ
 }
 
 // 各辺の軒の出
@@ -32,6 +33,7 @@ export interface Opening {
   edgeIndex: number;
   startPosition: number; // 0~1
   endPosition: number;   // 0~1
+  width?: number; // mm
   type?: 'entrance' | 'back_door' | 'sliding_window' | 'garage' | 'passage';
 }
 
@@ -48,14 +50,15 @@ export interface FloorData {
 
 // 寸法エリア（UI用）
 export interface DimensionArea {
-  type: 'building' | 'eave';
+  type: 'building' | 'eave' | 'opening';
   direction: string;
   x: number;
   y: number;
   width: number;
   height: number;
   value: number;
-  vertexIndex: number;
+  vertexIndex?: number;
+  openingId?: string;
 }
 
 // ドラッグハンドル（UI用）
@@ -121,6 +124,11 @@ export interface ScaffoldLineData {
     startVertex: BuildingVertex;
     endVertex: BuildingVertex;
     spanConfiguration: number[];
+    markers?: Array<{ 
+      position: { x: number; y: number }; 
+      distance: number; 
+      type: 'span' | 'vertex' 
+    }>;
   }>;
   visible: boolean;
 }

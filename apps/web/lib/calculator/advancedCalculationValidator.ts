@@ -3,7 +3,13 @@
  */
 
 import type { BuildingVertex, EdgeEave } from '../../components/DrawingCanvas/types/drawing';
-import type { InsideCornerEdge } from '../../components/DrawingCanvas/utils/geometryCalculator';
+
+interface InsideCornerEdge {
+  edgeIndex: number;
+  adjacentEdgeIndex: number;
+  length: number;
+  adjacentEdgeLength: number;
+}
 
 /**
  * バリデーション結果

@@ -679,7 +679,7 @@ export const drawOpeningDimensions = (
       ctx.textBaseline = 'middle';
       
       // 背景を描画（視認性向上）
-      const text = `${openingWidthMm.toFixed(0)}mm`;
+      const text = `${(openingWidthMm ?? 0).toFixed(0)}mm`;
       const textMetrics = ctx.measureText(text);
       const textWidth = textMetrics.width;
       const textHeight = 16;
@@ -703,14 +703,14 @@ export const drawOpeningDimensions = (
         y: textY - textHeight/2 - 1,
         width: textWidth + 4,
         height: textHeight + 2,
-        value: opening.width,
+        value: opening.width ?? 0,
         openingId: opening.id
       });
       
       // 開口部の種類も表示
       ctx.font = '10px Arial';
       ctx.fillStyle = colors.eaves;
-      ctx.fillText(getOpeningTypeName(opening.type), textX, textY + 15);
+      ctx.fillText(getOpeningTypeName(opening.type ?? 'entrance'), textX, textY + 15);
     }
   });
 };

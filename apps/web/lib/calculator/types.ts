@@ -1,11 +1,28 @@
 // 足場計算エンジンの型定義
 
-// モバイル版から移植したすべての型定義
+// coreパッケージから基本型をインポート
+import type {
+  ScaffoldInputData as CoreScaffoldInputData,
+  ScaffoldCalculationResult as CoreScaffoldCalculationResult,
+  FaceDimensionResult,
+  SpanCalculationResult
+} from '../../../../packages/core/src/calculator/types';
+
+export type ScaffoldInputData = CoreScaffoldInputData;
+export type ScaffoldCalculationResult = CoreScaffoldCalculationResult;
+export type { FaceDimensionResult, SpanCalculationResult };
+
+export {
+  SCAFFOLD_CONSTANTS,
+  NORMAL_PARTS,
+  SPECIAL_PARTS,
+  ROOF_BASE_UNIT_MAP
+} from '../../../../packages/core/src/calculator/types';
+
+// モバイル版から移植した型定義
 export type {
   InputData,
-  CalculationResult,
-  ScaffoldInputData,
-  ScaffoldCalculationResult
+  CalculationResult
 } from './mobile-engine';
 
 // モバイル版から移植した変換関数
