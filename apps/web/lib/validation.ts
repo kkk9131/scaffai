@@ -1,7 +1,7 @@
 // 簡易バリデーション関数（zod未使用版）
-import { MobileScaffoldInputData } from './calculator/types';
+import { InputData } from './calculator/types';
 
-export function validateMobileScaffoldInput(data: MobileScaffoldInputData) {
+export function validateMobileScaffoldInput(data: InputData) {
   const errors: Record<string, string> = {};
 
   // 躯体幅のバリデーション

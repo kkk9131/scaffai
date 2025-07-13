@@ -5,21 +5,11 @@ import { useSearchParams } from 'next/navigation';
 import { ThemeProvider } from '../../contexts/ThemeContext';
 import Sidebar from '../../components/layout/Sidebar';
 import DrawingEditor from '../../components/DrawingCanvas/DrawingEditor';
-import type { ScaffoldCalculationResult } from '../../lib/calculator/types';
-// import { ScaffoldInputData } from '../../lib/drawing/scaffoldGenerator';
-
-interface ScaffoldInputData {
-  width_NS: number;
-  width_EW: number;
-  eaves_N: number;
-  eaves_E: number;
-  eaves_S: number;
-  eaves_W: number;
-}
+import type { ScaffoldCalculationResult, ExtendedScaffoldCalculationResult, ScaffoldInputData } from '../../lib/calculator/types';
 
 function DrawContent() {
   const searchParams = useSearchParams();
-  const [calculationResult, setCalculationResult] = useState<ScaffoldCalculationResult | undefined>();
+  const [calculationResult, setCalculationResult] = useState<ExtendedScaffoldCalculationResult | undefined>();
   const [inputData, setInputData] = useState<ScaffoldInputData | undefined>();
   const [autoGenerate, setAutoGenerate] = useState(false);
 
@@ -39,7 +29,13 @@ function DrawContent() {
             const calcResult = JSON.parse(savedCalculationResult);
             const input = JSON.parse(savedInputData);
             
-            setCalculationResult(calcResult);
+            // ExtendedScaffoldCalculationResultに変換
+            const extendedResult: ExtendedScaffoldCalculationResult = {
+              ...calcResult,
+              success: true
+            };
+            
+            setCalculationResult(extendedResult);
             setInputData(input);
             
             console.log('足場ライン生成用データを読み込みました:', { calcResult, input });
