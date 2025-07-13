@@ -21,14 +21,18 @@ export function ProtectedRoute({
   const [shouldRender, setShouldRender] = useState(false)
 
   useEffect(() => {
+    // 開発環境での認証バイパス
+    const bypassAuth = process.env.NODE_ENV === 'development' && 
+                      process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === 'true'
+    
     if (!loading) {
-      if (requireAuth && !user) {
-        // 認証が必要だがユーザーがログインしていない
+      if (requireAuth && !user && !bypassAuth) {
+        // 認証が必要だがユーザーがログインしていない（バイパスなし）
         router.push(fallbackPath)
         return
       }
       
-      if (!requireAuth && user) {
+      if (!requireAuth && user && !bypassAuth) {
         // 認証が不要だがユーザーがログインしている（ログインページなど）
         router.push('/dashboard')
         return

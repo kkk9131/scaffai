@@ -107,6 +107,7 @@ export default function DrawingEditor({
   const [showGrid, setShowGrid] = useState(true);
   const [tool, setTool] = useState<'select' | 'pan' | 'zoom'>('select');
   const [rightPanelCollapsed, setRightPanelCollapsed] = useState(false);
+  const [isAllocationResultCollapsed, setIsAllocationResultCollapsed] = useState(false);
   const [dimensionAreas, setDimensionAreas] = useState<DimensionArea[]>([]);
   const [editingDimension, setEditingDimension] = useState<DimensionArea | null>(null);
   const [modalValue, setModalValue] = useState<string>('');
@@ -3671,112 +3672,124 @@ export default function DrawingEditor({
         {/* --- 割付計算結果パネル --- */}
         {!rightPanelCollapsed && allocationResult && (
           <div className="px-4 pb-4 mt-2 text-xs text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-            <div className="font-bold mb-1">割付計算結果</div>
-            <div className="mb-2">
-              <div className="font-semibold text-blue-700 dark:text-blue-300">東西方向（東・西面）</div>
-              <div>総スパン: {allocationResult.eastWest?.totalSpan} mm</div>
-              <div>最小離れ: {allocationResult.eastWest?.minRequiredDistance} mm</div>
-              <div>実際の離れ: {allocationResult.eastWest?.actualDistance} mm</div>
-              <div>スパン構成: {allocationResult.eastWest?.spanConfig?.join(', ')} mm</div>
+            <div 
+              className="font-bold mb-1 flex items-center justify-between cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 p-1 -m-1 rounded transition-colors"
+              onClick={() => setIsAllocationResultCollapsed(!isAllocationResultCollapsed)}
+            >
+              <span>割付計算結果</span>
+              <ChevronDown 
+                className={`w-4 h-4 transition-transform ${isAllocationResultCollapsed ? 'rotate-180' : ''}`} 
+              />
             </div>
-            <div className="mb-2">
-              <div className="font-semibold text-blue-700 dark:text-blue-300">南北方向（北・南面）</div>
-              <div>総スパン: {allocationResult.northSouth?.totalSpan} mm</div>
-              <div>最小離れ: {allocationResult.northSouth?.minRequiredDistance} mm</div>
-              <div>実際の離れ: {allocationResult.northSouth?.actualDistance} mm</div>
-              <div>スパン構成: {allocationResult.northSouth?.spanConfig?.join(', ')} mm</div>
-            </div>
-            {allocationResult.insideResults && allocationResult.insideResults.length > 0 && (
-              <div className="mb-2">
-                <div className="font-semibold text-blue-700 dark:text-blue-300">入隅部分</div>
-                <ul className="list-disc ml-5">
-                  {allocationResult.insideResults.map((r: any, i: number) => (
-                    <li key={i}>
-                      頂点{r.index}（{Math.round(r.position.x)}, {Math.round(r.position.y)}）: 離れ {r.actualDistance} mm, スパン構成 [{r.spanConfig.join(', ')}]
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {allocationResult.insideCorners && allocationResult.insideCorners.length > 0 && (
-              <div className="mb-2">
-                <div className="font-semibold text-green-700 dark:text-green-300">入隅頂点の辺情報</div>
-                <ul className="list-disc ml-5">
-                  {allocationResult.insideCorners.map((corner: any, i: number) => (
-                    <li key={i} className="mb-1">
-                      <div>頂点{corner.index + 1}（{Math.round(corner.position.x)}, {Math.round(corner.position.y)}）</div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400 ml-2">
-                        前辺長: {corner.prevEdgeLength}mm, 次辺長: {corner.nextEdgeLength}mm, 内角: {corner.angle.toFixed(1)}°
-                      </div>
-                      <div className="text-xs text-blue-600 dark:text-blue-400 ml-2">
-                        前辺軒の出: {corner.prevEaveDistance}mm, 次辺軒の出: {corner.nextEaveDistance}mm
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {allocationResult.edgeCalculations && allocationResult.edgeCalculations.length > 0 && (
-              <div className="mb-2">
-                <div className="font-semibold text-purple-700 dark:text-purple-300">各辺の計算結果</div>
-                <ul className="list-disc ml-5">
-                  {allocationResult.edgeCalculations.map((edge: any, i: number) => {
-                    // スパン構成文字列を作成（test.mdの形式に合わせる）
-                    let spanText = '';
-                    if (edge.spanConfig.length === 1) {
-                      // 単一スパンの場合：900
-                      spanText = `${edge.spanConfig[0]}`;
-                    } else {
-                      // 複数スパンの場合
-                      const counts: Record<number, number> = {};
-                      edge.spanConfig.forEach((span: number) => {
-                        counts[span] = (counts[span] || 0) + 1;
-                      });
-                      
-                      const parts: string[] = [];
-                      // 同じ値が複数ある場合は "Nspan" 形式で表示
-                      for (const [span, count] of Object.entries(counts)) {
-                        if ((count as number) > 1 && parseInt(span) === edge.spanConfig[0]) {
-                          parts.push(`${count}span`);
-                        }
-                      }
-                      
-                      // 残りの異なる値を追加
-                      const uniqueSpans: number[] = [];
-                      const seenSpans = new Set<number>();
-                      edge.spanConfig.forEach((span: number, idx: number) => {
-                        if (!seenSpans.has(span) || (counts[span] === 1)) {
-                          if (counts[span] === 1 || idx > 0) {
-                            uniqueSpans.push(span);
+            {!isAllocationResultCollapsed && (
+              <>
+                <div className="mb-2">
+                  <div className="font-semibold text-blue-700 dark:text-blue-300">東西方向（東・西面）</div>
+                  <div>総スパン: {allocationResult.eastWest?.totalSpan} mm</div>
+                  <div>最小離れ: {allocationResult.eastWest?.minRequiredDistance} mm</div>
+                  <div>実際の離れ: {allocationResult.eastWest?.actualDistance} mm</div>
+                  <div>スパン構成: {allocationResult.eastWest?.spanConfig?.join(', ')} mm</div>
+                </div>
+                <div className="mb-2">
+                  <div className="font-semibold text-blue-700 dark:text-blue-300">南北方向（北・南面）</div>
+                  <div>総スパン: {allocationResult.northSouth?.totalSpan} mm</div>
+                  <div>最小離れ: {allocationResult.northSouth?.minRequiredDistance} mm</div>
+                  <div>実際の離れ: {allocationResult.northSouth?.actualDistance} mm</div>
+                  <div>スパン構成: {allocationResult.northSouth?.spanConfig?.join(', ')} mm</div>
+                </div>
+                {allocationResult.insideResults && allocationResult.insideResults.length > 0 && (
+                  <div className="mb-2">
+                    <div className="font-semibold text-blue-700 dark:text-blue-300">入隅部分</div>
+                    <ul className="list-disc ml-5">
+                      {allocationResult.insideResults.map((r: any, i: number) => (
+                        <li key={i}>
+                          頂点{r.index}（{Math.round(r.position.x)}, {Math.round(r.position.y)}）: 離れ {r.actualDistance} mm, スパン構成 [{r.spanConfig.join(', ')}]
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {allocationResult.insideCorners && allocationResult.insideCorners.length > 0 && (
+                  <div className="mb-2">
+                    <div className="font-semibold text-green-700 dark:text-green-300">入隅頂点の辺情報</div>
+                    <ul className="list-disc ml-5">
+                      {allocationResult.insideCorners.map((corner: any, i: number) => (
+                        <li key={i} className="mb-1">
+                          <div>頂点{corner.index + 1}（{Math.round(corner.position.x)}, {Math.round(corner.position.y)}）</div>
+                          <div className="text-xs text-gray-600 dark:text-gray-400 ml-2">
+                            前辺長: {corner.prevEdgeLength}mm, 次辺長: {corner.nextEdgeLength}mm, 内角: {corner.angle.toFixed(1)}°
+                          </div>
+                          <div className="text-xs text-blue-600 dark:text-blue-400 ml-2">
+                            前辺軒の出: {corner.prevEaveDistance}mm, 次辺軒の出: {corner.nextEaveDistance}mm
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {allocationResult.edgeCalculations && allocationResult.edgeCalculations.length > 0 && (
+                  <div className="mb-2">
+                    <div className="font-semibold text-purple-700 dark:text-purple-300">各辺の計算結果</div>
+                    <ul className="list-disc ml-5">
+                      {allocationResult.edgeCalculations.map((edge: any, i: number) => {
+                        // スパン構成文字列を作成（test.mdの形式に合わせる）
+                        let spanText = '';
+                        if (edge.spanConfig.length === 1) {
+                          // 単一スパンの場合：900
+                          spanText = `${edge.spanConfig[0]}`;
+                        } else {
+                          // 複数スパンの場合
+                          const counts: Record<number, number> = {};
+                          edge.spanConfig.forEach((span: number) => {
+                            counts[span] = (counts[span] || 0) + 1;
+                          });
+                          
+                          const parts: string[] = [];
+                          // 同じ値が複数ある場合は "Nspan" 形式で表示
+                          for (const [span, count] of Object.entries(counts)) {
+                            if ((count as number) > 1 && parseInt(span) === edge.spanConfig[0]) {
+                              parts.push(`${count}span`);
+                            }
                           }
-                          seenSpans.add(span);
+                          
+                          // 残りの異なる値を追加
+                          const uniqueSpans: number[] = [];
+                          const seenSpans = new Set<number>();
+                          edge.spanConfig.forEach((span: number, idx: number) => {
+                            if (!seenSpans.has(span) || (counts[span] === 1)) {
+                              if (counts[span] === 1 || idx > 0) {
+                                uniqueSpans.push(span);
+                              }
+                              seenSpans.add(span);
+                            }
+                          });
+                          
+                          // フォーマット作成
+                          if (parts.length > 0 && uniqueSpans.length > 0) {
+                            spanText = `${parts[0]},${uniqueSpans.join(',')}(${edge.totalSpan})`;
+                          } else if (parts.length > 0) {
+                            spanText = `${parts[0]}(${edge.totalSpan})`;
+                          } else {
+                            spanText = `${uniqueSpans.join(',')}(${edge.totalSpan})`;
+                          }
                         }
-                      });
-                      
-                      // フォーマット作成
-                      if (parts.length > 0 && uniqueSpans.length > 0) {
-                        spanText = `${parts[0]},${uniqueSpans.join(',')}(${edge.totalSpan})`;
-                      } else if (parts.length > 0) {
-                        spanText = `${parts[0]}(${edge.totalSpan})`;
-                      } else {
-                        spanText = `${uniqueSpans.join(',')}(${edge.totalSpan})`;
-                      }
-                    }
-                    
-                    return (
-                      <li key={i} className="mb-1">
-                        <div className="font-medium text-sm">辺{edge.edgeName} ({edge.direction}面, {edge.length}mm)</div>
-                        <div className="text-xs text-gray-600 dark:text-gray-400 ml-2">
-                          スパン構成: {spanText}
-                        </div>
-                        <div className="text-xs text-gray-600 dark:text-gray-400 ml-2">
-                          離れ: {edge.actualDistance}mm
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
+                        
+                        return (
+                          <li key={i} className="mb-1">
+                            <div className="font-medium text-sm">辺{edge.edgeName} ({edge.direction}面, {edge.length}mm)</div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400 ml-2">
+                              スパン構成: {spanText}
+                            </div>
+                            <div className="text-xs text-gray-600 dark:text-gray-400 ml-2">
+                              離れ: {edge.actualDistance}mm
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

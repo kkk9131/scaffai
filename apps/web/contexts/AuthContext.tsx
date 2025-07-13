@@ -314,7 +314,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // プラットフォームアクセス制御関数
   const canAccessPlatform = (platform: 'web' | 'mobile'): boolean => {
-    // 開発期間中は全機能を利用可能にする
+    // 開発環境での認証バイパス
+    if (process.env.NODE_ENV === 'development' && 
+        process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === 'true') {
+      return true
+    }
+    
+    // 開発期間中は全機能を利用可能にする（既存のロジック）
     return true
     
     // if (!profile) return false
@@ -406,6 +412,12 @@ export function useRequireAuth() {
   const auth = useAuth()
   
   useEffect(() => {
+    // 開発環境での認証バイパス
+    if (process.env.NODE_ENV === 'development' && 
+        process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === 'true') {
+      return
+    }
+    
     if (!auth.loading && !auth.user) {
       // ログインしていない場合はログインページにリダイレクト
       window.location.href = '/login'
