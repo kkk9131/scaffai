@@ -25,8 +25,12 @@ export function PlatformAccessGuard({ children }: PlatformAccessGuardProps) {
     return <>{children}</>
   }
 
-  // Web版アクセス権限がない場合
-  if (!hasWebAccess()) {
+  // 開発環境での認証バイパス
+  const bypassAuth = process.env.NODE_ENV === 'development' && 
+                    process.env.NEXT_PUBLIC_DEV_BYPASS_AUTH === 'true'
+
+  // Web版アクセス権限がない場合（バイパスなし）
+  if (!hasWebAccess() && !bypassAuth) {
     const currentPlan = getCurrentPlan()
     const currentPlanDetails = PLAN_DETAILS[currentPlan]
 

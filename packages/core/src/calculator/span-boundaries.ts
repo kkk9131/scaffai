@@ -82,17 +82,23 @@ export function calculateSpanWithBoundaries(
       }
       
       if (hasNoBoundary) {
-        // 境界制約なし: 理想値以上で1800優先の組み合わせを選択
+        // 境界制約なし: 軒の出+80（理想値）に最も近い組み合わせを選択
         if (currentSumNormal >= targetSumForNormalPartsIdeal) {
           const bestSum = bestComboNormalParts.reduce((sum, part) => sum + part, 0);
           const current1800Count = comboNormal.filter(p => p === STANDARD_PART_SIZE).length;
           const best1800Count = bestComboNormalParts.filter(p => p === STANDARD_PART_SIZE).length;
           
+          // 軒の出+80への近さを最優先に評価
+          const currentDiff = Math.abs(currentSumNormal - targetSumForNormalPartsIdeal);
+          const bestDiff = bestComboNormalParts.length === 0 ? Infinity : Math.abs(bestSum - targetSumForNormalPartsIdeal);
+          
           if (bestComboNormalParts.length === 0 || 
-              currentSumNormal < bestSum ||
-              (currentSumNormal === bestSum && current1800Count > best1800Count) ||
-              (currentSumNormal === bestSum && current1800Count === best1800Count && 
+              currentDiff < bestDiff ||
+              (currentDiff === bestDiff && current1800Count > best1800Count) ||
+              (currentDiff === bestDiff && current1800Count === best1800Count && 
                comboNormal.length < bestComboNormalParts.length)) {
+            
+            console.log(`[span-boundaries] 軒の出+80最接近: 理想値=${targetSumForNormalPartsIdeal}mm, 現在=${currentSumNormal}mm(差${currentDiff}mm), 最良=${bestSum}mm(差${bestDiff}mm), 構成=[${comboNormal.join(',')}]`);
             bestComboNormalParts = [...comboNormal];
           }
         } else if (bestComboNormalParts.length === 0 || 

@@ -54,6 +54,8 @@ export function calculateFaceDimensions(
     : eavesRightVal + EAVES_MARGIN_THRESHOLD_ADDITION;
   
   if (debugPrints) {
+    console.log(`[DEBUG ${faceName}] 軒の出: L=${eavesLeftVal}mm, R=${eavesRightVal}mm`);
+    console.log(`[DEBUG ${faceName}] 軒の出+80: L=${eavesLeftVal + EAVES_MARGIN_THRESHOLD_ADDITION}mm, R=${eavesRightVal + EAVES_MARGIN_THRESHOLD_ADDITION}mm`);
     console.log(`[DEBUG ${faceName}] Target margins: L=${targetMarginLeftVal} -> effective: ${effectiveTargetMarginLeft}, R=${targetMarginRightVal} -> effective: ${effectiveTargetMarginRight}`);
     console.log(`[DEBUG ${faceName}] Individual targets enabled: L=${targetMarginLeftVal !== null}, R=${targetMarginRightVal !== null}`);
   }
