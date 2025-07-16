@@ -2,7 +2,7 @@
 
 import { ThemeProvider } from '../../contexts/ThemeContext';
 import Sidebar from '../../components/layout/Sidebar';
-import Projects from '../../pages/Projects';
+import Projects from '../../components/pages/Projects';
 
 export default function ProjectsPage() {
   return (

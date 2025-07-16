@@ -3,17 +3,17 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { Search, Plus, Calculator, ScanLine, FileText, ArrowRight, Pencil, Building2, FileSpreadsheet, Settings, User } from 'lucide-react';
-import { ProjectCard } from '../components/ProjectCard';
-import { FeatureCard } from '../components/FeatureCard';
+import { ProjectCard } from '../../components/ProjectCard';
+import { FeatureCard } from '../../components/FeatureCard';
 import { 
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../components/ui/Select';
-import { ScrollArea } from '../components/ui/ScrollArea';
-import { useProjectStore } from '../store/projectStore';
+} from '../../components/ui/Select';
+import { ScrollArea } from '../../components/ui/ScrollArea';
+import { useProjectStore } from '../../store/projectStore';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 

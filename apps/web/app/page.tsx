@@ -2,7 +2,7 @@
 
 import { ThemeProvider } from '../contexts/ThemeContext';
 import Sidebar from '../components/layout/Sidebar';
-import Home from '../pages/Home';
+import Home from '../components/pages/Home';
 
 export default function RootPage() {
   return (
