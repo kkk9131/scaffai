@@ -3985,9 +3985,12 @@ export default function DrawingEditor({
                 </ul>
               </div>
             )}
-            {allocationResult.insideResults && allocationResult.insideResults.length > 0 && (
+            {/* デバッグ情報: 開発環境でのみ表示 */}
+            {process.env.NODE_ENV === 'development' && allocationResult.insideResults && allocationResult.insideResults.length > 0 && (
               <div className="mb-2">
-                <div className="font-semibold text-blue-700 dark:text-blue-300">入隅部分</div>
+                <div className="font-semibold text-blue-700 dark:text-blue-300">
+                  入隅部分 <span className="text-xs text-orange-600 dark:text-orange-400">[デバッグ]</span>
+                </div>
                 <ul className="list-disc ml-5">
                   {allocationResult.insideResults.map((r: any, i: number) => (
                     <li key={i}>
@@ -3997,9 +4000,11 @@ export default function DrawingEditor({
                 </ul>
               </div>
             )}
-            {allocationResult.insideCorners && allocationResult.insideCorners.length > 0 && (
+            {process.env.NODE_ENV === 'development' && allocationResult.insideCorners && allocationResult.insideCorners.length > 0 && (
               <div className="mb-2">
-                <div className="font-semibold text-green-700 dark:text-green-300">入隅頂点の辺情報</div>
+                <div className="font-semibold text-green-700 dark:text-green-300">
+                  入隅頂点の辺情報 <span className="text-xs text-orange-600 dark:text-orange-400">[デバッグ]</span>
+                </div>
                 <ul className="list-disc ml-5">
                   {allocationResult.insideCorners.map((corner: any, i: number) => (
                     <li key={i} className="mb-1">
