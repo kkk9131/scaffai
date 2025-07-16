@@ -44,7 +44,7 @@ export function calculateFaceDimensions(
   
   const eavesForSpanCalc = Math.max(eavesLeftVal, eavesRightVal);
   
-  // 左右個別の目標離れの決定（nullの場合は軒の出+80の最小離れのみ）
+  // 左右個別の目標離れの決定（nullの場合は軒の出+80の最小離れのみ、300mm部材は別途追加）
   const effectiveTargetMarginLeft = targetMarginLeftVal !== null 
     ? targetMarginLeftVal 
     : eavesLeftVal + EAVES_MARGIN_THRESHOLD_ADDITION;

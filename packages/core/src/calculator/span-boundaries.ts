@@ -4,6 +4,7 @@ import { baseWidth, selectParts } from './utils';
 
 const { 
   BOUNDARY_OFFSET, 
+  PREFERRED_MIN_MARGIN_ADDITION,
   STANDARD_PART_SIZE, 
   DEFAULT_TARGET_MARGIN 
 } = SCAFFOLD_CONSTANTS;
