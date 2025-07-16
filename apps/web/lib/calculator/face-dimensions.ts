@@ -6,7 +6,6 @@ import { formatSpanParts } from './utils';
 const { 
   BOUNDARY_OFFSET, 
   EAVES_MARGIN_THRESHOLD_ADDITION, 
-  PREFERRED_MIN_MARGIN_ADDITION,
   STANDARD_PART_SIZE, 
   DEFAULT_TARGET_MARGIN 
 } = SCAFFOLD_CONSTANTS;
@@ -62,14 +61,6 @@ export function calculateFaceDimensions(
   for (const { size, count } of specialParts) {
     for (let i = 0; i < count; i++) {
       mandatorySpecialParts.push(size);
-    }
-  }
-  
-  // 目標離れが指定されていない場合は300mm部材を自動追加
-  if (targetMarginLeftVal === null && targetMarginRightVal === null) {
-    mandatorySpecialParts.push(300);
-    if (debugPrints) {
-      console.log(`[DEBUG ${faceName}] Auto-adding 300mm part for improved margins`);
     }
   }
   
