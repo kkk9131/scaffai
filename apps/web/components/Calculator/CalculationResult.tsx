@@ -119,7 +119,7 @@ export default function CalculationResult() {
           <h3 className="text-sm font-medium text-slate-300 mb-4">ステータス</h3>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <div className="text-sm text-slate-400">根がらみ支柱設置</div>
+              <div className="text-sm text-slate-400">根がらみ可能</div>
               <div className={`flex items-center ${result.tie_ok ? 'text-emerald-400' : 'text-red-400'}`}>
                 <span className="text-lg font-semibold">
                   {result.tie_ok ? 'OK' : 'NG'}
@@ -127,7 +127,7 @@ export default function CalculationResult() {
               </div>
             </div>
             <div className="flex justify-between items-center">
-              <div className="text-sm text-slate-400">根がらみ支柱設置</div>
+              <div className="text-sm text-slate-400">根がらみ支柱使用</div>
               <div className={`flex items-center ${result.tie_column_used ? 'text-emerald-400' : 'text-slate-400'}`}>
                 <span className="text-lg font-semibold">
                   {result.tie_column_used ? '使用' : '未使用'}

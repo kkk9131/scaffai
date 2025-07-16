@@ -3,15 +3,15 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { Search, ChevronLeft, ChevronRight, Download, ExternalLink, MoreHorizontal } from 'lucide-react';
-import { ScrollArea } from '../components/ui/ScrollArea';
-import { useProjectStore } from '../store/projectStore';
+import { ScrollArea } from '../../components/ui/ScrollArea';
+import { useProjectStore } from '../../store/projectStore';
 import { 
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '../components/ui/DropdownMenu';
-import { cn } from '../lib/utils';
+} from '../../components/ui/DropdownMenu';
+import { cn } from '../../lib/utils';
 import Link from 'next/link';
 
 // Project status types

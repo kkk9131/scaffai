@@ -2,7 +2,7 @@
 
 import { ThemeProvider } from '../../../contexts/ThemeContext';
 import Sidebar from '../../../components/layout/Sidebar';
-import DrawingImport from '../../../pages/DrawingImport';
+import DrawingImport from '../../../components/pages/DrawingImport';
 
 export default function ImportPage() {
   return (
