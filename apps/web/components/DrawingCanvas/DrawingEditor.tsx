@@ -164,6 +164,7 @@ export default function DrawingEditor({
   // 割付計算関連のステート
   const [isAllocating, setIsAllocating] = useState(false);
   const [allocationResult, setAllocationResult] = useState<AllocationResult | null>(null);
+  const [isAllocationResultCollapsed, setIsAllocationResultCollapsed] = useState(true); // デフォルトで非表示
 
   // セッションストレージから簡易計算結果を取得してstateに設定
   useEffect(() => {
@@ -3911,11 +3912,21 @@ export default function DrawingEditor({
         {/* --- 割付計算結果パネル --- */}
         {!rightPanelCollapsed && allocationResult && (
           <div className="px-4 pb-4 mt-2 text-xs text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-            <div className="font-bold mb-1">割付計算結果</div>
-            {allocationResult.edgeCalculations && allocationResult.edgeCalculations.length > 0 && (
-              <div className="mb-2">
-                <div className="font-semibold text-purple-700 dark:text-purple-300">各辺の計算結果</div>
-                <ul className="list-disc ml-5">
+            <div 
+              className="font-bold mb-1 flex items-center justify-between cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 p-1 -m-1 rounded transition-colors"
+              onClick={() => setIsAllocationResultCollapsed(!isAllocationResultCollapsed)}
+            >
+              <span>割付計算結果</span>
+              <ChevronDown 
+                className={`w-4 h-4 transition-transform ${isAllocationResultCollapsed ? 'rotate-180' : ''}`} 
+              />
+            </div>
+            {!isAllocationResultCollapsed && (
+              <>
+                {allocationResult.edgeCalculations && allocationResult.edgeCalculations.length > 0 && (
+                  <div className="mb-2">
+                    <div className="font-semibold text-purple-700 dark:text-purple-300">各辺の計算結果</div>
+                    <ul className="list-disc ml-5">
                   {allocationResult.edgeCalculations.map((edge: any, i: number) => {
                     // スパン構成文字列を作成（test.mdの形式に合わせる）
                     let spanText = '';
@@ -4003,6 +4014,8 @@ export default function DrawingEditor({
                   ))}
                 </ul>
               </div>
+            )}
+              </>
             )}
           </div>
         )}
