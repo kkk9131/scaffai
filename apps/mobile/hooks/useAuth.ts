@@ -26,8 +26,8 @@ export const useAuth = () => {
   useEffect(() => {
     // ビルド時またはプレースホルダー環境では何もしない
     if (typeof window === 'undefined' || 
-        process.env.EXPO_PUBLIC_SUPABASE_URL?.includes('placeholder') ||
-        process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.includes('placeholder')) {
+        process.env.EXPO_PUBLIC_SUPABASE_URL?.includes('xxxxxxxxxxxxxxxxxxx') ||
+        process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.includes('xxxxxxxxxxxxxxxxxxx')) {
       setAuthState(prev => ({ ...prev, loading: false, initialized: true }));
       return;
     }

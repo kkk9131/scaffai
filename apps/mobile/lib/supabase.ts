@@ -4,16 +4,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Database } from './types';
 
-// ビルド時のダミー値を設定
+// ビルド時のダミー値を設定（有効なフォーマットを使用）
 const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl || 
                    process.env.EXPO_PUBLIC_SUPABASE_URL || 
-                   'https://placeholder.supabase.co';
+                   'https://xxxxxxxxxxxxxxxxxxx.supabase.co';
 const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey || 
                        process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 
-                       'placeholder-anon-key';
+                       'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhkZG1tY3lxdWlob2VxbGF2dG1rIiwicm9sZSI6ImFub24iLCJpYXQiOjE2MjAyMzk3NDYsImV4cCI6MTkzNTgxNTc0Nn0.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
 
 // 実際の環境変数チェックは、クライアントサイドでのみ実行
-if (typeof window !== 'undefined' && (!supabaseUrl.includes('placeholder') || !supabaseAnonKey.includes('placeholder'))) {
+if (typeof window !== 'undefined' && (!supabaseUrl.includes('xxxxxxxxxxxxxxxxxxx') || !supabaseAnonKey.includes('xxxxxxxxxxxxxxxxxxx'))) {
   if (!process.env.EXPO_PUBLIC_SUPABASE_URL || !process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY) {
     console.error('Missing Supabase environment variables. Please check your app.config.js or .env file.');
   }
