@@ -457,7 +457,7 @@ export default function CalculatorForm() {
             <div>
               <label className="block text-sm font-medium mb-2">355mm</label>
               <Select
-                value={(inputData.specialMaterial.northSouth.material355 || 0).toString()}
+                value={(inputData.specialMaterial.northSouth.material355 ?? 0).toString()}
                 onValueChange={(value) => handleInputChange({
                   specialMaterial: {
                     ...inputData.specialMaterial,
@@ -506,7 +506,7 @@ export default function CalculatorForm() {
             <div>
               <label className="block text-sm font-medium mb-2">150mm</label>
               <Select
-                value={(inputData.specialMaterial.northSouth.material150 || 0).toString()}
+                value={(inputData.specialMaterial.northSouth.material150 ?? 0).toString()}
                 onValueChange={(value) => handleInputChange({
                   specialMaterial: {
                     ...inputData.specialMaterial,
@@ -537,7 +537,7 @@ export default function CalculatorForm() {
             <div>
               <label className="block text-sm font-medium mb-2">355mm</label>
               <Select
-                value={(inputData.specialMaterial.eastWest.material355 || 0).toString()}
+                value={(inputData.specialMaterial.eastWest.material355 ?? 0).toString()}
                 onValueChange={(value) => handleInputChange({
                   specialMaterial: {
                     ...inputData.specialMaterial,
@@ -585,7 +585,7 @@ export default function CalculatorForm() {
             <div>
               <label className="block text-sm font-medium mb-2">150mm</label>
               <Select
-                value={(inputData.specialMaterial.eastWest.material150 || 0).toString()}
+                value={(inputData.specialMaterial.eastWest.material150 ?? 0).toString()}
                 onValueChange={(value) => handleInputChange({
                   specialMaterial: {
                     ...inputData.specialMaterial,

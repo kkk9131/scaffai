@@ -3,7 +3,7 @@
 import { ThemeProvider } from '../../contexts/ThemeContext';
 import { RequireAuth } from '../../components/ProtectedRoute';
 import Sidebar from '../../components/layout/Sidebar';
-import Dashboard from '../../components/pages/Dashboard';
+import Dashboard from '../../pages/Dashboard';
 
 export default function DashboardPage() {
   return (

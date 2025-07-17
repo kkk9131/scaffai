@@ -14,11 +14,6 @@ export default function SimpleCalculationDisplay({
   visible, 
   onToggle 
 }: SimpleCalculationDisplayProps) {
-  // 開発環境でのみ表示
-  if (process.env.NODE_ENV !== 'development') {
-    return null;
-  }
-
   if (!calculationResult) {
     return null;
   }
@@ -27,9 +22,7 @@ export default function SimpleCalculationDisplay({
     <div className="absolute top-24 left-4 z-10 bg-white/95 rounded-lg shadow-lg border border-gray-200 max-w-sm">
       {/* ヘッダー */}
       <div className="p-3 border-b border-gray-200 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-800">
-          簡易計算結果 <span className="text-xs text-orange-600">[デバッグ]</span>
-        </h3>
+        <h3 className="text-sm font-semibold text-gray-800">簡易計算結果</h3>
         <button
           onClick={onToggle}
           className="text-xs text-blue-600 hover:text-blue-800 transition-colors"

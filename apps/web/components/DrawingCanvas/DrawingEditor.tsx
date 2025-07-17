@@ -164,7 +164,6 @@ export default function DrawingEditor({
   // 割付計算関連のステート
   const [isAllocating, setIsAllocating] = useState(false);
   const [allocationResult, setAllocationResult] = useState<AllocationResult | null>(null);
-  const [isAllocationResultCollapsed, setIsAllocationResultCollapsed] = useState(true); // デフォルトで非表示
 
   // セッションストレージから簡易計算結果を取得してstateに設定
   useEffect(() => {
@@ -3912,21 +3911,11 @@ export default function DrawingEditor({
         {/* --- 割付計算結果パネル --- */}
         {!rightPanelCollapsed && allocationResult && (
           <div className="px-4 pb-4 mt-2 text-xs text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-            <div 
-              className="font-bold mb-1 flex items-center justify-between cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 p-1 -m-1 rounded transition-colors"
-              onClick={() => setIsAllocationResultCollapsed(!isAllocationResultCollapsed)}
-            >
-              <span>割付計算結果</span>
-              <ChevronDown 
-                className={`w-4 h-4 transition-transform ${isAllocationResultCollapsed ? 'rotate-180' : ''}`} 
-              />
-            </div>
-            {!isAllocationResultCollapsed && (
-              <>
-                {allocationResult.edgeCalculations && allocationResult.edgeCalculations.length > 0 && (
-                  <div className="mb-2">
-                    <div className="font-semibold text-purple-700 dark:text-purple-300">各辺の計算結果</div>
-                    <ul className="list-disc ml-5">
+            <div className="font-bold mb-1">割付計算結果</div>
+            {allocationResult.edgeCalculations && allocationResult.edgeCalculations.length > 0 && (
+              <div className="mb-2">
+                <div className="font-semibold text-purple-700 dark:text-purple-300">各辺の計算結果</div>
+                <ul className="list-disc ml-5">
                   {allocationResult.edgeCalculations.map((edge: any, i: number) => {
                     // スパン構成文字列を作成（test.mdの形式に合わせる）
                     let spanText = '';
@@ -3985,12 +3974,9 @@ export default function DrawingEditor({
                 </ul>
               </div>
             )}
-            {/* デバッグ情報: 開発環境でのみ表示 */}
-            {process.env.NODE_ENV === 'development' && allocationResult.insideResults && allocationResult.insideResults.length > 0 && (
+            {allocationResult.insideResults && allocationResult.insideResults.length > 0 && (
               <div className="mb-2">
-                <div className="font-semibold text-blue-700 dark:text-blue-300">
-                  入隅部分 <span className="text-xs text-orange-600 dark:text-orange-400">[デバッグ]</span>
-                </div>
+                <div className="font-semibold text-blue-700 dark:text-blue-300">入隅部分</div>
                 <ul className="list-disc ml-5">
                   {allocationResult.insideResults.map((r: any, i: number) => (
                     <li key={i}>
@@ -4000,11 +3986,9 @@ export default function DrawingEditor({
                 </ul>
               </div>
             )}
-            {process.env.NODE_ENV === 'development' && allocationResult.insideCorners && allocationResult.insideCorners.length > 0 && (
+            {allocationResult.insideCorners && allocationResult.insideCorners.length > 0 && (
               <div className="mb-2">
-                <div className="font-semibold text-green-700 dark:text-green-300">
-                  入隅頂点の辺情報 <span className="text-xs text-orange-600 dark:text-orange-400">[デバッグ]</span>
-                </div>
+                <div className="font-semibold text-green-700 dark:text-green-300">入隅頂点の辺情報</div>
                 <ul className="list-disc ml-5">
                   {allocationResult.insideCorners.map((corner: any, i: number) => (
                     <li key={i} className="mb-1">
@@ -4020,16 +4004,25 @@ export default function DrawingEditor({
                 </ul>
               </div>
             )}
-              </>
-            )}
           </div>
         )}
 
         {!rightPanelCollapsed && (
           <div className="p-4">
-            {/* 建物寸法線表示切り替え */}
+            {/* 簡易計算結果表示セクション */}
             <div className="mb-6">
-              <div className="flex items-center gap-2">
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <div className="text-sm font-medium text-blue-800 mb-2">
+                  📊 簡易計算結果表示
+                </div>
+                <div className="text-xs text-blue-600">
+                  画面左上に簡易計算の結果が表示されます
+                </div>
+              </div>
+              
+              
+              {/* 建物寸法線表示切り替え */}
+              <div className="mt-3 flex items-center gap-2">
                 <input
                   type="checkbox"
                   id="building-dimensions-toggle"
@@ -4041,35 +4034,21 @@ export default function DrawingEditor({
                   建物寸法線表示
                 </label>
               </div>
-            </div>
-            
-            {/* 簡易計算結果表示セクション (デバッグ環境のみ) */}
-            {process.env.NODE_ENV === 'development' && (
-              <div className="mb-6">
-                <div className="p-3 bg-blue-50 rounded-lg">
-                  <div className="text-sm font-medium text-blue-800 mb-2">
-                    📊 簡易計算結果表示 <span className="text-xs text-orange-600">[デバッグ]</span>
-                  </div>
-                  <div className="text-xs text-blue-600">
-                    画面左上に簡易計算の結果が表示されます
-                  </div>
-                </div>
-                
-                {/* 簡易計算結果表示の切り替え */}
-                <div className="mt-3 flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="simple-calculation-toggle"
-                    checked={showSimpleCalculationResult}
-                    onChange={(e) => setShowSimpleCalculationResult(e.target.checked)}
-                    className="rounded"
-                  />
-                  <label htmlFor="simple-calculation-toggle" className="text-sm text-slate-700 dark:text-slate-300">
-                    簡易計算結果表示
-                  </label>
-                </div>
+              
+              {/* 簡易計算結果表示の切り替え */}
+              <div className="mt-3 flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="simple-calculation-toggle"
+                  checked={showSimpleCalculationResult}
+                  onChange={(e) => setShowSimpleCalculationResult(e.target.checked)}
+                  className="rounded"
+                />
+                <label htmlFor="simple-calculation-toggle" className="text-sm text-slate-700 dark:text-slate-300">
+                  簡易計算結果表示
+                </label>
               </div>
-            )}
+            </div>
 
             {/* 階層管理 */}
             <div className="mb-6">
