@@ -5,7 +5,8 @@ import { baseWidth, selectParts } from './utils';
 const { 
   BOUNDARY_OFFSET, 
   STANDARD_PART_SIZE, 
-  DEFAULT_TARGET_MARGIN 
+  DEFAULT_TARGET_MARGIN,
+  EAVES_MARGIN_THRESHOLD_ADDITION
 } = SCAFFOLD_CONSTANTS;
 
 /**
@@ -33,9 +34,17 @@ export function calculateSpanWithBoundaries(
     ? Math.max(0, rightBoundary - BOUNDARY_OFFSET) 
     : Infinity;
   
+  // 軒の出+80mmの最小制約を計算
+  const minRequiredMargin = eaves + EAVES_MARGIN_THRESHOLD_ADDITION;
+  
   // 境界制約がない場合は目標離れを優先、ある場合は制約内での最大値を使用
-  const effectiveTargetL = leftBoundary !== null ? Math.min(targetMarginLeft, maxAllowedL) : targetMarginLeft;
-  const effectiveTargetR = rightBoundary !== null ? Math.min(targetMarginRight, maxAllowedR) : targetMarginRight;
+  // ただし、軒の出+80mmの最小制約は常に守る
+  const effectiveTargetL = leftBoundary !== null 
+    ? Math.min(targetMarginLeft, maxAllowedL) 
+    : Math.max(targetMarginLeft, minRequiredMargin);
+  const effectiveTargetR = rightBoundary !== null 
+    ? Math.min(targetMarginRight, maxAllowedR) 
+    : Math.max(targetMarginRight, minRequiredMargin);
   const idealTargetTotalSpan = width + effectiveTargetL + effectiveTargetR;
   const absoluteMaxTotalSpan = width + maxAllowedL + maxAllowedR;
   
@@ -55,8 +64,20 @@ export function calculateSpanWithBoundaries(
   // 建物をカバーするのに必要な最小通常部材長
   const minSumNormalForWidthCoverage = Math.max(0, width - base - sumOfMandatorySpecial);
   
+  // 軒の出+80mm制約を満たすのに必要な最小通常部材長
+  const minRequiredTotalSpan = width + (eaves + EAVES_MARGIN_THRESHOLD_ADDITION) * 2;
+  const minSumNormalForEavesConstraint = Math.max(0, minRequiredTotalSpan - base - sumOfMandatorySpecial);
+  
+  // 実際の最小要件は両方の制約の最大値
+  const minSumNormalRequired = Math.max(minSumNormalForWidthCoverage, minSumNormalForEavesConstraint);
+  
   // 絶対最大スパンから計算される通常部材の上限
   const maxSumForNormalPartsAbsolute = Math.max(0, absoluteMaxTotalSpan - base - sumOfMandatorySpecial);
+  
+  // 🔍 【300mmエラー調査】- span-boundaries.tsでの詳細ログ
+  console.log(`🔍 [CSB] width=${width}, base=${base}, ideal_target_total_span=${idealTargetTotalSpan}`);
+  console.log(`🔍 [CSB] target_sum_for_normal_parts=${targetSumForNormalPartsIdeal}, max_sum_absolute=${maxSumForNormalPartsAbsolute}`);
+  console.log(`🔍 [CSB] min_sum_for_coverage=${minSumNormalForWidthCoverage}, min_sum_for_eaves=${minSumNormalForEavesConstraint}, min_sum_required=${minSumNormalRequired}, mandatory_special_sum=${sumOfMandatorySpecial}`);
   
   let bestComboNormalParts: number[] = [];
   let minAbsDiffToTargetSumNormal = Infinity;
@@ -71,8 +92,8 @@ export function calculateSpanWithBoundaries(
     for (const comboNormal of combinations) {
       const currentSumNormal = comboNormal.reduce((sum, part) => sum + part, 0);
       
-      // 条件1: 建物カバーに必要な最小長を満たす
-      if (currentSumNormal < minSumNormalForWidthCoverage) {
+      // 条件1: 建物カバーと軒の出+80mm制約に必要な最小長を満たす
+      if (currentSumNormal < minSumNormalRequired) {
         continue;
       }
       
@@ -130,12 +151,12 @@ export function calculateSpanWithBoundaries(
   }
   
   // フォールバック処理
-  if (bestComboNormalParts.length === 0 && minSumNormalForWidthCoverage > 0) {
+  if (bestComboNormalParts.length === 0 && minSumNormalRequired > 0) {
     if (debugPrints) {
-      console.log(`[DEBUG CSB_Revised] Fallback: trying to find minimal normal parts for width coverage target ${minSumNormalForWidthCoverage}`);
+      console.log(`[DEBUG CSB_Revised] Fallback: trying to find minimal normal parts for required target ${minSumNormalRequired} (including eaves+80mm constraint)`);
     }
     
-    const fallbackNormalParts = selectParts(minSumNormalForWidthCoverage, availableNormalPartsList);
+    const fallbackNormalParts = selectParts(minSumNormalRequired, availableNormalPartsList);
     
     if (fallbackNormalParts.length > 0) {
       const fallbackSum = fallbackNormalParts.reduce((sum, part) => sum + part, 0);
@@ -157,20 +178,30 @@ export function calculateSpanWithBoundaries(
         console.log(`[DEBUG CSB_Revised] No boundary constraint but ideal not reached. Current: ${currentSum}, Ideal: ${targetSumForNormalPartsIdeal}`);
       }
       
-      // 1800を追加して理想値を目指す
+      // 理想値を超えないよう、不足分に対してより適切な部材選択を行う
       const shortage = targetSumForNormalPartsIdeal - currentSum;
-      const additionalParts = selectParts(shortage, availableNormalPartsList, 6);
       
-      if (additionalParts.length > 0) {
-        const enhancedParts = [...bestComboNormalParts, ...additionalParts];
-        const enhancedSum = enhancedParts.reduce((sum, part) => sum + part, 0);
-        
-        if (enhancedSum >= targetSumForNormalPartsIdeal) {
-          bestComboNormalParts = enhancedParts;
+      // 不足分にピッタリ合う部材があるかチェック
+      if (availableNormalPartsList.includes(shortage)) {
+        bestComboNormalParts = [...bestComboNormalParts, shortage];
+        if (debugPrints) {
+          console.log(`[DEBUG CSB_Revised] Found exact match for shortage: ${shortage}mm`);
+        }
+      } else {
+        // 不足分以下で最大の部材を選択（理想値を超えないように）
+        const suitableParts = availableNormalPartsList.filter(part => part <= shortage);
+        if (suitableParts.length > 0) {
+          const bestPart = Math.max(...suitableParts);
+          bestComboNormalParts = [...bestComboNormalParts, bestPart];
           if (debugPrints) {
-            console.log(`[DEBUG CSB_Revised] Enhanced to reach ideal: ${bestComboNormalParts}, sum=${enhancedSum}`);
+            console.log(`[DEBUG CSB_Revised] Selected best part within shortage: ${bestPart}mm for shortage ${shortage}mm`);
           }
         }
+      }
+      
+      const enhancedSum = bestComboNormalParts.reduce((sum, part) => sum + part, 0);
+      if (debugPrints) {
+        console.log(`[DEBUG CSB_Revised] Enhanced parts: ${bestComboNormalParts}, sum=${enhancedSum}`);
       }
     }
   }
@@ -178,6 +209,11 @@ export function calculateSpanWithBoundaries(
   // 最終部材構成
   const finalParts = [...mandatorySpecialParts, ...bestComboNormalParts].sort((a, b) => b - a);
   const finalTotalSpan = base + finalParts.reduce((sum, part) => sum + part, 0);
+  
+  // 🔍 【300mmエラー調査】- 最終結果の詳細ログ
+  console.log(`🔍 [CSB_Final] Selected parts: mandatory=${mandatorySpecialParts}, normal=${bestComboNormalParts}`);
+  console.log(`🔍 [CSB_Final] Final: base=${base}, total_parts=${finalParts}, final_total_span=${finalTotalSpan}`);
+  console.log(`🔍 [CSB_Final] Verification: ${base} + ${finalParts.reduce((sum, part) => sum + part, 0)} = ${finalTotalSpan}`);
   
   if (debugPrints) {
     console.log(`[DEBUG CSB_Revised] Selected: base=${base}, final_parts=${finalParts}, final_total_span=${finalTotalSpan}`);
