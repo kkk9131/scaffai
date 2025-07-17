@@ -2,7 +2,8 @@
  * Web版 簡易割付計算 - 共有コアエンジンを使用
  */
 
-import { calculateAll, type ScaffoldInputData, type ScaffoldCalculationResult } from '../../../../packages/core/src';
+import { calculateAll } from '../../../../packages/core/src/calculator/engine';
+import type { ScaffoldInputData, ScaffoldCalculationResult } from '../../../../packages/core/src/calculator/types';
 
 export interface QuickAllocationInput {
   currentDistance: number;      // 現在の離れ (mm)
