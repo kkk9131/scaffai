@@ -2,7 +2,7 @@
  * モバイル版 簡易割付計算 - 共有コアエンジンを使用
  */
 
-import { calculateAll, type ScaffoldInputData, type ScaffoldCalculationResult } from '@scaffai/core';
+import { calculateAll, type ScaffoldInputData, type ScaffoldCalculationResult } from '../../../packages/core/src';
 
 export interface QuickAllocationInput {
   currentDistance: number;      // 現在の離れ (mm)
