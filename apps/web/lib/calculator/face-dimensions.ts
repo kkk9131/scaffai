@@ -284,8 +284,8 @@ export function calculateFaceDimensions(
     return Math.round(value / 5) * 5;
   }
   
-  const originalLeftMargin = roundToNearest5mm(leftMargin);
-  const originalRightMargin = roundToNearest5mm(rightMargin);
+  const originalLeftMargin = leftMargin;
+  const originalRightMargin = rightMargin;
   
   // 補正部材の計算（境界線がある場合のみ）
   let correctionPartVal: number | null = null;
@@ -345,12 +345,12 @@ export function calculateFaceDimensions(
   let spanPartsText = formatSpanParts(combinedPartsForFormat);
   
   // 離れ注記の生成
-  let leftNoteStr = `${originalLeftMargin} mm`;
+  let leftNoteStr = `${originalLeftMargin}`;
   if (originalLeftMargin < thresholdLeft && corrValForLeftNoteStr !== null && hasBoundary) {
     leftNoteStr += `(+${corrValForLeftNoteStr})`;
   }
   
-  let rightNoteStr = `${originalRightMargin} mm`;
+  let rightNoteStr = `${originalRightMargin}`;
   if (originalRightMargin < thresholdRight && corrValForRightNoteStr !== null && hasBoundary) {
     rightNoteStr += `(+${corrValForRightNoteStr})`;
   }

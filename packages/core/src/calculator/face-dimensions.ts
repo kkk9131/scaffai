@@ -44,7 +44,7 @@ export function calculateFaceDimensions(
   
   const eavesForSpanCalc = Math.max(eavesLeftVal, eavesRightVal);
   
-  // 左右個別の目標離れの決定（nullの場合は軒の出+80の最小離れのみ）
+  // 左右個別の目標離れの決定（nullの場合は軒の出+80の最小離れのみ、300mm部材は別途追加）
   const effectiveTargetMarginLeft = targetMarginLeftVal !== null 
     ? targetMarginLeftVal 
     : eavesLeftVal + EAVES_MARGIN_THRESHOLD_ADDITION;
@@ -287,9 +287,9 @@ export function calculateFaceDimensions(
     console.log(`[DEBUG ${faceName}] Final check: ${needsCorrectionFlag ? 'At least one threshold NOT met' : 'Both thresholds met'}. needs_correction=${needsCorrectionFlag}`);
   }
   
-  // 離れを5mm単位に丸める
-  const originalLeftMargin = roundToNearest5mm(leftMargin);
-  const originalRightMargin = roundToNearest5mm(rightMargin);
+  // 離れを5mm単位に丸める処理を削除し、そのまま使用
+  const originalLeftMargin = leftMargin;
+  const originalRightMargin = rightMargin;
   
   // 補正部材の計算（境界線がある場合のみ）
   let correctionPartVal: number | null = null;
@@ -349,12 +349,12 @@ export function calculateFaceDimensions(
   let spanPartsText = formatSpanParts(combinedPartsForFormat);
   
   // 離れ注記の生成
-  let leftNoteStr = `${originalLeftMargin} mm`;
+  let leftNoteStr = `${originalLeftMargin}`;
   if (originalLeftMargin < thresholdLeft && corrValForLeftNoteStr !== null && hasBoundary) {
     leftNoteStr += `(+${corrValForLeftNoteStr})`;
   }
   
-  let rightNoteStr = `${originalRightMargin} mm`;
+  let rightNoteStr = `${originalRightMargin}`;
   if (originalRightMargin < thresholdRight && corrValForRightNoteStr !== null && hasBoundary) {
     rightNoteStr += `(+${corrValForRightNoteStr})`;
   }
