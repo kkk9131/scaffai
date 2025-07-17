@@ -4027,20 +4027,9 @@ export default function DrawingEditor({
 
         {!rightPanelCollapsed && (
           <div className="p-4">
-            {/* 簡易計算結果表示セクション */}
+            {/* 建物寸法線表示切り替え */}
             <div className="mb-6">
-              <div className="p-3 bg-blue-50 rounded-lg">
-                <div className="text-sm font-medium text-blue-800 mb-2">
-                  📊 簡易計算結果表示
-                </div>
-                <div className="text-xs text-blue-600">
-                  画面左上に簡易計算の結果が表示されます
-                </div>
-              </div>
-              
-              
-              {/* 建物寸法線表示切り替え */}
-              <div className="mt-3 flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
                   id="building-dimensions-toggle"
@@ -4052,21 +4041,35 @@ export default function DrawingEditor({
                   建物寸法線表示
                 </label>
               </div>
-              
-              {/* 簡易計算結果表示の切り替え */}
-              <div className="mt-3 flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="simple-calculation-toggle"
-                  checked={showSimpleCalculationResult}
-                  onChange={(e) => setShowSimpleCalculationResult(e.target.checked)}
-                  className="rounded"
-                />
-                <label htmlFor="simple-calculation-toggle" className="text-sm text-slate-700 dark:text-slate-300">
-                  簡易計算結果表示
-                </label>
-              </div>
             </div>
+            
+            {/* 簡易計算結果表示セクション (デバッグ環境のみ) */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="mb-6">
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <div className="text-sm font-medium text-blue-800 mb-2">
+                    📊 簡易計算結果表示 <span className="text-xs text-orange-600">[デバッグ]</span>
+                  </div>
+                  <div className="text-xs text-blue-600">
+                    画面左上に簡易計算の結果が表示されます
+                  </div>
+                </div>
+                
+                {/* 簡易計算結果表示の切り替え */}
+                <div className="mt-3 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="simple-calculation-toggle"
+                    checked={showSimpleCalculationResult}
+                    onChange={(e) => setShowSimpleCalculationResult(e.target.checked)}
+                    className="rounded"
+                  />
+                  <label htmlFor="simple-calculation-toggle" className="text-sm text-slate-700 dark:text-slate-300">
+                    簡易計算結果表示
+                  </label>
+                </div>
+              </div>
+            )}
 
             {/* 階層管理 */}
             <div className="mb-6">

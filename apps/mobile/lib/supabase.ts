@@ -4,11 +4,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import { Database } from './types';
 
-const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl || process.env.EXPO_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+// ビルド時のダミー値を設定
+const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl || 
+                   process.env.EXPO_PUBLIC_SUPABASE_URL || 
+                   'https://placeholder.supabase.co';
+const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey || 
+                       process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 
+                       'placeholder-anon-key';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables. Please check your app.config.js or .env file.');
+// 実際の環境変数チェックは、クライアントサイドでのみ実行
+if (typeof window !== 'undefined' && (!supabaseUrl.includes('placeholder') || !supabaseAnonKey.includes('placeholder'))) {
+  if (!process.env.EXPO_PUBLIC_SUPABASE_URL || !process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY) {
+    console.error('Missing Supabase environment variables. Please check your app.config.js or .env file.');
+  }
 }
 
 // Web用のlocalStorageアダプター
