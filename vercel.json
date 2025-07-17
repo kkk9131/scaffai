@@ -1,6 +1,6 @@
 {
-  "buildCommand": false,
-  "outputDirectory": false,
+  "buildCommand": null,
+  "outputDirectory": null,
   "builds": [
     {
       "src": "apps/web/package.json",
