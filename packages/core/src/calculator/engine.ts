@@ -30,11 +30,22 @@ export function calculateAll(input: ScaffoldInputData): ScaffoldCalculationResul
     target_margin_N, target_margin_E, target_margin_S, target_margin_W
   } = input;
 
+  // 🔍 【300mmエラー調査】- 入力データの詳細ログ
+  console.log(`\n🔍 ======= 300mm ERROR INVESTIGATION =======`);
+  console.log(`🔍 Input data:`);
+  console.log(`🔍   width_NS: ${width_NS}mm, width_EW: ${width_EW}mm`);
+  console.log(`🔍   eaves: N=${eaves_N}, E=${eaves_E}, S=${eaves_S}, W=${eaves_W}`);
+  console.log(`🔍   boundary: N=${boundary_N}, E=${boundary_E}, S=${boundary_S}, W=${boundary_W}`);
+  console.log(`🔍   target_margin: N=${target_margin_N}, E=${target_margin_E}, S=${target_margin_S}, W=${target_margin_W}`);
+  console.log(`🔍   special_parts: NS(355=${use_355_NS}, 300=${use_300_NS}, 150=${use_150_NS}) EW(355=${use_355_EW}, 300=${use_300_EW}, 150=${use_150_EW})`);
+
   // 南北方向の計算（南面・北面の離れを決定）
   // 個別の目標離れを考慮して計算（南=left, 北=right）
   const targetMarginSouth = target_margin_S;
   const targetMarginNorth = target_margin_N;
     
+  console.log(`🔍 Starting NS calculation with target margins: South=${targetMarginSouth}, North=${targetMarginNorth}`);
+  
   const nsResult = calculateFaceDimensions(
     width_NS,
     eaves_S, eaves_N,  // 左=南、右=北
@@ -46,11 +57,15 @@ export function calculateAll(input: ScaffoldInputData): ScaffoldCalculationResul
     "NS_direction (South/North gaps)"
   );
 
+  console.log(`🔍 NS result: total_span=${nsResult.total_span}, left_margin=${nsResult.left_margin}, right_margin=${nsResult.right_margin}`);
+
   // 東西方向の計算（東面・西面の離れを決定）
   // 個別の目標離れを考慮して計算（東=left, 西=right）
   const targetMarginEast = target_margin_E;
   const targetMarginWest = target_margin_W;
     
+  console.log(`🔍 Starting EW calculation with target margins: East=${targetMarginEast}, West=${targetMarginWest}`);
+  
   const ewResult = calculateFaceDimensions(
     width_EW,
     eaves_E, eaves_W,  // 左=東、右=西
@@ -61,6 +76,23 @@ export function calculateAll(input: ScaffoldInputData): ScaffoldCalculationResul
     targetMarginWest,
     "EW_direction (East/West gaps)"
   );
+
+  console.log(`🔍 EW result: total_span=${ewResult.total_span}, left_margin=${ewResult.left_margin}, right_margin=${ewResult.right_margin}`);
+
+  // 🔍 【300mmエラー調査】- 300mmエラーの検出
+  const expectedNSSpan = width_NS + (targetMarginSouth || 900) + (targetMarginNorth || 900);
+  const expectedEWSpan = width_EW + (targetMarginEast || 900) + (targetMarginWest || 900);
+  
+  console.log(`🔍 Expected vs Actual comparison:`);
+  console.log(`🔍   NS: expected=${expectedNSSpan}, actual=${nsResult.total_span}, diff=${nsResult.total_span - expectedNSSpan}`);
+  console.log(`🔍   EW: expected=${expectedEWSpan}, actual=${ewResult.total_span}, diff=${ewResult.total_span - expectedEWSpan}`);
+  
+  if (nsResult.total_span - expectedNSSpan === 300) {
+    console.log(`❌ 🔍 300mm ERROR DETECTED in NS direction!`);
+  }
+  if (ewResult.total_span - expectedEWSpan === 300) {
+    console.log(`❌ 🔍 300mm ERROR DETECTED in EW direction!`);
+  }
 
   // 段数とジャッキアップ高さ計算
   const baseUnit = ROOF_BASE_UNIT_MAP[roof_shape] || 1700;

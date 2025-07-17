@@ -2,7 +2,7 @@
 
 import { ThemeProvider } from '../../contexts/ThemeContext';
 import Sidebar from '../../components/layout/Sidebar';
-import Output from '../../components/pages/Output';
+import Output from '../../pages/Output';
 
 export default function OutputPage() {
   return (

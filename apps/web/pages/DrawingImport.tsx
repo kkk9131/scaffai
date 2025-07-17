@@ -11,7 +11,7 @@ import {
   Upload, Layers, Ruler, ChevronLeft, ChevronRight, FileDown,
   ZoomIn, ZoomOut, Maximize, Check, RotateCcw
 } from 'lucide-react';
-import { cn } from '../../lib/utils';
+import { cn } from '../lib/utils';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -20,7 +20,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../components/ui/Select';
+} from '../components/ui/Select';
 
 type Point = { x: number; y: number };
 type DrawingType = 'pdf' | 'dxf' | null;

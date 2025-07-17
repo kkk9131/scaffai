@@ -52,8 +52,8 @@ export default {
     },
     scheme: 'scaffai',
     extra: {
-      supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
-      supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+      supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://xxxxxxxxxxxxxxxxxxx.supabase.co',
+      supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhkZG1tY3lxdWlob2VxbGF2dG1rIiwicm9sZSI6ImFub24iLCJpYXQiOjE2MjAyMzk3NDYsImV4cCI6MTkzNTgxNTc0Nn0.xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
     },
   },
 };
