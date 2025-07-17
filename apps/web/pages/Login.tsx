@@ -1,9 +1,7 @@
-'use client';
-
 import { useState, useEffect } from 'react';
 import { Building2, ArrowRight, Eye, EyeOff, ChevronLeft, AlertCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter } from 'next/router';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Login() {
@@ -188,4 +186,11 @@ export default function Login() {
       </div>
     </div>
   );
+}
+
+// SSGを無効化して動的レンダリングにする
+export async function getServerSideProps() {
+  return {
+    props: {}
+  };
 }
