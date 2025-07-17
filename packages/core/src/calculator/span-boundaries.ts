@@ -83,7 +83,7 @@ export function calculateSpanWithBoundaries(
       }
       
       if (hasNoBoundary) {
-        // 境界制約なし: 理想値以上で1800優先の組み合わせを選択
+        // 境界制約なし: 理想値以上で最小の組み合わせを選択（1800優先は二次的）
         if (currentSumNormal >= targetSumForNormalPartsIdeal) {
           const bestSum = bestComboNormalParts.reduce((sum, part) => sum + part, 0);
           const current1800Count = comboNormal.filter(p => p === STANDARD_PART_SIZE).length;
@@ -91,19 +91,6 @@ export function calculateSpanWithBoundaries(
           
           if (bestComboNormalParts.length === 0 || 
               currentSumNormal < bestSum ||
-              (currentSumNormal === bestSum && current1800Count > best1800Count) ||
-              (currentSumNormal === bestSum && current1800Count === best1800Count && 
-               comboNormal.length < bestComboNormalParts.length)) {
-            bestComboNormalParts = [...comboNormal];
-          }
-        } else if (bestComboNormalParts.length === 0 || 
-                   bestComboNormalParts.reduce((sum, part) => sum + part, 0) < targetSumForNormalPartsIdeal) {
-          // まだ理想値に達する組み合わせが見つかっていない場合
-          const bestSum = bestComboNormalParts.reduce((sum, part) => sum + part, 0);
-          const current1800Count = comboNormal.filter(p => p === STANDARD_PART_SIZE).length;
-          const best1800Count = bestComboNormalParts.filter(p => p === STANDARD_PART_SIZE).length;
-          
-          if (currentSumNormal > bestSum ||
               (currentSumNormal === bestSum && current1800Count > best1800Count) ||
               (currentSumNormal === bestSum && current1800Count === best1800Count && 
                comboNormal.length < bestComboNormalParts.length)) {
@@ -150,28 +137,31 @@ export function calculateSpanWithBoundaries(
     }
   }
   
-  // 境界制約なしで理想値に達していない場合の追加フォールバック
-  if (hasNoBoundary && bestComboNormalParts.length > 0) {
-    const currentSum = bestComboNormalParts.reduce((sum, part) => sum + part, 0);
-    if (currentSum < targetSumForNormalPartsIdeal) {
-      if (debugPrints) {
-        console.log(`[DEBUG CSB_Revised] No boundary constraint but ideal not reached. Current: ${currentSum}, Ideal: ${targetSumForNormalPartsIdeal}`);
-      }
-      
-      // 1800を追加して理想値を目指す
-      const shortage = targetSumForNormalPartsIdeal - currentSum;
-      const additionalParts = selectParts(shortage, availableNormalPartsList, 6);
-      
-      if (additionalParts.length > 0) {
-        const enhancedParts = [...bestComboNormalParts, ...additionalParts];
-        const enhancedSum = enhancedParts.reduce((sum, part) => sum + part, 0);
-        
-        if (enhancedSum >= targetSumForNormalPartsIdeal) {
-          bestComboNormalParts = enhancedParts;
-          if (debugPrints) {
-            console.log(`[DEBUG CSB_Revised] Enhanced to reach ideal: ${bestComboNormalParts}, sum=${enhancedSum}`);
-          }
+  // 境界制約なしで理想値に達していない場合は、理想値以上の最小組み合わせを強制選択
+  if (hasNoBoundary && bestComboNormalParts.length === 0) {
+    if (debugPrints) {
+      console.log(`[DEBUG CSB_Revised] No valid combination found, searching for minimum above ideal: ${targetSumForNormalPartsIdeal}`);
+    }
+    
+    // 理想値以上の最小組み合わせを直接探索
+    let minValidSum = Infinity;
+    let minValidCombo: number[] = [];
+    
+    for (let rCount = 1; rCount <= 6; rCount++) {
+      const combinations = generateCombinations([...availableNormalPartsList], rCount);
+      for (const combo of combinations) {
+        const comboSum = combo.reduce((sum, part) => sum + part, 0);
+        if (comboSum >= targetSumForNormalPartsIdeal && comboSum < minValidSum) {
+          minValidSum = comboSum;
+          minValidCombo = [...combo];
         }
+      }
+    }
+    
+    if (minValidCombo.length > 0) {
+      bestComboNormalParts = minValidCombo;
+      if (debugPrints) {
+        console.log(`[DEBUG CSB_Revised] Found minimum valid combination: ${bestComboNormalParts}, sum=${minValidSum}`);
       }
     }
   }
