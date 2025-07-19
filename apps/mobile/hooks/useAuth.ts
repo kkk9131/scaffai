@@ -81,6 +81,19 @@ export const useAuth = () => {
           console.log('👤 [useAuth] User session found, fetching profile...');
           try {
             await fetchProfile(session.user.id);
+            
+            // 新規登録時（メール確認後）にプロフィールを作成
+            if (event === 'SIGNED_IN') {
+              const { data: existingProfile } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('id', session.user.id)
+                .single();
+              
+              if (!existingProfile) {
+                await createOrUpdateProfile(session.user.id, session.user.email || '');
+              }
+            }
           } catch (profileError) {
             console.error('❌ [useAuth] Profile fetch error:', profileError);
             // プロファイル取得に失敗してもセッションは維持
@@ -118,6 +131,34 @@ export const useAuth = () => {
     }
   };
 
+  const createOrUpdateProfile = async (userId: string, email: string, name?: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .upsert({
+          id: userId,
+          email: email,
+          name: name,
+          subscription_plan: 'free',
+          subscription_status: 'active',
+          platform_access: 'both',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('プロフィール作成エラー:', error);
+        return;
+      }
+
+      setAuthState(prev => ({ ...prev, profile: data }));
+    } catch (err) {
+      console.error('プロフィール作成の予期しないエラー:', err);
+    }
+  };
+
   const signUp = async (email: string, password: string, name?: string) => {
     setAuthState(prev => ({ ...prev, loading: true }));
 
@@ -131,6 +172,12 @@ export const useAuth = () => {
           },
         },
       });
+
+      // サインアップ成功時にプロフィールを作成（メール確認後）
+      if (!error && data.user && data.session) {
+        // 即座にログインできる場合はプロフィールを作成
+        await createOrUpdateProfile(data.user.id, data.user.email || '', name);
+      }
 
       if (error) throw error;
 

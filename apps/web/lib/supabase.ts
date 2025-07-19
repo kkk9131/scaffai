@@ -13,5 +13,11 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
+    storageKey: 'supabase.auth.token',
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'scaffai-web-app',
+    },
   },
 });

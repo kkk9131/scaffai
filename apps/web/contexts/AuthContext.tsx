@@ -95,6 +95,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
             setProfile(null)
           }
           
+          // 新規登録時（メール確認後）にプロフィールを作成
+          if (event === 'SIGNED_IN' && session?.user) {
+            // プロフィールが存在しない場合は作成
+            const { data: existingProfile } = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('id', session.user.id)
+              .single()
+            
+            if (!existingProfile) {
+              await createOrUpdateProfile(session.user.id, session.user.email || '')
+            }
+          }
+          
           setLoading(false)
 
           // エラーをクリア（成功時）
@@ -141,7 +155,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           email: email,
           subscription_plan: 'free',
           subscription_status: 'active',
-          platform_access: 'mobile_only',
+          platform_access: 'both',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
@@ -192,7 +206,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setLoading(true)
       setError(null)
       
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
@@ -204,9 +218,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
         console.error('サインアップエラー:', error)
         setError(getErrorMessage(error))
       } else {
-        // サインアップ成功時にプロフィールを作成
-        // 注意: Supabaseの確認メール送信後にプロフィールが作成される
-        console.log('サインアップ成功 - 確認メールをチェックしてください')
+        // サインアップ成功時にプロフィールを作成（メール確認後）
+        if (data.user && !data.session) {
+          console.log('サインアップ成功 - 確認メールをチェックしてください')
+          // メール確認が必要な場合
+        } else if (data.user && data.session) {
+          // 即座にログインできる場合はプロフィールを作成
+          await createOrUpdateProfile(data.user.id, data.user.email || '')
+        }
       }
 
       return { error }

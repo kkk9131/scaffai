@@ -34,17 +34,13 @@ export function calculateSpanWithBoundaries(
     ? Math.max(0, rightBoundary - BOUNDARY_OFFSET) 
     : Infinity;
   
-  // 軒の出+80mmの最小制約を計算
-  const minRequiredMargin = eaves + EAVES_MARGIN_THRESHOLD_ADDITION;
-  
   // 境界制約がない場合は目標離れを優先、ある場合は制約内での最大値を使用
-  // ただし、軒の出+80mmの最小制約は常に守る
   const effectiveTargetL = leftBoundary !== null 
     ? Math.min(targetMarginLeft, maxAllowedL) 
-    : Math.max(targetMarginLeft, minRequiredMargin);
+    : targetMarginLeft;
   const effectiveTargetR = rightBoundary !== null 
     ? Math.min(targetMarginRight, maxAllowedR) 
-    : Math.max(targetMarginRight, minRequiredMargin);
+    : targetMarginRight;
   const idealTargetTotalSpan = width + effectiveTargetL + effectiveTargetR;
   const absoluteMaxTotalSpan = width + maxAllowedL + maxAllowedR;
   
@@ -62,22 +58,11 @@ export function calculateSpanWithBoundaries(
   }
   
   // 建物をカバーするのに必要な最小通常部材長
-  const minSumNormalForWidthCoverage = Math.max(0, width - base - sumOfMandatorySpecial);
-  
-  // 軒の出+80mm制約を満たすのに必要な最小通常部材長
-  const minRequiredTotalSpan = width + (eaves + EAVES_MARGIN_THRESHOLD_ADDITION) * 2;
-  const minSumNormalForEavesConstraint = Math.max(0, minRequiredTotalSpan - base - sumOfMandatorySpecial);
-  
-  // 実際の最小要件は両方の制約の最大値
-  const minSumNormalRequired = Math.max(minSumNormalForWidthCoverage, minSumNormalForEavesConstraint);
+  const minSumNormalRequired = Math.max(0, width - base - sumOfMandatorySpecial);
   
   // 絶対最大スパンから計算される通常部材の上限
   const maxSumForNormalPartsAbsolute = Math.max(0, absoluteMaxTotalSpan - base - sumOfMandatorySpecial);
   
-  // 🔍 【300mmエラー調査】- span-boundaries.tsでの詳細ログ
-  console.log(`🔍 [CSB] width=${width}, base=${base}, ideal_target_total_span=${idealTargetTotalSpan}`);
-  console.log(`🔍 [CSB] target_sum_for_normal_parts=${targetSumForNormalPartsIdeal}, max_sum_absolute=${maxSumForNormalPartsAbsolute}`);
-  console.log(`🔍 [CSB] min_sum_for_coverage=${minSumNormalForWidthCoverage}, min_sum_for_eaves=${minSumNormalForEavesConstraint}, min_sum_required=${minSumNormalRequired}, mandatory_special_sum=${sumOfMandatorySpecial}`);
   
   let bestComboNormalParts: number[] = [];
   let minAbsDiffToTargetSumNormal = Infinity;
@@ -92,7 +77,7 @@ export function calculateSpanWithBoundaries(
     for (const comboNormal of combinations) {
       const currentSumNormal = comboNormal.reduce((sum, part) => sum + part, 0);
       
-      // 条件1: 建物カバーと軒の出+80mm制約に必要な最小長を満たす
+      // 条件1: 建物カバーに必要な最小長を満たす
       if (currentSumNormal < minSumNormalRequired) {
         continue;
       }
@@ -140,7 +125,7 @@ export function calculateSpanWithBoundaries(
   // フォールバック処理
   if (bestComboNormalParts.length === 0 && minSumNormalRequired > 0) {
     if (debugPrints) {
-      console.log(`[DEBUG CSB_Revised] Fallback: trying to find minimal normal parts for required target ${minSumNormalRequired} (including eaves+80mm constraint)`);
+      console.log(`[DEBUG CSB_Revised] Fallback: trying to find minimal normal parts for required target ${minSumNormalRequired}`);
     }
     
     const fallbackNormalParts = selectParts(minSumNormalRequired, availableNormalPartsList);
@@ -190,10 +175,6 @@ export function calculateSpanWithBoundaries(
   const finalParts = [...mandatorySpecialParts, ...bestComboNormalParts].sort((a, b) => b - a);
   const finalTotalSpan = base + finalParts.reduce((sum, part) => sum + part, 0);
   
-  // 🔍 【300mmエラー調査】- 最終結果の詳細ログ
-  console.log(`🔍 [CSB_Final] Selected parts: mandatory=${mandatorySpecialParts}, normal=${bestComboNormalParts}`);
-  console.log(`🔍 [CSB_Final] Final: base=${base}, total_parts=${finalParts}, final_total_span=${finalTotalSpan}`);
-  console.log(`🔍 [CSB_Final] Verification: ${base} + ${finalParts.reduce((sum, part) => sum + part, 0)} = ${finalTotalSpan}`);
   
   if (debugPrints) {
     console.log(`[DEBUG CSB_Revised] Selected: base=${base}, final_parts=${finalParts}, final_total_span=${finalTotalSpan}`);

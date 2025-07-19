@@ -30,21 +30,10 @@ export function calculateAll(input: ScaffoldInputData): ScaffoldCalculationResul
     target_margin_N, target_margin_E, target_margin_S, target_margin_W
   } = input;
 
-  // 🔍 【300mmエラー調査】- 入力データの詳細ログ
-  console.log(`\n🔍 ======= 300mm ERROR INVESTIGATION =======`);
-  console.log(`🔍 Input data:`);
-  console.log(`🔍   width_NS: ${width_NS}mm, width_EW: ${width_EW}mm`);
-  console.log(`🔍   eaves: N=${eaves_N}, E=${eaves_E}, S=${eaves_S}, W=${eaves_W}`);
-  console.log(`🔍   boundary: N=${boundary_N}, E=${boundary_E}, S=${boundary_S}, W=${boundary_W}`);
-  console.log(`🔍   target_margin: N=${target_margin_N}, E=${target_margin_E}, S=${target_margin_S}, W=${target_margin_W}`);
-  console.log(`🔍   special_parts: NS(355=${use_355_NS}, 300=${use_300_NS}, 150=${use_150_NS}) EW(355=${use_355_EW}, 300=${use_300_EW}, 150=${use_150_EW})`);
-
   // 南北方向の計算（南面・北面の離れを決定）
   // 個別の目標離れを考慮して計算（南=left, 北=right）
   const targetMarginSouth = target_margin_S;
   const targetMarginNorth = target_margin_N;
-    
-  console.log(`🔍 Starting NS calculation with target margins: South=${targetMarginSouth}, North=${targetMarginNorth}`);
   
   const nsResult = calculateFaceDimensions(
     width_NS,
