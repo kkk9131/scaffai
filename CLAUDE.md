@@ -144,7 +144,8 @@ npm run build:web    # Export for web
 2. **Implementation** → One task at a time, mark completed immediately
 3. **Testing** → Playwright for E2E, Jest for units
 4. **Quality Check** → Lint, typecheck, manual testing
-5. **Documentation** → Update roadmap.md checkboxes when complete
+5. **Git Workflow** → Follow GitHub best practices (see below)
+6. **Documentation** → Update roadmap.md checkboxes when complete
 
 ### Critical Development Rules
 - **Port Usage**: Always use PORT 3048 for web development
@@ -152,6 +153,104 @@ npm run build:web    # Export for web
 - **Component Size**: Break large components into smaller, focused ones
 - **Documentation**: No proactive creation of .md files unless requested
 - **Calculation Logic**: Never modify simple allocation logic without user confirmation
+
+## 🔀 GitHub Workflow Best Practices
+
+### Branch Strategy
+- **Main Branch**: `main` - Production-ready code only
+- **Feature Branches**: `feature/description` or `fix/description`
+- **Hotfix Branches**: `hotfix/critical-issue`
+- **Current Branch**: Always check current branch before starting work
+
+### Commit Guidelines
+
+#### Commit Message Format
+```
+type(scope): concise description
+
+body (optional - explain WHY, not what)
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+#### Commit Types
+- `feat`: New feature
+- `fix`: Bug fix
+- `refactor`: Code refactoring without behavior change
+- `style`: Formatting, missing semi-colons, etc.
+- `docs`: Documentation changes
+- `test`: Adding or updating tests
+- `chore`: Build process, dependency updates
+
+#### Examples
+```bash
+feat(calculator): add correction material display format
+
+- Implement "500+(150)" format for distance display
+- Add spanCompositionDisplay for correction materials
+- Remove redundant correction information sections
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+### Pre-Commit Workflow
+1. **Always run quality checks before committing:**
+   ```bash
+   pnpm lint && pnpm typecheck
+   ```
+2. **Stage relevant files only** - Use `git add` selectively
+3. **Check git status** - Verify what will be committed
+4. **Review changes** - Use `git diff` to review staged changes
+5. **Follow commit message format** - Use proper type and description
+
+### Pull Request Guidelines
+- **Title**: Clear, descriptive summary of changes
+- **Description**: 
+  - **Summary**: 1-3 bullet points of what was changed
+  - **Test Plan**: Steps to verify the changes work
+  - Always include the Claude Code footer
+- **Base Branch**: Usually `main`
+- **Reviewers**: Assign appropriate team members
+- **Labels**: Use relevant labels (bug, feature, etc.)
+
+### Git Commands Reference
+```bash
+# Check current status and branch
+git status
+git branch --show-current
+
+# Create and switch to feature branch
+git checkout -b feature/description
+
+# Stage and commit changes
+git add path/to/files
+git commit -m "type(scope): description"
+
+# Push to remote
+git push -u origin feature/description
+
+# Create pull request (via GitHub CLI)
+gh pr create --title "Title" --body "Description"
+```
+
+### Quality Assurance
+- **Never commit without testing**: Run `pnpm typecheck` and `pnpm lint`
+- **Review your changes**: Always use `git diff` before committing
+- **Small, focused commits**: One logical change per commit
+- **No sensitive data**: Never commit API keys, passwords, or secrets
+- **Clean history**: Use meaningful commit messages for future developers
+
+### Emergency Hotfix Process
+1. **Create hotfix branch from main**: `git checkout -b hotfix/critical-issue`
+2. **Make minimal necessary changes**
+3. **Test thoroughly** - More critical for hotfixes
+4. **Fast-track review** - Get immediate approval
+5. **Deploy immediately** - After merge to main
+6. **Backport if needed** - Merge back to development branches
 
 ## 📊 Performance Considerations
 

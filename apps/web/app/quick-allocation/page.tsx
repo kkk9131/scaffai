@@ -230,11 +230,11 @@ export default function QuickAllocationPage() {
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                               <div className="text-sm text-slate-400">割付先の離れ</div>
-                              <div className="text-2xl font-semibold text-blue-400">{result.resultDistance} mm</div>
+                              <div className="text-2xl font-semibold text-blue-400">{result.resultDistanceDisplay || result.resultDistance} mm</div>
                             </div>
                             <div>
                               <div className="text-sm text-slate-400">足場スパン構成</div>
-                              <div className="text-lg font-semibold text-emerald-400">{result.spanComposition}</div>
+                              <div className="text-lg font-semibold text-emerald-400">{result.spanCompositionDisplay || result.spanComposition}</div>
                             </div>
                             <div>
                               <div className="text-sm text-slate-400">角部タイプ</div>
@@ -247,38 +247,10 @@ export default function QuickAllocationPage() {
                         <div className="bg-slate-800/50 rounded-lg p-4 mb-6">
                           <h3 className="text-sm font-medium text-slate-300 mb-4">スパン構成詳細</h3>
                           <div className="font-mono text-sm text-blue-300">
-                            {result.spanConfiguration?.join(', ')} mm
+                            {result.spanCompositionDisplay || (result.spanConfiguration?.join(', ') + ' mm')}
                           </div>
                         </div>
 
-                        {/* 補正情報 */}
-                        {result.needsCorrection && (
-                          <div className="bg-orange-800/50 rounded-lg p-4 mb-6">
-                            <h3 className="text-sm font-medium text-orange-300 mb-4">補正が必要</h3>
-                            <div className="text-sm text-orange-200">
-                              {result.correctionMessage}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* 補正部材情報 */}
-                        {result.correctionParts && result.correctionParts.length > 0 && (
-                          <div className="bg-blue-800/50 rounded-lg p-4 mb-6">
-                            <h3 className="text-sm font-medium text-blue-300 mb-4">推奨補正部材</h3>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <div className="text-sm text-slate-400">補正部材</div>
-                                <div className="text-lg font-semibold text-blue-400">
-                                  {result.correctionParts.join(', ')} mm
-                                </div>
-                              </div>
-                              <div>
-                                <div className="text-sm text-slate-400">補正量</div>
-                                <div className="text-lg font-semibold text-blue-400">{result.correctionAmount} mm</div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
                       </>
                     ) : (
                       <div className="bg-red-800/50 rounded-lg p-4">
