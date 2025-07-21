@@ -4,6 +4,9 @@
 
 import { findMinSpanCombination } from './spanCombinationSearch';
 
+// 標準部材リスト
+const STANDARD_PARTS = [1800, 1500, 1200, 900, 600];
+
 export interface QuickAllocationInput {
   currentDistance: number;      // 現在の離れ (mm)
   allocationDistance: number;   // 割付距離 (mm)
@@ -86,6 +89,33 @@ function formatSpanCompositionWithCorrection(spanConfig: number[], correctionPar
   }
   
   return parts.join(', ') + ' mm';
+}
+
+/**
+ * 指定された最大スパン以下で最大の組み合わせを探索する
+ */
+function generateCombinationsWithLimit(maxSpan: number, maxCount: number): number[][] {
+  const results: number[][] = [];
+  
+  function backtrack(current: number[], currentSum: number, depth: number) {
+    if (depth === maxCount) {
+      if (currentSum <= maxSpan) {
+        results.push([...current]);
+      }
+      return;
+    }
+    
+    for (const part of STANDARD_PARTS) {
+      if (currentSum + part <= maxSpan) {
+        current.push(part);
+        backtrack(current, currentSum + part, depth + 1);
+        current.pop();
+      }
+    }
+  }
+  
+  backtrack([], 0, 0);
+  return results;
 }
 
 /**
@@ -192,39 +222,92 @@ function calculateInsideCorner(input: QuickAllocationInput): QuickAllocationResu
     console.log('境界線制約対応後:', { spanConfiguration, totalSpan, resultDistance });
   }
   
+  // 境界線が軒の出+80以上ある場合は補正部材を使用しない
+  const useCorrection = input.boundaryLine > 0 ? input.boundaryLine < (input.eaveOutput + 80) : true;
+  console.log('補正部材使用可否:', { boundaryLine: input.boundaryLine, eaveOutput: input.eaveOutput, useCorrection });
+  
   // 最小離れ制約チェック（軒の出+80mm）
   if (resultDistance < minRequiredDistance) {
-    console.log('最小離れ制約違反 - 補正部材が必要');
-    needsCorrection = true;
-    const shortage = minRequiredDistance - resultDistance;
-    const originalResultDistance = resultDistance; // 補正前の離れを保存（補正直前）
+    console.log('最小離れ制約違反');
     
-    // 補正部材の選択（150, 300, 355, 600, 900, 1200, 1500, 1800から最小のものを選択）
-    const correctionOptions = [150, 300, 355, 600, 900, 1200, 1500, 1800];
-    for (const part of correctionOptions) {
-      if (part >= shortage) {
-        correctionParts = [part];
-        correctionAmount = part;
-        // 補正後の離れを再計算（補正部材は離れを増やす）
-        resultDistance = resultDistance + part;
-        break;
+    if (useCorrection) {
+      console.log('補正部材を使用して対応');
+      needsCorrection = true;
+      const shortage = minRequiredDistance - resultDistance;
+      const originalResultDistance = resultDistance; // 補正前の離れを保存（補正直前）
+      
+      // 補正部材の選択（150, 300, 355, 600, 900, 1200, 1500, 1800から最小のものを選択）
+      const correctionOptions = [150, 300, 355, 600, 900, 1200, 1500, 1800];
+      for (const part of correctionOptions) {
+        if (part >= shortage) {
+          correctionParts = [part];
+          correctionAmount = part;
+          // 補正後の離れを再計算（補正部材は離れを増やす）
+          resultDistance = resultDistance + part;
+          break;
+        }
       }
+      
+      // 適切な補正部材が見つからない場合は複数の組み合わせを探索
+      if (!correctionParts) {
+        correctionParts = findMinSpanCombination(shortage);
+        correctionAmount = correctionParts.reduce((sum, part) => sum + part, 0);
+        resultDistance = resultDistance + correctionAmount;
+      }
+      
+      // 補正時の表示形式を作成: 「500+(150)」のような形式
+      if (correctionParts && correctionParts.length > 0) {
+        resultDistanceDisplay = `${originalResultDistance}+(${correctionParts.join('+')})`;  
+      }
+      
+      correctionMessage = `軒の出+80mm制約により補正部材(${correctionParts?.join('mm, ')}mm)を追加しました`;
+      console.log('補正部材追加:', { correctionParts, correctionAmount, resultDistance, resultDistanceDisplay });
+    } else {
+      console.log('境界線が軒の出+80以上のため、補正部材を使用せず最小スパン構成を再計算');
+      
+      // 補正部材を使用せず、スパン構成を調整して最小離れ制約を満たす
+      // 目標: resultDistance >= minRequiredDistance となる最小のスパン構成を探す
+      // resultDistance = currentDistance + allocationDistance - totalSpan
+      // minRequiredDistance <= currentDistance + allocationDistance - totalSpan
+      // totalSpan <= currentDistance + allocationDistance - minRequiredDistance
+      const maxAllowedSpan = input.currentDistance + input.allocationDistance - minRequiredDistance;
+      
+      console.log('最大許容スパン:', maxAllowedSpan);
+      
+      // 特殊部材を含めた新しいスパン構成を探索
+      const specialPartsSum = specialParts.reduce((sum, part) => sum + part, 0);
+      const maxNormalSpan = maxAllowedSpan - specialPartsSum;
+      
+      // maxNormalSpan以下の最大のスパン構成を探す
+      let bestNormalParts: number[] = [];
+      let bestNormalSum = 0;
+      
+      // 各部材本数の組み合わせを試す
+      for (let totalCount = 1; totalCount <= 10; totalCount++) {
+        const combinations = generateCombinationsWithLimit(maxNormalSpan, totalCount);
+        for (const combo of combinations) {
+          const sum = combo.reduce((a, b) => a + b, 0);
+          if (sum <= maxNormalSpan && sum > bestNormalSum) {
+            bestNormalSum = sum;
+            bestNormalParts = combo;
+          }
+        }
+      }
+      
+      // 新しいスパン構成で再計算
+      normalParts = bestNormalParts;
+      spanConfiguration = [...specialParts, ...normalParts];
+      totalSpan = spanConfiguration.reduce((sum, part) => sum + part, 0);
+      resultDistance = input.currentDistance + input.allocationDistance - totalSpan;
+      
+      console.log('補正部材なしの最小スパン構成:', { 
+        spanConfiguration, 
+        totalSpan, 
+        resultDistance 
+      });
+      
+      correctionMessage = `境界線が軒の出+80以上のため、補正部材を使用せず最小スパン構成で対応しました`;
     }
-    
-    // 適切な補正部材が見つからない場合は複数の組み合わせを探索
-    if (!correctionParts) {
-      correctionParts = findMinSpanCombination(shortage);
-      correctionAmount = correctionParts.reduce((sum, part) => sum + part, 0);
-      resultDistance = resultDistance + correctionAmount;
-    }
-    
-    // 補正時の表示形式を作成: 「500+(150)」のような形式
-    if (correctionParts && correctionParts.length > 0) {
-      resultDistanceDisplay = `${originalResultDistance}+(${correctionParts.join('+')})`;  
-    }
-    
-    correctionMessage = `軒の出+80mm制約により補正部材(${correctionParts?.join('mm, ')}mm)を追加しました`;
-    console.log('補正部材追加:', { correctionParts, correctionAmount, resultDistance, resultDistanceDisplay });
   }
   
   console.log('=== 入隅計算完了 ===');
